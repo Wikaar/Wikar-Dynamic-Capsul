@@ -347,6 +347,16 @@
                                 </StackPanel>
                             </DockPanel>
                         </Button>
+                        <Button x:Name="AudioTile" Style="{StaticResource ActionTile}" Click="AudioTile_Click"
+                                ToolTip="Запись звука из колонок, с микрофона или обоих сразу (.m4a)">
+                            <DockPanel>
+                                <TextBlock x:Name="AudioTileIcon" Text="&#xE720;" Style="{StaticResource ActionIcon}"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="AudioTileText" Text="Запись звука" Style="{StaticResource ActionText}"/>
+                                    <TextBlock x:Name="AudioTileState" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Button>
                         <Button Style="{StaticResource ActionTile}" Click="AreaTile_Click" ToolTip="Скриншот выделенной области (Win+Shift+S)">
                             <DockPanel>
                                 <TextBlock Text="&#xE8B3;" Style="{StaticResource ActionIcon}"/>

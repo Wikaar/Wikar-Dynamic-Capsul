@@ -22,6 +22,7 @@ public partial class App : Application
     public static PowerTimerService PowerTimer { get; private set; } = null!;
     public static NotesService Notes { get; private set; } = null!;
     public static RecorderService Recorder { get; private set; } = null!;
+    public static AudioRecorderService AudioRecorder { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -55,6 +56,7 @@ public partial class App : Application
         PowerTimer = new PowerTimerService();
         Notes = new NotesService();
         Recorder = new RecorderService();
+        AudioRecorder = new AudioRecorderService();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -128,6 +130,32 @@ public partial class App : Application
                 Click = () => { },
             });
 
+        AudioRecorder.StateChanged += () =>
+        {
+            Pill.UpdateRecording();
+            Panel.UpdateRecording();
+        };
+        AudioRecorder.Finished += (path, error) => Pill.ShowNotification(path != null
+            ? new NotificationItem
+            {
+                AppId = "audiorecorder",
+                AppName = "Запись звука",
+                AppIcon = ShellHelper.GetIcon(path),
+                Title = "Звук записан",
+                Body = System.IO.Path.GetFileName(path) + " — нажми, чтобы открыть",
+                Time = DateTime.Now,
+                Click = () => ShellHelper.Open(path),
+            }
+            : new NotificationItem
+            {
+                AppId = "audiorecorder",
+                AppName = "Запись звука",
+                Title = "Не получилось записать звук",
+                Body = error ?? "Подробности в error.log",
+                Time = DateTime.Now,
+                Click = () => { },
+            });
+
         _ = Media.StartAsync();
         Steam.Start();
         Weather.Start();
@@ -168,6 +196,7 @@ public partial class App : Application
         Settings.Save();
         Notes?.Save();
         Recorder?.Stop();
+        AudioRecorder?.Stop();
         Current.Shutdown();
     }
 

@@ -172,7 +172,7 @@ public partial class PillWindow : Window
         // приоритет: таймер (последняя минута) > уведомление > громкость > музыка > загрузка Steam > обычное
         MediaInfo? m = App.Media?.Current;
         bool timer = App.PowerTimer?.InWarning == true;
-        bool recording = !timer && App.Recorder?.IsRecording == true;
+        bool recording = !timer && (App.Recorder?.IsRecording == true || App.AudioRecorder?.IsRecording == true);
         bool card = !timer && _card != null;
         bool volume = !timer && !card && DateTime.Now < _volumeUntil;
         if (card || volume) recording = false;
@@ -184,8 +184,10 @@ public partial class PillWindow : Window
         RecordPart.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
         if (recording)
         {
-            TimeSpan t = DateTime.Now - App.Recorder!.StartedAt;
+            bool video = App.Recorder!.IsRecording;
+            TimeSpan t = DateTime.Now - (video ? App.Recorder.StartedAt : App.AudioRecorder!.StartedAt);
             RecordTime.Text = $"{(int)t.TotalMinutes}:{t.Seconds:00}";
+            RecordLabel.Text = video ? "Запись экрана" : "Запись звука";
         }
         NotifyPart.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
         VolumePart.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
@@ -332,7 +334,7 @@ public partial class PillWindow : Window
 
     public void UpdateRecording()
     {
-        if (App.Recorder.IsRecording)
+        if (App.Recorder.IsRecording || App.AudioRecorder.IsRecording)
         {
             if (_hidden) SlideIn();
             RecordDot.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.25, TimeSpan.FromSeconds(0.7))
@@ -518,9 +520,10 @@ public partial class PillWindow : Window
             try { DragMove(); } catch (InvalidOperationException) { }
             SnapAndSave();
         }
-        else if (App.Recorder.IsRecording && _card == null)
+        else if ((App.Recorder.IsRecording || App.AudioRecorder.IsRecording) && _card == null)
         {
             App.Recorder.Stop();
+            App.AudioRecorder.Stop();
         }
         else if (App.PowerTimer.InWarning)
         {
@@ -616,7 +619,7 @@ public partial class PillWindow : Window
         }
 
         var near = new Rect(pill.Left - 30, b.Top - 2, pill.Width + 60, pill.Bottom - b.Top + 30);
-        if (near.Contains(c) || App.Panel.IsVisible || _card != null || App.PowerTimer.InWarning || App.Recorder.IsRecording || Pill.ContextMenu?.IsOpen == true)
+        if (near.Contains(c) || App.Panel.IsVisible || _card != null || App.PowerTimer.InWarning || App.Recorder.IsRecording || App.AudioRecorder.IsRecording || Pill.ContextMenu?.IsOpen == true)
         {
             _awaySince = null;
             return;

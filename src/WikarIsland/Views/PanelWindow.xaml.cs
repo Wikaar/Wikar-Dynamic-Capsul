@@ -1498,8 +1498,38 @@ public partial class PanelWindow : Window
         App.Recorder.Start(ScreenHelper.ScreenOf(App.Pill));
     }
 
+    private void AudioTile_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.AudioRecorder.IsRecording)
+        {
+            App.AudioRecorder.Stop();
+            return;
+        }
+        if (App.Recorder.IsRecording) return; // экран уже пишется со звуком
+
+        var menu = new ContextMenu { PlacementTarget = AudioTile, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        foreach ((AudioSourceKind kind, string title) in new[]
+                 {
+                     (AudioSourceKind.Speakers, "Колонки — что слышно"),
+                     (AudioSourceKind.Microphone, "Микрофон"),
+                     (AudioSourceKind.Both, "Колонки + микрофон"),
+                 })
+        {
+            var item = new MenuItem { Header = title };
+            item.Click += (_, _) => App.AudioRecorder.Start(kind);
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
+    }
+
     public void UpdateRecording()
     {
+        bool audio = App.AudioRecorder.IsRecording;
+        AudioTileText.Text = audio ? "Остановить запись" : "Запись звука";
+        AudioTileIcon.Text = audio ? "\uE71A" : "\uE720";
+        AudioTileState.Visibility = audio ? Visibility.Visible : Visibility.Collapsed;
+        AudioTileState.Text = audio ? AudioRecorderService.SourceName(App.AudioRecorder.Source) : "";
+
         bool rec = App.Recorder.IsRecording;
         RecordTileText.Text = rec ? "Остановить запись" : "Запись экрана";
         RecordTileIcon.Text = rec ? "\uE71A" : "\uE714";

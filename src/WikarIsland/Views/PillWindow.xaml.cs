@@ -113,6 +113,7 @@ public partial class PillWindow : Window
         string mode = s.EyesEnabled ? s.PillMode : "clock";
 
         Eyes.Visibility = mode == "clock" ? Visibility.Collapsed : Visibility.Visible;
+        Eyes.EyeStyle = s.EyeStyle;
         TimeText.Visibility = mode == "eyes" ? Visibility.Collapsed : Visibility.Visible;
         TimeText.Margin = new Thickness(mode == "clock" && PillWeather.Visibility != Visibility.Visible ? 2 : 10, 0, 2, 0);
 
@@ -158,7 +159,11 @@ public partial class PillWindow : Window
         WeatherData? w = App.Weather.Current;
         bool show = App.Settings.WeatherInPill && w != null && App.Settings.PillMode != "eyes";
         PillWeather.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        if (w != null) PillWeather.Text = w.Short;
+        if (w != null)
+        {
+            PillWeatherIcon.Symbol = w.Symbol;
+            PillWeatherText.Text = w.TempText;
+        }
         PillWeather.Margin = new Thickness(Eyes.Visibility == Visibility.Visible ? 10 : 2, 0, 0, 0);
     }
 
@@ -366,6 +371,9 @@ public partial class PillWindow : Window
         Liquid.FlushTop = flush;
         Pill.RenderTransformOrigin = flush ? new Point(0.5, 0) : new Point(0.5, 0.5);
     }
+
+    /// <summary>Пилюля сейчас срослась с верхней рамкой экрана.</summary>
+    public bool IsFlush => Liquid.FlushTop;
 
     /// <summary>Прямоугольник самой пилюли на экране (DIP), без прозрачных полей окна.</summary>
     public Rect PillRect()

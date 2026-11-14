@@ -14,29 +14,31 @@ public sealed record CityResult(string Name, string Region, string Country, doub
     public string Full => string.Join(", ", new[] { Name, Region, Country }.Where(s => !string.IsNullOrWhiteSpace(s)));
 }
 
-public sealed record HourForecast(DateTime Time, double Temp, int Code);
+public sealed record HourForecast(DateTime Time, double Temp, string Symbol);
 
-public sealed record DayForecast(DateTime Date, double Max, double Min, int Code);
+public sealed record DayForecast(DateTime Date, double Max, double Min, string Symbol);
 
 public sealed class WeatherData
 {
     public string City { get; init; } = "";
     public double Temp { get; init; }
     public double Feels { get; init; }
-    public int Code { get; init; }
-    public bool IsDay { get; init; } = true;
+    public string Symbol { get; init; } = "cloudy";
     public double Wind { get; init; }
+    public double Humidity { get; init; }
     public double Precipitation { get; init; }
     public List<HourForecast> Hours { get; init; } = new();
     public List<DayForecast> Days { get; init; } = new();
     public DateTime Updated { get; init; }
 
-    public string Icon => WeatherCodes.Icon(Code, IsDay);
-    public string Text => WeatherCodes.Text(Code);
-    public string Short => $"{Icon} {Math.Round(Temp):0}°";
+    public string Text => WeatherSymbols.Text(Symbol);
+    public string TempText => $"{Math.Round(Temp):0}°";
 }
 
-/// <summary>Погода из Open-Meteo: бесплатно, без ключа и регистрации.</summary>
+/// <summary>
+/// Погода от MET Norway (api.met.no, Норвежский метеоинститут): бесплатно, без ключа.
+/// Их правила требуют представляться в User-Agent. Поиск города — через геокодер Open-Meteo.
+/// </summary>
 public sealed class WeatherService
 {
     private static readonly HttpClient Http = CreateClient();
@@ -48,7 +50,7 @@ public sealed class WeatherService
     private static HttpClient CreateClient()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("WikarIsland/0.2");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("WikarIsland/0.6 github.com/Wikaar/Wikar-DynamicIsland");
         return http;
     }
 
@@ -72,12 +74,7 @@ public sealed class WeatherService
         try
         {
             string url = string.Format(CultureInfo.InvariantCulture,
-                "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}" +
-                "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation,is_day" +
-                "&hourly=temperature_2m,weather_code" +
-                "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
-                "&wind_speed_unit=ms&timezone=auto&forecast_days=6", lat, lon);
-
+                "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={0:0.####}&lon={1:0.####}", lat, lon);
             string json = await Http.GetStringAsync(url);
             Current = Parse(json, s.WeatherCity ?? "");
         }
@@ -91,51 +88,77 @@ public sealed class WeatherService
     private static WeatherData Parse(string json, string city)
     {
         using JsonDocument doc = JsonDocument.Parse(json);
-        JsonElement root = doc.RootElement;
-        JsonElement cur = root.GetProperty("current");
+        JsonElement series = doc.RootElement.GetProperty("properties").GetProperty("timeseries");
 
-        var hours = new List<HourForecast>();
-        JsonElement hourly = root.GetProperty("hourly");
-        JsonElement hTime = hourly.GetProperty("time");
-        JsonElement hTemp = hourly.GetProperty("temperature_2m");
-        JsonElement hCode = hourly.GetProperty("weather_code");
-        DateTime fromHour = DateTime.Parse(cur.GetProperty("time").GetString()!, CultureInfo.InvariantCulture);
-        fromHour = new DateTime(fromHour.Year, fromHour.Month, fromHour.Day, fromHour.Hour, 0, 0);
-        for (int i = 0; i < hTime.GetArrayLength() && hours.Count < 12; i++)
+        var points = new List<(DateTime time, double temp, double wind, double humidity, string? sym1, string? sym6, double precip)>();
+        foreach (JsonElement e in series.EnumerateArray())
         {
-            DateTime t = DateTime.Parse(hTime[i].GetString()!, CultureInfo.InvariantCulture);
-            if (t < fromHour) continue;
-            hours.Add(new HourForecast(t, Num(hTemp[i]), (int)Num(hCode[i])));
+            DateTime time = DateTime.Parse(e.GetProperty("time").GetString()!, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal).ToLocalTime();
+            JsonElement data = e.GetProperty("data");
+            JsonElement details = data.GetProperty("instant").GetProperty("details");
+            points.Add((
+                time,
+                Num(details, "air_temperature"),
+                Num(details, "wind_speed"),
+                Num(details, "relative_humidity"),
+                Symbol(data, "next_1_hours"),
+                Symbol(data, "next_6_hours") ?? Symbol(data, "next_12_hours"),
+                data.TryGetProperty("next_1_hours", out JsonElement n1) && n1.TryGetProperty("details", out JsonElement d1)
+                    ? Num(d1, "precipitation_amount") : 0));
         }
 
-        var days = new List<DayForecast>();
-        JsonElement daily = root.GetProperty("daily");
-        JsonElement dTime = daily.GetProperty("time");
-        for (int i = 0; i < dTime.GetArrayLength(); i++)
-        {
-            days.Add(new DayForecast(
-                DateTime.Parse(dTime[i].GetString()!, CultureInfo.InvariantCulture),
-                Num(daily.GetProperty("temperature_2m_max")[i]),
-                Num(daily.GetProperty("temperature_2m_min")[i]),
-                (int)Num(daily.GetProperty("weather_code")[i])));
-        }
+        DateTime now = DateTime.Now;
+        var cur = points.OrderBy(p => Math.Abs((p.time - now).TotalMinutes)).First();
+
+        var hours = points
+            .Where(p => p.time >= now.AddMinutes(-30) && p.sym1 != null)
+            .Take(12)
+            .Select(p => new HourForecast(p.time, p.temp, p.sym1!))
+            .ToList();
+
+        var days = points
+            .GroupBy(p => p.time.Date)
+            .Where(g => g.Key >= DateTime.Today)
+            .Take(7)
+            .Select(g =>
+            {
+                // значок дня — около полудня
+                var noon = g.OrderBy(p => Math.Abs(p.time.Hour - 13)).First();
+                string sym = noon.sym6 ?? noon.sym1 ?? "cloudy";
+                return new DayForecast(g.Key, g.Max(p => p.temp), g.Min(p => p.temp), sym.Replace("_night", "_day"));
+            })
+            .ToList();
 
         return new WeatherData
         {
             City = city,
-            Temp = Num(cur.GetProperty("temperature_2m")),
-            Feels = Num(cur.GetProperty("apparent_temperature")),
-            Code = (int)Num(cur.GetProperty("weather_code")),
-            IsDay = Num(cur.GetProperty("is_day")) > 0,
-            Wind = Num(cur.GetProperty("wind_speed_10m")),
-            Precipitation = Num(cur.GetProperty("precipitation")),
+            Temp = cur.temp,
+            Feels = FeelsLike(cur.temp, cur.wind),
+            Symbol = cur.sym1 ?? cur.sym6 ?? "cloudy",
+            Wind = cur.wind,
+            Humidity = cur.humidity,
+            Precipitation = cur.precip,
             Hours = hours,
             Days = days,
             Updated = DateTime.Now,
         };
     }
 
-    private static double Num(JsonElement e) => e.ValueKind == JsonValueKind.Number ? e.GetDouble() : 0;
+    /// <summary>Ощущаемая температура с учётом ветра (формула ветро-холодового индекса).</summary>
+    private static double FeelsLike(double t, double windMs)
+    {
+        double v = windMs * 3.6;
+        if (t > 10 || v < 4.8) return t;
+        return 13.12 + 0.6215 * t - 11.37 * Math.Pow(v, 0.16) + 0.3965 * t * Math.Pow(v, 0.16);
+    }
+
+    private static string? Symbol(JsonElement data, string block) =>
+        data.TryGetProperty(block, out JsonElement b) && b.TryGetProperty("summary", out JsonElement s)
+        && s.TryGetProperty("symbol_code", out JsonElement c) ? c.GetString() : null;
+
+    private static double Num(JsonElement e, string name) =>
+        e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
 
     /// <summary>Поиск города по названию (на русском или любом другом языке).</summary>
     public static async Task<List<CityResult>> SearchAsync(string query)
@@ -160,42 +183,38 @@ public sealed class WeatherService
         e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 }
 
-/// <summary>Коды погоды WMO → значок и описание.</summary>
-public static class WeatherCodes
+/// <summary>Коды погоды MET Norway (symbol_code) → описание.</summary>
+public static class WeatherSymbols
 {
-    public static string Icon(int code, bool isDay = true) => code switch
-    {
-        0 => isDay ? "☀" : "☾",
-        1 or 2 => isDay ? "⛅" : "☁",
-        3 => "☁",
-        45 or 48 => "🌫",
-        >= 51 and <= 57 => "🌦",
-        >= 61 and <= 67 or >= 80 and <= 82 => "🌧",
-        >= 71 and <= 77 or 85 or 86 => "❄",
-        >= 95 => "⛈",
-        _ => "☁",
-    };
+    public static string Base(string symbol) => symbol.Split('_')[0];
+    public static bool IsNight(string symbol) => symbol.EndsWith("_night", StringComparison.Ordinal);
 
-    public static string Text(int code) => code switch
+    public static string Text(string symbol)
     {
-        0 => "Ясно",
-        1 => "Преимущественно ясно",
-        2 => "Переменная облачность",
-        3 => "Пасмурно",
-        45 or 48 => "Туман",
-        >= 51 and <= 55 => "Морось",
-        56 or 57 => "Ледяная морось",
-        61 or 63 => "Дождь",
-        65 => "Сильный дождь",
-        66 or 67 => "Ледяной дождь",
-        71 or 73 => "Снег",
-        75 => "Сильный снег",
-        77 => "Снежные зёрна",
-        80 or 81 => "Ливень",
-        82 => "Сильный ливень",
-        85 or 86 => "Снегопад",
-        95 => "Гроза",
-        96 or 99 => "Гроза с градом",
-        _ => "—",
-    };
+        string b = Base(symbol);
+        bool thunder = b.Contains("thunder");
+        string core = b.Replace("andthunder", "");
+        string text = core switch
+        {
+            "clearsky" => "Ясно",
+            "fair" => "Преимущественно ясно",
+            "partlycloudy" => "Переменная облачность",
+            "cloudy" => "Пасмурно",
+            "fog" => "Туман",
+            "lightrain" => "Небольшой дождь",
+            "rain" => "Дождь",
+            "heavyrain" => "Сильный дождь",
+            "lightrainshowers" => "Небольшой ливень",
+            "rainshowers" => "Ливень",
+            "heavyrainshowers" => "Сильный ливень",
+            "lightsleet" or "lightsleetshowers" => "Небольшой мокрый снег",
+            "sleet" or "sleetshowers" => "Мокрый снег",
+            "heavysleet" or "heavysleetshowers" => "Сильный мокрый снег",
+            "lightsnow" or "lightsnowshowers" => "Небольшой снег",
+            "snow" or "snowshowers" => "Снег",
+            "heavysnow" or "heavysnowshowers" => "Сильный снег",
+            _ => "—",
+        };
+        return thunder ? text + " с грозой" : text;
+    }
 }

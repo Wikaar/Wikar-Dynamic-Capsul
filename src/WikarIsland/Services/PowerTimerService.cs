@@ -120,7 +120,7 @@ public sealed class PowerTimerService
         Changed?.Invoke();
     }
 
-    private static void Execute(PowerAction action)
+    public static void Execute(PowerAction action)
     {
         try
         {

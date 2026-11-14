@@ -5,6 +5,12 @@ using System.Text.Json;
 
 namespace WikarIsland.Services;
 
+public sealed class LauncherItem
+{
+    public string Path { get; set; } = "";
+    public string Name { get; set; } = "";
+}
+
 public sealed class PillPosition
 {
     public double Left { get; set; }
@@ -23,6 +29,12 @@ public sealed class AppSettings
     /// <summary>Раскрывать остров при наведении (иначе — по клику).</summary>
     public bool OpenOnHover { get; set; }
     public bool EyesEnabled { get; set; } = true;
+
+    /// <summary>Стиль глаз: classic, cat, robot, cute, sleepy, angry, pixel.</summary>
+    public string EyeStyle { get; set; } = "classic";
+
+    /// <summary>Ярлыки на «Главной».</summary>
+    public List<LauncherItem> Launcher { get; set; } = new();
 
     /// <summary>both — глаза и часы, eyes — только глаза, clock — только часы.</summary>
     public string PillMode { get; set; } = "both";

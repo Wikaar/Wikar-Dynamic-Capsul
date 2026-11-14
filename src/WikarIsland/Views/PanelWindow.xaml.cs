@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,7 +14,9 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
+using WikarIsland.Controls;
 using WikarIsland.Services;
+using Windows.Devices.Radios;
 
 namespace WikarIsland.Views;
 
@@ -44,6 +47,25 @@ public partial class PanelWindow : Window
     private DateTime? _outsideSince;
     private IntPtr _previousForeground;
 
+    // перевоплощение пилюли в панель: анимируем область окна (SetWindowRgn)
+    private const double FlushInset = 14;
+    private readonly DispatcherTimer _morphTimer = new(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(10) };
+    private DateTime _morphStart;
+    private Rect _morphFrom, _morphTo;
+    private double _radiusFrom, _radiusTo;
+    private Action? _morphDone;
+    private bool _closing;
+    private string? _pendingPower;
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int w, int h);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool redraw);
+
+    [DllImport("user32.dll")]
+    private static extern bool LockWorkStation();
+
     public PanelWindow()
     {
         InitializeComponent();
@@ -57,6 +79,7 @@ public partial class PanelWindow : Window
             UpdateHomeClock();
             UpdateProgress();
         };
+        _morphTimer.Tick += (_, _) => MorphTick();
 
         Deactivated += OnDeactivated;
         PreviewKeyDown += (_, e) =>
@@ -150,15 +173,29 @@ public partial class PanelWindow : Window
 
     public void ShowNearPill(bool activate)
     {
+        if (_closing)
+        {
+            // передумали закрывать — разворачиваем обратно
+            _closing = false;
+            StartMorph(CurrentMorphRect(), FullRect(), 17, 22, ClearRegion);
+        }
+
         if (!IsVisible)
         {
             // запоминаем окно, где печатали, — туда вставляется запись из буфера
             if (!NativeMethods.ForegroundIsOurs()) _previousForeground = NativeMethods.GetForegroundWindow();
-            PositionNearPill();
             if (TabHome.IsChecked != true && TabWeather.IsChecked != true && TabSettings.IsChecked != true
-                && !_views.ContainsKey(_current))
+                && TabClipboard.IsChecked != true && TabCenter.IsChecked != true && !_views.ContainsKey(_current))
                 SelectTab(App.Settings.LastTab);
+
+            ApplyTabSize(_current);
+            PositionNearPill();
+            new WindowInteropHelper(this).EnsureHandle();
+            Rect from = PillRectLocal();
+            ApplyRegion(from, 17);
+            UpdateCapsule();
             Show();
+            StartMorph(from, FullRect(), 17, 22, ClearRegion);
         }
 
         _outsideSince = null;
@@ -172,26 +209,129 @@ public partial class PanelWindow : Window
 
     public void HideIsland()
     {
-        if (!IsVisible) return;
-        Hide();
-        App.Settings.Save();
+        if (!IsVisible || _closing) return;
+        _closing = true;
+        DevicePopup.IsOpen = false;
+        PowerConfirm.Visibility = Visibility.Collapsed;
+        StartMorph(FullRect(), PillRectLocal(), 22, 17, () =>
+        {
+            _closing = false;
+            Hide();
+            ClearRegion();
+            App.Settings.Save();
+        });
+    }
+
+    // ---------- перевоплощение ----------
+
+    private Rect FullRect() => new(0, 0, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+
+    /// <summary>Где пилюля относительно панели (в DIP). У рамки экрана — вместе с «плечами» до верха.</summary>
+    private Rect PillRectLocal()
+    {
+        Rect p = App.Pill.PillRect();
+        var local = new Rect(p.Left - Left, p.Top - Top, Math.Max(p.Width, 60), Math.Max(p.Height, 30));
+        if (App.Pill.IsFlush) local = new Rect(local.Left - 10, 0, local.Width + 20, local.Bottom);
+        return local;
+    }
+
+    private Rect CurrentMorphRect()
+    {
+        double t = Math.Clamp((DateTime.Now - _morphStart).TotalMilliseconds / 230, 0, 1);
+        double e = 1 - Math.Pow(1 - t, 3);
+        return Lerp(_morphFrom, _morphTo, e);
+    }
+
+    private static Rect Lerp(Rect a, Rect b, double t) => new(
+        a.Left + (b.Left - a.Left) * t, a.Top + (b.Top - a.Top) * t,
+        Math.Max(1, a.Width + (b.Width - a.Width) * t), Math.Max(1, a.Height + (b.Height - a.Height) * t));
+
+    private void StartMorph(Rect from, Rect to, double radiusFrom, double radiusTo, Action done)
+    {
+        _morphFrom = from;
+        _morphTo = to;
+        _radiusFrom = radiusFrom;
+        _radiusTo = radiusTo;
+        _morphDone = done;
+        _morphStart = DateTime.Now;
+        _morphTimer.Start();
+    }
+
+    private void MorphTick()
+    {
+        double t = Math.Clamp((DateTime.Now - _morphStart).TotalMilliseconds / 230, 0, 1);
+        double e = 1 - Math.Pow(1 - t, 3); // быстро в начале, мягко в конце
+        ApplyRegion(Lerp(_morphFrom, _morphTo, e), _radiusFrom + (_radiusTo - _radiusFrom) * e);
+        if (t < 1) return;
+
+        _morphTimer.Stop();
+        Action? done = _morphDone;
+        _morphDone = null;
+        done?.Invoke();
+    }
+
+    private void ApplyRegion(Rect r, double radius)
+    {
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        int d = (int)Math.Round(radius * 2 * dpi.DpiScaleX);
+        IntPtr region = CreateRoundRectRgn(
+            (int)Math.Round(r.Left * dpi.DpiScaleX), (int)Math.Round(r.Top * dpi.DpiScaleY),
+            (int)Math.Round(r.Right * dpi.DpiScaleX) + 1, (int)Math.Round(r.Bottom * dpi.DpiScaleY) + 1, d, d);
+        SetWindowRgn(hwnd, region, true); // окно забирает регион себе
+    }
+
+    private void ClearRegion()
+    {
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd != IntPtr.Zero) SetWindowRgn(hwnd, IntPtr.Zero, true);
+    }
+
+    /// <summary>ИИ-чатам нужно место, остальным вкладкам — компактная панель.</summary>
+    private void ApplyTabSize(string key)
+    {
+        bool wide = AiUrls.ContainsKey(key);
+        Rect wa = ScreenHelper.ToDip(ScreenHelper.ScreenOf(App.Pill).WorkingArea, App.Pill);
+        Width = Math.Min(wide ? 940 : 530, wa.Width - 20);
+        Height = Math.Min(wide ? 700 : 620, wa.Height - 10);
     }
 
     private void PositionNearPill()
     {
         PillWindow pill = App.Pill;
-        Rect wa = ScreenHelper.ToDip(ScreenHelper.ScreenOf(pill).WorkingArea, pill);
+        System.Windows.Forms.Screen screen = ScreenHelper.ScreenOf(pill);
+        Rect wa = ScreenHelper.ToDip(screen.WorkingArea, pill);
+        Rect bounds = ScreenHelper.ToDip(screen.Bounds, pill);
         Rect p = pill.PillRect();
 
         double centerX = p.Left + p.Width / 2;
         Left = Math.Clamp(centerX - Width / 2, wa.Left + 6, Math.Max(wa.Left + 6, wa.Right - Width - 6));
 
+        if (pill.IsFlush)
+        {
+            // панель вытекает из рамки экрана, как и пилюля; верхние углы уходят за край
+            Top = bounds.Top - FlushInset;
+            Capsule.Margin = new Thickness(0, 8 + FlushInset, 0, 4);
+            return;
+        }
+
+        Capsule.Margin = new Thickness(0, 8, 0, 4);
         bool pillInUpperHalf = p.Top + p.Height / 2 < wa.Top + wa.Height / 2;
         double top = pillInUpperHalf
-            ? p.Bottom + 8          // раскрываемся вниз
-            : p.Top - Height - 8;   // пилюля внизу — раскрываемся вверх
+            ? p.Top - 6                 // панель накрывает пилюлю и растёт вниз
+            : p.Bottom - Height + 6;    // пилюля внизу — растём вверх
         Top = Math.Clamp(top, wa.Top + 4, Math.Max(wa.Top + 4, wa.Bottom - Height - 4));
     }
+
+    private void UpdateCapsule()
+    {
+        CapsuleTime.Text = DateTime.Now.ToString("HH:mm");
+        CapsuleEyes.EyeStyle = App.Settings.EyeStyle;
+        CapsuleEyes.Visibility = App.Settings.EyesEnabled ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void Capsule_Click(object sender, MouseButtonEventArgs e) => HideIsland();
 
     /// <summary>Открыт наведением и не активирован: прячем, когда курсор ушёл с острова.</summary>
     private void CloseTick()
@@ -244,11 +384,12 @@ public partial class PanelWindow : Window
 
     private void SelectTab(string key)
     {
-        if (key is not ("home" or "weather" or "clipboard" or "settings") && !AiUrls.ContainsKey(key)) key = "home";
+        if (key is not ("home" or "control" or "weather" or "clipboard" or "settings") && !AiUrls.ContainsKey(key)) key = "home";
         _current = key;
 
         RadioButton tab = key switch
         {
+            "control" => TabCenter,
             "weather" => TabWeather,
             "clipboard" => TabClipboard,
             "chatgpt" => TabChatGpt,
@@ -265,6 +406,7 @@ public partial class PanelWindow : Window
         HomeView.Visibility = key == "home" ? Visibility.Visible : Visibility.Collapsed;
         WeatherView.Visibility = key == "weather" ? Visibility.Visible : Visibility.Collapsed;
         ClipboardView.Visibility = key == "clipboard" ? Visibility.Visible : Visibility.Collapsed;
+        ControlView.Visibility = key == "control" ? Visibility.Visible : Visibility.Collapsed;
         SettingsView.Visibility = key == "settings" ? Visibility.Visible : Visibility.Collapsed;
         AiHost.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
         PopOutButton.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
@@ -278,6 +420,15 @@ public partial class PanelWindow : Window
         if (key == "weather") BuildWeatherView();
         if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
+        if (key == "control") _ = RefreshControlAsync();
+        if (key == "home") { BuildLauncher(); UpdateWeather(); }
+
+        if (IsVisible && !_closing)
+        {
+            double oldW = Width, oldH = Height;
+            ApplyTabSize(key);
+            if (oldW != Width || oldH != Height) PositionNearPill();
+        }
 
         App.Settings.LastTab = key;
     }
@@ -333,12 +484,11 @@ public partial class PanelWindow : Window
 
     private void UpdateHomeClock()
     {
+        CapsuleTime.Text = DateTime.Now.ToString("HH:mm");
         if (_current != "home") return;
-        DateTime now = DateTime.Now;
-        HomeTime.Text = now.ToString("HH:mm");
-        string date = now.ToString("dddd, d MMMM", Ru);
+        string date = DateTime.Now.ToString("dddd, d MMMM", Ru);
         HomeDate.Text = char.ToUpper(date[0], Ru) + date[1..];
-        HomeHint.Text = $"{App.Settings.Hotkey} — открыть остров • колёсико над пилюлей — громкость • правый клик по пилюле — меню";
+        HomeHint.Text = $"{App.Settings.Hotkey} — открыть остров • колёсико над пилюлей — громкость • клик по капсуле сверху — свернуть";
     }
 
     // ---------- главная: плеер ----------
@@ -348,14 +498,22 @@ public partial class PanelWindow : Window
         MediaInfo? m = App.Media.Current;
         PlayerEmpty.Visibility = m == null ? Visibility.Visible : Visibility.Collapsed;
         PlayerContent.Visibility = m == null ? Visibility.Collapsed : Visibility.Visible;
+
+        Color accent = m?.Accent ?? Color.FromRgb(0xF2, 0xF2, 0xF5);
+        PlayerCard.Background = m?.Accent is Color a
+            ? new LinearGradientBrush(Color.FromRgb((byte)(a.R * 0.42), (byte)(a.G * 0.42), (byte)(a.B * 0.42)),
+                                      Color.FromRgb(0x17, 0x17, 0x1D), new Point(0, 0), new Point(1, 1))
+            : (Brush)new SolidColorBrush(Color.FromRgb(0x17, 0x17, 0x1D));
+        ProgressFill.Background = new SolidColorBrush(accent);
         if (m == null) return;
 
         CardCover.Source = m.Cover ?? m.AppIcon;
-        CardAppIcon.Source = m.Cover != null ? m.AppIcon : null;
-        CardCover.ToolTip = $"{m.AppName} ({m.AppId})";
+        CardAppIcon.Source = m.AppIcon;
+        CardSource.Text = (string.IsNullOrWhiteSpace(m.AppName) ? "Музыка" : m.AppName).ToUpper(Ru);
+        CardSource.ToolTip = m.AppId;
         CardTitle.Text = m.Title;
         CardArtist.Text = m.Artist;
-        PlayPauseButton.Content = m.IsPlaying ? "" : "";
+        PlayPauseButton.Content = m.IsPlaying ? "\uE769" : "\uE768";
         UpdateProgress();
     }
 
@@ -365,14 +523,15 @@ public partial class PanelWindow : Window
         if (m == null || m.Duration <= TimeSpan.Zero)
         {
             ProgressFill.Width = 0;
-            PosText.Text = "";
+            PosText.Text = RemainText.Text = "";
             return;
         }
 
         TimeSpan pos = m.LivePosition;
         double width = ProgressArea.ActualWidth;
         ProgressFill.Width = width > 0 ? width * Math.Clamp(pos / m.Duration, 0, 1) : 0;
-        PosText.Text = $"{FormatTime(pos)} / {FormatTime(m.Duration)}";
+        PosText.Text = FormatTime(pos);
+        RemainText.Text = "-" + FormatTime(m.Duration - pos);
     }
 
     private static string FormatTime(TimeSpan t) =>
@@ -786,9 +945,11 @@ public partial class PanelWindow : Window
     public void UpdateWeather()
     {
         WeatherData? w = App.Weather.Current;
+        HomeWeatherIcon.Visibility = w == null ? Visibility.Collapsed : Visibility.Visible;
+        if (w != null) HomeWeatherIcon.Symbol = w.Symbol;
         HomeWeather.Text = w == null
             ? (App.Settings.WeatherLat == null ? "Погода: выбери город в настройках" : "Погода загружается…")
-            : $"{w.Icon} {Math.Round(w.Temp):0}°, {w.Text.ToLower(Ru)} · {w.City}";
+            : $"{w.TempText}  {w.Text} · {w.City}";
         if (_current == "weather") BuildWeatherView();
     }
 
@@ -803,7 +964,7 @@ public partial class PanelWindow : Window
         if (w == null)
         {
             WeatherContent.Children.Add(Text(App.Settings.WeatherLat == null
-                ? "Город не выбран. Открой «Настройки» → «Погода» и найди свой город."
+                ? "Город не выбран. Открой настройки → «Погода» и найди свой город."
                 : "Загружаю прогноз…", 15, dim: true));
             if (App.Settings.WeatherLat == null)
             {
@@ -815,29 +976,33 @@ public partial class PanelWindow : Window
             return;
         }
 
-        WeatherContent.Children.Add(Text(w.City, 16, dim: true));
+        WeatherContent.Children.Add(Text(w.City, 15, dim: true));
 
-        var now = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
-        now.Children.Add(Text(w.Icon, 54, emoji: true));
-        var nowText = new StackPanel { Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        nowText.Children.Add(Text($"{Math.Round(w.Temp):0}°", 46, bold: true));
-        now.Children.Add(nowText);
-        var details = new StackPanel { Margin = new Thickness(28, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        details.Children.Add(Text(w.Text, 18));
-        details.Children.Add(Text($"Ощущается как {Math.Round(w.Feels):0}°", 14, dim: true));
-        details.Children.Add(Text($"Ветер {w.Wind:0.#} м/с · осадки {w.Precipitation:0.#} мм", 14, dim: true));
+        var now = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 4) };
+        now.Children.Add(new WeatherIcon { Symbol = w.Symbol, Width = 76, Height = 76 });
+        now.Children.Add(new TextBlock
+        {
+            Text = w.TempText, FontSize = 48, FontWeight = FontWeights.SemiBold, Margin = new Thickness(14, 0, 0, 0),
+            Foreground = (Brush)FindResource("TextMain"), VerticalAlignment = VerticalAlignment.Center,
+            FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
+        });
+        var details = new StackPanel { Margin = new Thickness(20, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        details.Children.Add(Text(w.Text, 16));
+        details.Children.Add(Text($"Ощущается как {Math.Round(w.Feels):0}°", 13, dim: true));
+        details.Children.Add(Text($"Ветер {w.Wind:0.#} м/с · влажность {w.Humidity:0}%", 13, dim: true));
+        if (w.Precipitation > 0) details.Children.Add(Text($"Осадки {w.Precipitation:0.#} мм/ч", 13, dim: true));
         now.Children.Add(details);
         WeatherContent.Children.Add(now);
 
         // по часам
-        WeatherContent.Children.Add(Text("По часам", 15, bold: true, top: 14));
+        WeatherContent.Children.Add(Text("По часам", 14, bold: true, top: 12));
         var hours = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         foreach (HourForecast h in w.Hours)
         {
-            var cell = new StackPanel { Width = 54 };
-            cell.Children.Add(Text(h.Time.ToString("HH:mm"), 12, dim: true, center: true));
-            cell.Children.Add(Text(WeatherCodes.Icon(h.Code, h.Time.Hour is >= 7 and < 19), 20, emoji: true, center: true));
-            cell.Children.Add(Text($"{Math.Round(h.Temp):0}°", 14, center: true));
+            var cell = new StackPanel { Width = 52 };
+            cell.Children.Add(Text(h.Time.ToString("HH:mm"), 11.5, dim: true, center: true));
+            cell.Children.Add(new WeatherIcon { Symbol = h.Symbol, Width = 28, Height = 28, Margin = new Thickness(0, 4, 0, 4) });
+            cell.Children.Add(Text($"{Math.Round(h.Temp):0}°", 13.5, center: true));
             hours.Children.Add(cell);
         }
         WeatherContent.Children.Add(new ScrollViewer
@@ -848,22 +1013,24 @@ public partial class PanelWindow : Window
         });
 
         // по дням
-        WeatherContent.Children.Add(Text("На неделю", 15, bold: true, top: 18));
+        WeatherContent.Children.Add(Text("На неделю", 14, bold: true, top: 16));
         foreach (DayForecast d in w.Days)
         {
             var row = new Grid { Margin = new Thickness(0, 6, 0, 0) };
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             string day = d.Date.Date == DateTime.Today ? "Сегодня"
                 : d.Date.Date == DateTime.Today.AddDays(1) ? "Завтра"
                 : d.Date.ToString("ddd, d MMM", Ru);
-            var c0 = Text(day, 14);
-            var c1 = Text(WeatherCodes.Icon(d.Code), 17, emoji: true);
-            var c2 = Text(WeatherCodes.Text(d.Code), 14, dim: true);
-            var c3 = Text($"{Math.Round(d.Max):0}° / {Math.Round(d.Min):0}°", 14, bold: true);
+            var c0 = Text(day, 13.5);
+            var c1 = new WeatherIcon { Symbol = d.Symbol, Width = 24, Height = 24 };
+            var c2 = Text(WeatherSymbols.Text(d.Symbol), 13, dim: true);
+            c2.TextTrimming = TextTrimming.CharacterEllipsis;
+            c2.TextWrapping = TextWrapping.NoWrap;
+            var c3 = Text($"{Math.Round(d.Max):0}° / {Math.Round(d.Min):0}°", 13.5, bold: true);
             Grid.SetColumn(c1, 1);
             Grid.SetColumn(c2, 2);
             Grid.SetColumn(c3, 3);
@@ -874,7 +1041,7 @@ public partial class PanelWindow : Window
             WeatherContent.Children.Add(row);
         }
 
-        WeatherContent.Children.Add(Text($"Обновлено в {w.Updated:HH:mm} · данные Open-Meteo", 12, dim: true, top: 16));
+        WeatherContent.Children.Add(Text($"Обновлено в {w.Updated:HH:mm} · данные MET Norway", 11.5, dim: true, top: 14));
     }
 
     private TextBlock Text(string text, double size, bool dim = false, bool bold = false, bool emoji = false,
@@ -908,6 +1075,7 @@ public partial class PanelWindow : Window
         WeatherPillBox.IsChecked = s.WeatherInPill;
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
+        BuildEyeStyles();
         BuildNotificationApps();
         WeatherCityText.Text = s.WeatherCity != null ? $"Сейчас: {s.WeatherCity}" : "Город не выбран";
         _loadingSettings = false;
@@ -995,4 +1163,276 @@ public partial class PanelWindow : Window
     private void ResetPill_Click(object sender, RoutedEventArgs e) => App.Pill.ResetPosition();
 
     private void Quit_Click(object sender, RoutedEventArgs e) => App.Quit();
+
+    // ---------- стили глаз ----------
+
+    private void BuildEyeStyles()
+    {
+        EyeStylesPanel.Children.Clear();
+        foreach (string style in EyesControl.Styles)
+        {
+            bool selected = App.Settings.EyeStyle == style;
+            var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            var eyes = new EyesControl { EyeStyle = style, HorizontalAlignment = HorizontalAlignment.Center };
+            eyes.LayoutTransform = new ScaleTransform(1.4, 1.4);
+            content.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E)),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(10, 7, 10, 7),
+                Child = eyes,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            content.Children.Add(new TextBlock
+            {
+                Text = EyesControl.StyleName(style), FontSize = 12, Margin = new Thickness(0, 6, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Center, Foreground = (Brush)FindResource(selected ? "TextMain" : "TextDim"),
+            });
+
+            var tile = new Border
+            {
+                Child = content,
+                Width = 100,
+                Padding = new Thickness(6, 10, 6, 8),
+                Margin = new Thickness(0, 0, 8, 8),
+                CornerRadius = new CornerRadius(12),
+                Cursor = Cursors.Hand,
+                Background = new SolidColorBrush(selected ? Color.FromRgb(0x2A, 0x30, 0x52) : Color.FromRgb(0x1C, 0x1C, 0x22)),
+                BorderBrush = selected ? (Brush)FindResource("Accent") : Brushes.Transparent,
+                BorderThickness = new Thickness(1.5),
+            };
+            tile.MouseLeftButtonUp += (_, _) =>
+            {
+                App.Settings.EyeStyle = style;
+                App.Settings.Save();
+                App.Pill.ApplySettings();
+                UpdateCapsule();
+                BuildEyeStyles();
+            };
+            EyeStylesPanel.Children.Add(tile);
+        }
+    }
+
+    // ---------- ярлыки ----------
+
+    private void BuildLauncher()
+    {
+        LauncherPanel.Children.Clear();
+        foreach (LauncherItem item in App.Settings.Launcher.ToList())
+        {
+            var tile = new Button
+            {
+                Style = (Style)FindResource("FlatButton"),
+                Width = 54,
+                Height = 54,
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 0, 8, 8),
+                Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x25)),
+                Content = new Image { Source = ShellHelper.GetIcon(item.Path), Width = 34, Height = 34 },
+                ToolTip = item.Name,
+            };
+            tile.Click += (_, _) =>
+            {
+                HideIsland();
+                ShellHelper.Open(item.Path);
+            };
+
+            var menu = new ContextMenu();
+            var open = new MenuItem { Header = "Открыть" };
+            open.Click += (_, _) => ShellHelper.Open(item.Path);
+            var show = new MenuItem { Header = "Показать в папке" };
+            show.Click += (_, _) => ShellHelper.ShowInExplorer(item.Path);
+            var remove = new MenuItem { Header = "Убрать ярлык" };
+            remove.Click += (_, _) =>
+            {
+                App.Settings.Launcher.Remove(item);
+                App.Settings.Save();
+                BuildLauncher();
+            };
+            menu.Items.Add(open);
+            menu.Items.Add(show);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(remove);
+            tile.ContextMenu = menu;
+            LauncherPanel.Children.Add(tile);
+        }
+
+        // плитка «+»
+        var plusContent = new Grid { Width = 54, Height = 54 };
+        plusContent.Children.Add(new System.Windows.Shapes.Rectangle
+        {
+            Stroke = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+            StrokeDashArray = new DoubleCollection { 3, 3 },
+            StrokeThickness = 1.2,
+            RadiusX = 10,
+            RadiusY = 10,
+        });
+        plusContent.Children.Add(new TextBlock
+        {
+            Text = "\uE710", FontFamily = (FontFamily)FindResource("Icons"), FontSize = 16,
+            Foreground = (Brush)FindResource("TextDim"),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        });
+        var plus = new Button
+        {
+            Style = (Style)FindResource("FlatButton"),
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 0, 8, 8),
+            Background = Brushes.Transparent,
+            Content = plusContent,
+            ToolTip = "Добавить ярлык (или перетащи сюда файл, папку, программу)",
+        };
+        var addMenu = new ContextMenu();
+        var addFile = new MenuItem { Header = "Программа или файл…" };
+        addFile.Click += (_, _) => AddLauncherFromDialog(folder: false);
+        var addFolder = new MenuItem { Header = "Папка…" };
+        addFolder.Click += (_, _) => AddLauncherFromDialog(folder: true);
+        addMenu.Items.Add(addFile);
+        addMenu.Items.Add(addFolder);
+        plus.ContextMenu = addMenu;
+        plus.Click += (_, _) =>
+        {
+            addMenu.PlacementTarget = plus;
+            addMenu.IsOpen = true;
+        };
+        LauncherPanel.Children.Add(plus);
+
+        DesktopIconsButton.Content = ShellHelper.DesktopIconsVisible ? "Скрыть значки стола" : "Показать значки стола";
+    }
+
+    private void AddLauncherFromDialog(bool folder)
+    {
+        if (folder)
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Папка для ярлыка", Multiselect = true };
+            if (dialog.ShowDialog(this) == true)
+                foreach (string path in dialog.FolderNames) AddLauncher(path);
+        }
+        else
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Программа или файл для ярлыка",
+                Filter = "Программы и ярлыки|*.exe;*.lnk;*.url;*.bat;*.cmd|Все файлы|*.*",
+                Multiselect = true,
+                DereferenceLinks = false,
+            };
+            if (dialog.ShowDialog(this) == true)
+                foreach (string path in dialog.FileNames) AddLauncher(path);
+        }
+    }
+
+    private void AddLauncher(string path)
+    {
+        if (App.Settings.Launcher.Any(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase))) return;
+        App.Settings.Launcher.Add(new LauncherItem { Path = path, Name = ShellHelper.DisplayName(path) });
+        App.Settings.Save();
+        BuildLauncher();
+    }
+
+    private void Launcher_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Link : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Launcher_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+            foreach (string path in paths) AddLauncher(path);
+    }
+
+    private void DesktopIcons_Click(object sender, RoutedEventArgs e)
+    {
+        ShellHelper.SetDesktopIcons(!ShellHelper.DesktopIconsVisible);
+        BuildLauncher();
+        _ = RefreshControlAsync();
+    }
+
+    // ---------- центр управления ----------
+
+    private static readonly Brush TileOff = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x25));
+    private static readonly Brush TileOn = new SolidColorBrush(Color.FromRgb(0x3D, 0x5A, 0xE0));
+
+    private async Task RefreshControlAsync()
+    {
+        Radio? wifi = await RadioService.FindAsync(RadioKind.WiFi);
+        Radio? bt = await RadioService.FindAsync(RadioKind.Bluetooth);
+
+        SetTile(WifiTile, WifiState, wifi);
+        SetTile(BluetoothTile, BluetoothState, bt);
+
+        bool icons = ShellHelper.DesktopIconsVisible;
+        IconsTile.Background = icons ? TileOff : TileOn;
+        IconsState.Text = icons ? "Видны" : "Спрятаны";
+
+        RadioHint.Visibility = wifi == null && bt == null ? Visibility.Visible : Visibility.Collapsed;
+        RadioHint.Text = "Windows не дала доступ к Wi-Fi и Bluetooth. Проверь: Параметры → Конфиденциальность → Радио → разрешить приложениям управлять радио.";
+    }
+
+    private static void SetTile(Button tile, TextBlock state, Radio? radio)
+    {
+        if (radio == null)
+        {
+            tile.Background = TileOff;
+            tile.Opacity = 0.5;
+            state.Text = "Нет устройства";
+            return;
+        }
+        bool on = radio.State == RadioState.On;
+        tile.Opacity = 1;
+        tile.Background = on ? TileOn : TileOff;
+        state.Text = on ? "Включён" : "Выключен";
+    }
+
+    private async void WifiTile_Click(object sender, RoutedEventArgs e)
+    {
+        await RadioService.ToggleAsync(RadioKind.WiFi);
+        await RefreshControlAsync();
+    }
+
+    private async void BluetoothTile_Click(object sender, RoutedEventArgs e)
+    {
+        await RadioService.ToggleAsync(RadioKind.Bluetooth);
+        await RefreshControlAsync();
+    }
+
+    private void Power_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string action }) return;
+        switch (action)
+        {
+            case "lock":
+                HideIsland();
+                LockWorkStation();
+                break;
+            case "sleep":
+                HideIsland();
+                PowerTimerService.Execute(PowerAction.Sleep);
+                break;
+            default:
+                // выключение и перезагрузка — только после подтверждения
+                _pendingPower = action;
+                PowerConfirmText.Text = action == "restart"
+                    ? "Перезагрузить компьютер сейчас? Несохранённые данные в программах пропадут."
+                    : "Выключить компьютер сейчас? Несохранённые данные в программах пропадут.";
+                PowerConfirmButton.Content = action == "restart" ? "Перезагрузить" : "Выключить";
+                PowerConfirm.Visibility = Visibility.Visible;
+                break;
+        }
+    }
+
+    private void PowerConfirm_Click(object sender, RoutedEventArgs e)
+    {
+        PowerConfirm.Visibility = Visibility.Collapsed;
+        PowerAction action = _pendingPower == "restart" ? PowerAction.Restart : PowerAction.Shutdown;
+        _pendingPower = null;
+        PowerTimerService.Execute(action);
+    }
+
+    private void PowerCancel_Click(object sender, RoutedEventArgs e)
+    {
+        _pendingPower = null;
+        PowerConfirm.Visibility = Visibility.Collapsed;
+    }
 }

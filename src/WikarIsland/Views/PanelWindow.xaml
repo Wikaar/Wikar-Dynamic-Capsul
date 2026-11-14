@@ -356,12 +356,6 @@
                                 <TextBlock Text="Весь экран" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Button>
-                        <Button Style="{StaticResource ActionTile}" Click="PickerTile_Click" ToolTip="Кликни в любую точку экрана — код цвета скопируется">
-                            <DockPanel>
-                                <TextBlock Text="&#xEF3C;" Style="{StaticResource ActionIcon}"/>
-                                <TextBlock Text="Пипетка" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
-                            </DockPanel>
-                        </Button>
                     </UniformGrid>
 
                     <!-- Ярлыки -->

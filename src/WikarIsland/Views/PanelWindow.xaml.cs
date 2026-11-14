@@ -1524,28 +1524,6 @@ public partial class PanelWindow : Window
         }
     }
 
-    private async void PickerTile_Click(object sender, RoutedEventArgs e)
-    {
-        HideIsland();
-        await Task.Delay(300);
-        var picker = new ColorPickerWindow();
-        picker.Picked += color =>
-        {
-            string hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-            try { Clipboard.SetText(hex); } catch { /* буфер занят */ }
-            App.Pill.ShowNotification(new NotificationItem
-            {
-                AppId = "picker",
-                AppName = "Пипетка",
-                Title = $"Цвет {hex} скопирован",
-                Body = $"RGB {color.R}, {color.G}, {color.B}",
-                Time = DateTime.Now,
-                Click = () => { },
-            });
-        };
-        picker.Show();
-    }
-
     // ---------- заметки ----------
 
     private Note? _currentNote;

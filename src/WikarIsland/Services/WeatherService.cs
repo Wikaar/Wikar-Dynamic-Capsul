@@ -50,7 +50,8 @@ public sealed class WeatherService
     private static HttpClient CreateClient()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("WikarIsland/0.6 github.com/Wikaar/Wikar-DynamicIsland");
+        // MET Norway требует представляться: имя программы и ссылка на неё
+        http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "WikarIsland/0.6 (+https://github.com/Wikaar/Wikar-DynamicIsland)");
         return http;
     }
 

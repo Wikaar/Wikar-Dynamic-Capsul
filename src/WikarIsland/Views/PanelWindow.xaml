@@ -89,7 +89,7 @@
             <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
             <Setter Property="Background" Value="#17171D"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
-            <Setter Property="Height" Value="50"/>
+            <Setter Property="Height" Value="56"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -239,137 +239,145 @@
                         </DockPanel>
                     </Border>
 
-                    <!-- Плеер -->
-                    <Border x:Name="PlayerCard" Style="{StaticResource Card}" Padding="14">
-                        <Grid>
-                            <TextBlock x:Name="PlayerEmpty" Style="{StaticResource Hint}" FontSize="13.5"
-                                       Text="Сейчас ничего не играет"/>
-                            <Grid x:Name="PlayerContent" Visibility="Collapsed">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="104"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Image x:Name="CardCover" Width="104" Height="104" Stretch="UniformToFill" VerticalAlignment="Top">
-                                    <Image.Clip>
-                                        <RectangleGeometry Rect="0,0,104,104" RadiusX="12" RadiusY="12"/>
-                                    </Image.Clip>
-                                </Image>
-                                <StackPanel Grid.Column="1" Margin="16,0,0,0">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Image x:Name="CardAppIcon" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="CardSource" Foreground="{StaticResource TextDim}" FontSize="11"
-                                                   FontWeight="SemiBold" FontFamily="{StaticResource UiFont}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="CardTitle" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"
-                                               Foreground="{StaticResource TextMain}" FontSize="17" FontWeight="SemiBold"
-                                               FontFamily="{StaticResource UiFont}"/>
-                                    <TextBlock x:Name="CardArtist" TextTrimming="CharacterEllipsis"
-                                               Foreground="{StaticResource TextDim}" FontSize="13.5"
-                                               FontFamily="{StaticResource UiFont}"/>
-                                    <Grid x:Name="ProgressArea" Height="12" Margin="0,12,0,0" Background="Transparent"
-                                          Cursor="Hand" MouseLeftButtonDown="Progress_Click">
-                                        <Border Height="4" CornerRadius="2" Background="#33FFFFFF"/>
-                                        <Border x:Name="ProgressFill" Height="4" CornerRadius="2" Background="#F2F2F5"
-                                                HorizontalAlignment="Left" Width="0"/>
+                    <!-- Плеер и звук слева, быстрые действия справа -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="330"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <!-- Плеер -->
+                            <Border x:Name="PlayerCard" Style="{StaticResource Card}" Padding="14">
+                                <Grid>
+                                    <TextBlock x:Name="PlayerEmpty" Style="{StaticResource Hint}" FontSize="13.5"
+                                               Text="Сейчас ничего не играет"/>
+                                    <Grid x:Name="PlayerContent" Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="104"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image x:Name="CardCover" Width="104" Height="104" Stretch="UniformToFill" VerticalAlignment="Top">
+                                            <Image.Clip>
+                                                <RectangleGeometry Rect="0,0,104,104" RadiusX="12" RadiusY="12"/>
+                                            </Image.Clip>
+                                        </Image>
+                                        <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image x:Name="CardAppIcon" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="CardSource" Foreground="{StaticResource TextDim}" FontSize="11"
+                                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock x:Name="CardTitle" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{StaticResource TextMain}" FontSize="17" FontWeight="SemiBold"
+                                                       FontFamily="{StaticResource UiFont}"/>
+                                            <TextBlock x:Name="CardArtist" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{StaticResource TextDim}" FontSize="13.5"
+                                                       FontFamily="{StaticResource UiFont}"/>
+                                            <Grid x:Name="ProgressArea" Height="12" Margin="0,12,0,0" Background="Transparent"
+                                                  Cursor="Hand" MouseLeftButtonDown="Progress_Click">
+                                                <Border Height="4" CornerRadius="2" Background="#33FFFFFF"/>
+                                                <Border x:Name="ProgressFill" Height="4" CornerRadius="2" Background="#F2F2F5"
+                                                        HorizontalAlignment="Left" Width="0"/>
+                                            </Grid>
+                                            <DockPanel Margin="0,2,0,0">
+                                                <TextBlock x:Name="RemainText" DockPanel.Dock="Right" Style="{StaticResource Hint}" FontSize="11"/>
+                                                <TextBlock x:Name="PosText" Style="{StaticResource Hint}" FontSize="11"/>
+                                            </DockPanel>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
+                                                <Button Style="{StaticResource RoundIcon}" Content="&#xE892;" ToolTip="Предыдущий" Click="Prev_Click"/>
+                                                <Button x:Name="PlayPauseButton" Style="{StaticResource PlayButton}" Content="&#xE768;" Click="PlayPause_Click"/>
+                                                <Button Style="{StaticResource RoundIcon}" Content="&#xE893;" ToolTip="Следующий" Click="Next_Click"/>
+                                            </StackPanel>
+                                        </StackPanel>
                                     </Grid>
-                                    <DockPanel Margin="0,2,0,0">
-                                        <TextBlock x:Name="RemainText" DockPanel.Dock="Right" Style="{StaticResource Hint}" FontSize="11"/>
-                                        <TextBlock x:Name="PosText" Style="{StaticResource Hint}" FontSize="11"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Звук -->
+                            <Border Style="{StaticResource Card}" Padding="10,8">
+                                <Grid>
+                                    <DockPanel>
+                                        <Button x:Name="MuteButton" DockPanel.Dock="Left" Style="{StaticResource RoundIcon}" Margin="0"
+                                                Width="34" Height="32" FontSize="14" Content="&#xE767;" ToolTip="Без звука" Click="Mute_Click"/>
+                                        <Button x:Name="DeviceButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}"
+                                                Padding="10,6" MaxWidth="170" ToolTip="Куда идёт звук" Click="DeviceButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE7F5;" FontFamily="{StaticResource Icons}" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="DeviceButtonText" Margin="7,0" MaxWidth="100" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Text="&#xE70D;" FontFamily="{StaticResource Icons}" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <TextBlock x:Name="VolumePercent" DockPanel.Dock="Right" Width="38" TextAlignment="Right" Margin="0,0,10,0"
+                                                   VerticalAlignment="Center" Foreground="{StaticResource TextMain}" FontSize="14"
+                                                   FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                                        <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                                                ValueChanged="VolumeSlider_ValueChanged"/>
                                     </DockPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
-                                        <Button Style="{StaticResource RoundIcon}" Content="&#xE892;" ToolTip="Предыдущий" Click="Prev_Click"/>
-                                        <Button x:Name="PlayPauseButton" Style="{StaticResource PlayButton}" Content="&#xE768;" Click="PlayPause_Click"/>
-                                        <Button Style="{StaticResource RoundIcon}" Content="&#xE893;" ToolTip="Следующий" Click="Next_Click"/>
+                                    <Popup x:Name="DevicePopup" PlacementTarget="{Binding ElementName=DeviceButton}" Placement="Bottom"
+                                           HorizontalOffset="-140" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True"
+                                           PopupAnimation="Fade">
+                                        <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
+                                            <StackPanel x:Name="DevicesPanel" MinWidth="290"/>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                        <!-- Быстрые действия -->
+                        <UniformGrid Grid.Column="1" Columns="2" Margin="10,0,0,0" VerticalAlignment="Top">
+                            <Button x:Name="TimerTileButton" Style="{StaticResource ActionTile}" Click="TimerTile_Click">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE7E8;" Style="{StaticResource ActionIcon}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Таймер выключения" Style="{StaticResource ActionText}"/>
+                                        <TextBlock x:Name="TimerTileState" Style="{StaticResource ActionSub}" Visibility="Collapsed"/>
                                     </StackPanel>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </Border>
-
-                    <!-- Звук -->
-                    <Border Style="{StaticResource Card}" Padding="10,8">
-                        <Grid>
-                            <DockPanel>
-                                <Button x:Name="MuteButton" DockPanel.Dock="Left" Style="{StaticResource RoundIcon}" Margin="0"
-                                        Width="34" Height="32" FontSize="14" Content="&#xE767;" ToolTip="Без звука" Click="Mute_Click"/>
-                                <Button x:Name="DeviceButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}"
-                                        Padding="10,6" MaxWidth="170" ToolTip="Куда идёт звук" Click="DeviceButton_Click">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE7F5;" FontFamily="{StaticResource Icons}" FontSize="13" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="DeviceButtonText" Margin="7,0" MaxWidth="100" TextTrimming="CharacterEllipsis"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock Text="&#xE70D;" FontFamily="{StaticResource Icons}" FontSize="10" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionTile}" Click="NotesTile_Click">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE70B;" Style="{StaticResource ActionIcon}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Заметки" Style="{StaticResource ActionText}"/>
+                                        <TextBlock x:Name="NotesTileState" Style="{StaticResource ActionSub}"/>
                                     </StackPanel>
-                                </Button>
-                                <TextBlock x:Name="VolumePercent" DockPanel.Dock="Right" Width="38" TextAlignment="Right" Margin="0,0,10,0"
-                                           VerticalAlignment="Center" Foreground="{StaticResource TextMain}" FontSize="14"
-                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
-                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Margin="8,0,0,0"
-                                        VerticalAlignment="Center" IsMoveToPointEnabled="True"
-                                        ValueChanged="VolumeSlider_ValueChanged"/>
-                            </DockPanel>
-                            <Popup x:Name="DevicePopup" PlacementTarget="{Binding ElementName=DeviceButton}" Placement="Bottom"
-                                   HorizontalOffset="-140" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True"
-                                   PopupAnimation="Fade">
-                                <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
-                                    <StackPanel x:Name="DevicesPanel" MinWidth="290"/>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                    </Border>
-
-                    <!-- Быстрые действия -->
-                    <UniformGrid Columns="2" Margin="0,0,0,2">
-                        <Button x:Name="TimerTileButton" Style="{StaticResource ActionTile}" Click="TimerTile_Click">
-                            <DockPanel>
-                                <TextBlock Text="&#xE7E8;" Style="{StaticResource ActionIcon}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Таймер выключения" Style="{StaticResource ActionText}"/>
-                                    <TextBlock x:Name="TimerTileState" Style="{StaticResource ActionSub}" Visibility="Collapsed"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Button>
-                        <Button Style="{StaticResource ActionTile}" Click="NotesTile_Click">
-                            <DockPanel>
-                                <TextBlock Text="&#xE70B;" Style="{StaticResource ActionIcon}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Заметки" Style="{StaticResource ActionText}"/>
-                                    <TextBlock x:Name="NotesTileState" Style="{StaticResource ActionSub}"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Button>
-                        <Button Style="{StaticResource ActionTile}" Click="RecordTile_Click" ToolTip="Запись экрана, на котором стоит пилюля, в MP4 (без звука). Остановить — клик по пилюле">
-                            <DockPanel>
-                                <TextBlock x:Name="RecordTileIcon" Text="&#xE714;" Style="{StaticResource ActionIcon}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock x:Name="RecordTileText" Text="Запись экрана" Style="{StaticResource ActionText}"/>
-                                    <TextBlock x:Name="RecordTileState" Text="идёт запись" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Button>
-                        <Button x:Name="AudioTile" Style="{StaticResource ActionTile}" Click="AudioTile_Click"
-                                ToolTip="Запись звука из колонок, с микрофона или обоих сразу (.m4a)">
-                            <DockPanel>
-                                <TextBlock x:Name="AudioTileIcon" Text="&#xE720;" Style="{StaticResource ActionIcon}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock x:Name="AudioTileText" Text="Запись звука" Style="{StaticResource ActionText}"/>
-                                    <TextBlock x:Name="AudioTileState" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Button>
-                        <Button Style="{StaticResource ActionTile}" Click="AreaTile_Click" ToolTip="Скриншот выделенной области (Win+Shift+S)">
-                            <DockPanel>
-                                <TextBlock Text="&#xE8B3;" Style="{StaticResource ActionIcon}"/>
-                                <TextBlock Text="Область" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
-                            </DockPanel>
-                        </Button>
-                        <Button Style="{StaticResource ActionTile}" Click="FullTile_Click" ToolTip="Снимок всего экрана: в папку «Изображения\Screenshots» и в буфер">
-                            <DockPanel>
-                                <TextBlock Text="&#xE7F4;" Style="{StaticResource ActionIcon}"/>
-                                <TextBlock Text="Весь экран" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
-                            </DockPanel>
-                        </Button>
-                    </UniformGrid>
+                                </DockPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionTile}" Click="RecordTile_Click" ToolTip="Запись экрана, на котором стоит пилюля, в MP4 (без звука). Остановить — клик по пилюле">
+                                <DockPanel>
+                                    <TextBlock x:Name="RecordTileIcon" Text="&#xE714;" Style="{StaticResource ActionIcon}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock x:Name="RecordTileText" Text="Запись экрана" Style="{StaticResource ActionText}"/>
+                                        <TextBlock x:Name="RecordTileState" Text="идёт запись" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Button>
+                            <Button x:Name="AudioTile" Style="{StaticResource ActionTile}" Click="AudioTile_Click"
+                                    ToolTip="Запись звука из колонок, с микрофона или обоих сразу (.m4a)">
+                                <DockPanel>
+                                    <TextBlock x:Name="AudioTileIcon" Text="&#xE720;" Style="{StaticResource ActionIcon}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock x:Name="AudioTileText" Text="Запись звука" Style="{StaticResource ActionText}"/>
+                                        <TextBlock x:Name="AudioTileState" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionTile}" Click="AreaTile_Click" ToolTip="Скриншот выделенной области (Win+Shift+S)">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE8B3;" Style="{StaticResource ActionIcon}"/>
+                                    <TextBlock Text="Область" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionTile}" Click="FullTile_Click" ToolTip="Снимок всего экрана: в папку «Изображения\Screenshots» и в буфер">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE7F4;" Style="{StaticResource ActionIcon}"/>
+                                    <TextBlock Text="Весь экран" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Button>
+                        </UniformGrid>
+                    </Grid>
 
                     <!-- Ярлыки -->
                     <Border x:Name="LauncherCard" Style="{StaticResource Card}" Padding="12,10" AllowDrop="True"

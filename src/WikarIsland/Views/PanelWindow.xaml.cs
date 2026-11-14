@@ -295,7 +295,8 @@ public partial class PanelWindow : Window
     {
         bool wide = AiUrls.ContainsKey(key);
         Rect wa = ScreenHelper.ToDip(ScreenHelper.ScreenOf(App.Pill).WorkingArea, App.Pill);
-        Width = Math.Min(wide ? 940 : 530, wa.Width - 20);
+        // «Главная» как на картинке: плеер слева, кнопки справа
+        Width = Math.Min(wide ? 940 : key == "home" ? 780 : 560, wa.Width - 20);
         Height = Math.Min(wide ? 700 : 620, wa.Height - 10);
     }
 

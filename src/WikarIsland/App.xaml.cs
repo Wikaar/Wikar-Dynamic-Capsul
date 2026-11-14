@@ -20,6 +20,7 @@ public partial class App : Application
     public static ClipboardService ClipboardHistory { get; private set; } = null!;
     public static SteamService Steam { get; private set; } = null!;
     public static PowerTimerService PowerTimer { get; private set; } = null!;
+    public static NotesService Notes { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -51,6 +52,7 @@ public partial class App : Application
         ClipboardHistory = new ClipboardService();
         Steam = new SteamService();
         PowerTimer = new PowerTimerService();
+        Notes = new NotesService();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -136,6 +138,7 @@ public partial class App : Application
             _tray.Dispose();
         }
         Settings.Save();
+        Notes?.Save();
         Current.Shutdown();
     }
 

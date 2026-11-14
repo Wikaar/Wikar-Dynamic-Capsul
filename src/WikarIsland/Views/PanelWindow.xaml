@@ -83,6 +83,50 @@
             </Setter>
         </Style>
 
+        <!-- Плитки быстрых действий на «Главной» -->
+        <Style x:Key="ActionTile" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="Background" Value="#17171D"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="14" Background="{TemplateBinding Background}" Padding="14,6">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#222229"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ActionIcon" TargetType="TextBlock">
+            <Setter Property="DockPanel.Dock" Value="Left"/>
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ActionText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="ActionSub" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="#A0A0AA"/>
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
         <!-- Вкладка-значок: подпись видна только у выбранной -->
         <Style x:Key="IconTab" TargetType="RadioButton" BasedOn="{StaticResource TabButton}">
             <Setter Property="Margin" Value="0,0,1,0"/>
@@ -274,6 +318,52 @@
                         </Grid>
                     </Border>
 
+                    <!-- Быстрые действия -->
+                    <UniformGrid Columns="2" Margin="0,0,0,2">
+                        <Button x:Name="TimerTileButton" Style="{StaticResource ActionTile}" Click="TimerTile_Click">
+                            <DockPanel>
+                                <TextBlock Text="&#xE7E8;" Style="{StaticResource ActionIcon}"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Таймер выключения" Style="{StaticResource ActionText}"/>
+                                    <TextBlock x:Name="TimerTileState" Style="{StaticResource ActionSub}" Visibility="Collapsed"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionTile}" Click="NotesTile_Click">
+                            <DockPanel>
+                                <TextBlock Text="&#xE70B;" Style="{StaticResource ActionIcon}"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Заметки" Style="{StaticResource ActionText}"/>
+                                    <TextBlock x:Name="NotesTileState" Style="{StaticResource ActionSub}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionTile}" Click="RecordTile_Click" ToolTip="Запись области экрана через «Ножницы» Windows (Win+Shift+R)">
+                            <DockPanel>
+                                <TextBlock Text="&#xE714;" Style="{StaticResource ActionIcon}"/>
+                                <TextBlock Text="Запись экрана" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionTile}" Click="AreaTile_Click" ToolTip="Скриншот выделенной области (Win+Shift+S)">
+                            <DockPanel>
+                                <TextBlock Text="&#xE8B3;" Style="{StaticResource ActionIcon}"/>
+                                <TextBlock Text="Область" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionTile}" Click="FullTile_Click" ToolTip="Снимок всего экрана: в папку «Изображения\Screenshots» и в буфер">
+                            <DockPanel>
+                                <TextBlock Text="&#xE7F4;" Style="{StaticResource ActionIcon}"/>
+                                <TextBlock Text="Весь экран" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionTile}" Click="PickerTile_Click" ToolTip="Кликни в любую точку экрана — код цвета скопируется">
+                            <DockPanel>
+                                <TextBlock Text="&#xEF3C;" Style="{StaticResource ActionIcon}"/>
+                                <TextBlock Text="Пипетка" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
+                    </UniformGrid>
+
                     <!-- Ярлыки -->
                     <Border x:Name="LauncherCard" Style="{StaticResource Card}" Padding="12,10" AllowDrop="True"
                             Drop="Launcher_Drop" DragOver="Launcher_DragOver">
@@ -288,6 +378,40 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Steam -->
+                    <Border x:Name="SteamCard" Style="{StaticResource Card}" Visibility="Collapsed">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Image x:Name="SteamCardIcon" Width="18" Height="18" Margin="0,0,8,0"/>
+                                <TextBlock Text="Steam" Foreground="{StaticResource TextMain}" FontSize="14"
+                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                            </StackPanel>
+                            <StackPanel x:Name="SteamList"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Уведомления -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,6">
+                                <Button x:Name="ClearNotificationsButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}"
+                                        Content="Очистить всё" Padding="10,4" FontSize="12" Click="ClearNotifications_Click"/>
+                                <TextBlock Text="Уведомления" VerticalAlignment="Center" Foreground="{StaticResource TextMain}" FontSize="14"
+                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                            </DockPanel>
+                            <StackPanel x:Name="NotificationsList"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock x:Name="HomeHint" Style="{StaticResource Hint}" LineHeight="18" Margin="4,2,4,0"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== Таймер выключения (из плитки) ===== -->
+            <ScrollViewer x:Name="TimerView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="14,0,14,12">
+                    <Button Style="{StaticResource FlatButton}" HorizontalAlignment="Left" Margin="0,0,0,10" Click="Back_Click"
+                            Background="Transparent" Content="&#x2190;  Назад"/>
                     <!-- Таймер выключения -->
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
@@ -323,34 +447,34 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Steam -->
-                    <Border x:Name="SteamCard" Style="{StaticResource Card}" Visibility="Collapsed">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <Image x:Name="SteamCardIcon" Width="18" Height="18" Margin="0,0,8,0"/>
-                                <TextBlock Text="Steam" Foreground="{StaticResource TextMain}" FontSize="14"
-                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
-                            </StackPanel>
-                            <StackPanel x:Name="SteamList"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Уведомления -->
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,6">
-                                <Button x:Name="ClearNotificationsButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}"
-                                        Content="Очистить всё" Padding="10,4" FontSize="12" Click="ClearNotifications_Click"/>
-                                <TextBlock Text="Уведомления" VerticalAlignment="Center" Foreground="{StaticResource TextMain}" FontSize="14"
-                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
-                            </DockPanel>
-                            <StackPanel x:Name="NotificationsList"/>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock x:Name="HomeHint" Style="{StaticResource Hint}" LineHeight="18" Margin="4,2,4,0"/>
                 </StackPanel>
             </ScrollViewer>
+
+            <!-- ===== Заметки (из плитки) ===== -->
+            <Grid x:Name="NotesView" Visibility="Collapsed" Margin="14,0,14,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,10">
+                    <Button DockPanel.Dock="Left" Style="{StaticResource FlatButton}" Margin="0" Background="Transparent"
+                            Content="&#x2190;  Назад" Click="NotesBack_Click"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="NoteDeleteButton" Style="{StaticResource FlatButton}" Content="Удалить" Click="NoteDelete_Click" Visibility="Collapsed"/>
+                        <Button x:Name="NoteNewButton" Style="{StaticResource FlatButton}" Content="+ Новая" Click="NoteNew_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="NotesHeader" Text="Заметки" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMain}" FontSize="15" FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                </DockPanel>
+                <ScrollViewer x:Name="NotesListScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="NotesList"/>
+                </ScrollViewer>
+                <TextBox x:Name="NoteEditor" Grid.Row="1" Visibility="Collapsed"
+                         AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         Padding="12,10" FontSize="14.5" FontFamily="{StaticResource UiFont}"
+                         Background="#17171D" Foreground="#F2F2F5" BorderThickness="0" CaretBrush="#F2F2F5"
+                         TextChanged="NoteEditor_TextChanged"/>
+            </Grid>
 
             <!-- ===== Центр управления ===== -->
             <ScrollViewer x:Name="ControlView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">

@@ -407,6 +407,9 @@ public partial class PanelWindow : Window
         WeatherView.Visibility = key == "weather" ? Visibility.Visible : Visibility.Collapsed;
         ClipboardView.Visibility = key == "clipboard" ? Visibility.Visible : Visibility.Collapsed;
         ControlView.Visibility = key == "control" ? Visibility.Visible : Visibility.Collapsed;
+        TimerView.Visibility = Visibility.Collapsed;
+        NotesView.Visibility = Visibility.Collapsed;
+        if (_currentNote != null) SaveCurrentNote();
         SettingsView.Visibility = key == "settings" ? Visibility.Visible : Visibility.Collapsed;
         AiHost.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
         PopOutButton.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
@@ -421,7 +424,7 @@ public partial class PanelWindow : Window
         if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
         if (key == "control") _ = RefreshControlAsync();
-        if (key == "home") { BuildLauncher(); UpdateWeather(); }
+        if (key == "home") { BuildLauncher(); UpdateWeather(); UpdateNotesTile(); }
 
         if (IsVisible && !_closing)
         {
@@ -775,6 +778,13 @@ public partial class PanelWindow : Window
     public void UpdateTimer()
     {
         PowerTimerService timer = App.PowerTimer;
+        TimerTileState.Visibility = timer.Active ? Visibility.Visible : Visibility.Collapsed;
+        if (timer.AfterTrack) TimerTileState.Text = "после трека";
+        else if (timer.Target != null)
+        {
+            TimeSpan left = timer.Remaining;
+            TimerTileState.Text = left.TotalHours >= 1 ? $"через {(int)left.TotalHours}:{left.Minutes:00}:{left.Seconds:00}" : $"через {left.Minutes}:{left.Seconds:00}";
+        }
         TimerStatusRow.Visibility = timer.Active ? Visibility.Visible : Visibility.Collapsed;
         TimerHint.Visibility = timer.Active ? Visibility.Collapsed : Visibility.Visible;
         if (!timer.Active) return;
@@ -1434,5 +1444,208 @@ public partial class PanelWindow : Window
     {
         _pendingPower = null;
         PowerConfirm.Visibility = Visibility.Collapsed;
+    }
+
+    // ---------- быстрые действия ----------
+
+    private void ShowSubView(FrameworkElement view)
+    {
+        HomeView.Visibility = Visibility.Collapsed;
+        TimerView.Visibility = view == TimerView ? Visibility.Visible : Visibility.Collapsed;
+        NotesView.Visibility = view == NotesView ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void Back_Click(object sender, RoutedEventArgs e)
+    {
+        TimerView.Visibility = Visibility.Collapsed;
+        NotesView.Visibility = Visibility.Collapsed;
+        HomeView.Visibility = Visibility.Visible;
+        UpdateNotesTile();
+    }
+
+    private void TimerTile_Click(object sender, RoutedEventArgs e)
+    {
+        ShowSubView(TimerView);
+        UpdateTimer();
+    }
+
+    private async void RecordTile_Click(object sender, RoutedEventArgs e)
+    {
+        HideIsland();
+        await Task.Delay(350); // даём панели свернуться, чтобы она не попала в кадр
+        ScreenTools.WinShift('R');
+    }
+
+    private async void AreaTile_Click(object sender, RoutedEventArgs e)
+    {
+        HideIsland();
+        await Task.Delay(350);
+        ScreenTools.WinShift('S');
+    }
+
+    private async void FullTile_Click(object sender, RoutedEventArgs e)
+    {
+        HideIsland();
+        await Task.Delay(400);
+        try
+        {
+            string path = ScreenTools.TakeFullScreenshot();
+            App.Pill.ShowNotification(new NotificationItem
+            {
+                AppId = "screenshot",
+                AppName = "Скриншот",
+                AppIcon = ShellHelper.GetIcon(path),
+                Title = "Скриншот сохранён и скопирован",
+                Body = System.IO.Path.GetFileName(path) + " — нажми, чтобы открыть",
+                Time = DateTime.Now,
+                Click = () => ShellHelper.Open(path),
+            });
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
+    }
+
+    private async void PickerTile_Click(object sender, RoutedEventArgs e)
+    {
+        HideIsland();
+        await Task.Delay(300);
+        var picker = new ColorPickerWindow();
+        picker.Picked += color =>
+        {
+            string hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+            try { Clipboard.SetText(hex); } catch { /* буфер занят */ }
+            App.Pill.ShowNotification(new NotificationItem
+            {
+                AppId = "picker",
+                AppName = "Пипетка",
+                Title = $"Цвет {hex} скопирован",
+                Body = $"RGB {color.R}, {color.G}, {color.B}",
+                Time = DateTime.Now,
+                Click = () => { },
+            });
+        };
+        picker.Show();
+    }
+
+    // ---------- заметки ----------
+
+    private Note? _currentNote;
+    private DispatcherTimer? _noteSaveTimer;
+
+    private void UpdateNotesTile()
+    {
+        int count = App.Notes.Notes.Count(n => !string.IsNullOrWhiteSpace(n.Text));
+        NotesTileState.Text = count == 0 ? "пусто" : $"{count} шт.";
+    }
+
+    private void NotesTile_Click(object sender, RoutedEventArgs e)
+    {
+        ShowSubView(NotesView);
+        ShowNotesList();
+    }
+
+    private void ShowNotesList()
+    {
+        if (_currentNote != null) SaveCurrentNote();
+        _currentNote = null;
+        NoteEditor.Visibility = Visibility.Collapsed;
+        NotesListScroll.Visibility = Visibility.Visible;
+        NoteDeleteButton.Visibility = Visibility.Collapsed;
+        NoteNewButton.Visibility = Visibility.Visible;
+        NotesHeader.Text = "Заметки";
+
+        App.Notes.Notes.RemoveAll(n => string.IsNullOrWhiteSpace(n.Text));
+        NotesList.Children.Clear();
+        foreach (Note note in App.Notes.Notes.OrderByDescending(n => n.Updated))
+        {
+            var texts = new StackPanel();
+            texts.Children.Add(new TextBlock
+            {
+                Text = note.Title, FontSize = 14, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
+                Foreground = (Brush)FindResource("TextMain"), FontFamily = (FontFamily)FindResource("UiFont"),
+            });
+            texts.Children.Add(new TextBlock
+            {
+                Text = (note.Updated.Date == DateTime.Today ? note.Updated.ToString("HH:mm") : note.Updated.ToString("d MMM", Ru))
+                       + (note.Preview.Length > 0 ? "  " + note.Preview : ""),
+                FontSize = 12.5, TextTrimming = TextTrimming.CharacterEllipsis,
+                Foreground = (Brush)FindResource("TextDim"), FontFamily = (FontFamily)FindResource("UiFont"),
+            });
+            var card = new Border
+            {
+                Child = texts,
+                Background = new SolidColorBrush(Color.FromRgb(0x17, 0x17, 0x1D)),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(14, 10, 14, 10),
+                Margin = new Thickness(0, 0, 0, 6),
+                Cursor = Cursors.Hand,
+            };
+            card.MouseLeftButtonUp += (_, _) => OpenNote(note);
+            NotesList.Children.Add(card);
+        }
+        if (NotesList.Children.Count == 0)
+            NotesList.Children.Add(Text("Заметок пока нет. Нажми «+ Новая».", 13.5, dim: true));
+        UpdateNotesTile();
+    }
+
+    private void OpenNote(Note note)
+    {
+        _currentNote = note;
+        NotesListScroll.Visibility = Visibility.Collapsed;
+        NoteEditor.Visibility = Visibility.Visible;
+        NoteDeleteButton.Visibility = Visibility.Visible;
+        NoteNewButton.Visibility = Visibility.Collapsed;
+        NotesHeader.Text = note.Updated.ToString("d MMMM, HH:mm", Ru);
+        NoteEditor.Text = note.Text;
+        NoteEditor.CaretIndex = NoteEditor.Text.Length;
+        Activate();
+        NoteEditor.Focus();
+    }
+
+    private void NoteNew_Click(object sender, RoutedEventArgs e) => OpenNote(App.Notes.Create());
+
+    private void NoteDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentNote == null) return;
+        Note note = _currentNote;
+        _currentNote = null;
+        App.Notes.Delete(note);
+        ShowNotesList();
+    }
+
+    private void NotesBack_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentNote != null) ShowNotesList();
+        else Back_Click(sender, e);
+    }
+
+    private void NoteEditor_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_currentNote == null) return;
+        _currentNote.Text = NoteEditor.Text;
+        _currentNote.Updated = DateTime.Now;
+        // сохраняем через секунду после последнего нажатия
+        _noteSaveTimer ??= CreateNoteSaveTimer();
+        _noteSaveTimer.Stop();
+        _noteSaveTimer.Start();
+    }
+
+    private DispatcherTimer CreateNoteSaveTimer()
+    {
+        var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            App.Notes.Save();
+        };
+        return t;
+    }
+
+    private void SaveCurrentNote()
+    {
+        _noteSaveTimer?.Stop();
+        App.Notes.Save();
     }
 }

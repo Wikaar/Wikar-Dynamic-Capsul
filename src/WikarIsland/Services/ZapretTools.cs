@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
+using System.ServiceProcess;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -45,6 +47,21 @@ public static class ZapretTools
 
     // ---------- командная строка ----------
 
+    private static readonly Encoding OemEncoding = GetOem();
+
+    private static Encoding GetOem()
+    {
+        try
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+        }
+        catch
+        {
+            return Encoding.UTF8;
+        }
+    }
+
     private static (int code, string output) Run(string exe, params string[] args)
     {
         try
@@ -55,7 +72,9 @@ public static class ZapretTools
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                StandardOutputEncoding = Encoding.UTF8,
+                // sc/netsh пишут в OEM-кодировке (cp866 на русской Windows)
+                StandardOutputEncoding = OemEncoding,
+                StandardErrorEncoding = OemEncoding,
             };
             foreach (string a in args) info.ArgumentList.Add(a);
             using Process p = Process.Start(info)!;
@@ -72,10 +91,28 @@ public static class ZapretTools
     /// <summary>Состояние службы: RUNNING, STOPPED, STOP_PENDING… или null, если её нет.</summary>
     public static string? ServiceState(string name)
     {
-        (int code, string output) = Run("sc.exe", "query", name);
-        if (code != 0) return null;
-        Match m = Regex.Match(output, @"STATE\s*:\s*\d+\s+(\w+)");
-        return m.Success ? m.Groups[1].Value : "UNKNOWN";
+        // через API служб, а не разбор `sc query` — тот переведён на язык системы
+        try
+        {
+            using var sc = new ServiceController(name);
+            return sc.Status switch
+            {
+                ServiceControllerStatus.Running => "RUNNING",
+                ServiceControllerStatus.Stopped => "STOPPED",
+                ServiceControllerStatus.StopPending => "STOP_PENDING",
+                ServiceControllerStatus.StartPending => "START_PENDING",
+                ServiceControllerStatus.Paused => "PAUSED",
+                _ => sc.Status.ToString().ToUpperInvariant(),
+            };
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // службы нет
+        }
+        catch
+        {
+            return "UNKNOWN";
+        }
     }
 
     private static bool ServiceExists(string name) =>
@@ -92,8 +129,11 @@ public static class ZapretTools
     public static bool TcpTimestampsEnabled()
     {
         (_, string output) = Run("netsh.exe", "interface", "tcp", "show", "global");
-        return output.Split('\n').Any(l => l.Contains("timestamps", StringComparison.OrdinalIgnoreCase)
-                                           && l.Contains("enabled", StringComparison.OrdinalIgnoreCase));
+        // строка «RFC 1323 Timestamps» / «Метки времени RFC 1323» — ищем по номеру RFC, значение может быть переведено
+        string? line = output.Split('\n').FirstOrDefault(l => l.Contains("1323"));
+        if (line == null) return true; // не смогли прочитать — не пугаем зря
+        string value = line[(line.LastIndexOf(':') + 1)..].Trim().ToLowerInvariant();
+        return value.StartsWith("enabled") || value.StartsWith("включ") || value.StartsWith("вкл");
     }
 
     public static void EnsureTcpTimestamps()
@@ -339,8 +379,11 @@ public static class ZapretTools
 
         r.Add(ServiceState("BFE") == "RUNNING"
             ? new DiagItem(DiagLevel.Ok, "Служба Base Filtering Engine работает")
-            : new DiagItem(DiagLevel.Error, "Base Filtering Engine не запущена — без неё zapret не работает", "Запустить",
-                () => Run("sc.exe", "start", "BFE").code == 0 ? "BFE запущена" : "Не удалось запустить BFE"));
+            : new DiagItem(DiagLevel.Error, "Base Filtering Engine не запущена — без неё zapret не работает", "Запустить", () =>
+            {
+                Run("sc.exe", "start", "BFE");
+                return ServiceState("BFE") == "RUNNING" ? "BFE запущена" : "Не удалось запустить BFE";
+            }));
 
         using (RegistryKey? inet = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings"))
         {
@@ -386,7 +429,7 @@ public static class ZapretTools
         string[] vpn = services.Where(s => s.name.Contains("VPN", StringComparison.OrdinalIgnoreCase) || s.name.Contains("HappService", StringComparison.OrdinalIgnoreCase))
             .Select(s => s.name).ToArray();
         r.Add(vpn.Length > 0
-            ? new DiagItem(DiagLevel.Warning, $"Найдены VPN-службы: {string.Join(", ", vpn)} — некоторые VPN конфликтуют с zapret")
+            ? new DiagItem(DiagLevel.Warning, $"Найдены VPN-службы: {string.Join(", ", vpn)} — не включай этот VPN одновременно с zapret")
             : new DiagItem(DiagLevel.Ok, "VPN-службы не мешают"));
 
         r.Add(SecureDnsConfigured()

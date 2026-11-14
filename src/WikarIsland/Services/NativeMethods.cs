@@ -66,6 +66,9 @@ internal static class NativeMethods
     public static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
 
     [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll")]
     public static extern bool AllowSetForegroundWindow(int processId);
 
     public const int SW_SHOW = 5;

@@ -48,7 +48,7 @@ public partial class PanelWindow : Window
     {
         InitializeComponent();
 
-        _closeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _closeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
         _closeTimer.Tick += (_, _) => CloseTick();
 
         _tickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
@@ -61,7 +61,7 @@ public partial class PanelWindow : Window
         Deactivated += OnDeactivated;
         PreviewKeyDown += (_, e) =>
         {
-            if (e.Key == Key.Escape) HideIsland();
+            if (e.Key == Key.Escape && !DevicePopup.IsOpen) HideIsland();
         };
         IsVisibleChanged += (_, _) =>
         {
@@ -129,6 +129,13 @@ public partial class PanelWindow : Window
 
     // ---------- показ и скрытие ----------
 
+    /// <summary>Клик по пилюле: открыто — закрыть, закрыто — открыть.</summary>
+    public void TogglePill()
+    {
+        if (IsVisible) HideIsland();
+        else ShowNearPill(activate: !App.Settings.OpenOnHover);
+    }
+
     public void Toggle(bool activate)
     {
         if (IsVisible && (IsActive || !activate)) HideIsland();
@@ -189,16 +196,27 @@ public partial class PanelWindow : Window
     /// <summary>Открыт наведением и не активирован: прячем, когда курсор ушёл с острова.</summary>
     private void CloseTick()
     {
+        Point c = ScreenHelper.CursorDip(this);
+        var panelRect = new Rect(Left - 10, Top - 10, Width + 20, Height + 20);
+        Rect pillRect = App.Pill.PillRect();
+        pillRect.Inflate(8, 8);
+
+        // режим «по клику»: если окно так и не стало активным, ловим клик мимо острова сами
+        if (!App.Settings.OpenOnHover)
+        {
+            bool mouseDown = (NativeMethods.GetAsyncKeyState(0x01) & 0x8000) != 0
+                             || (NativeMethods.GetAsyncKeyState(0x02) & 0x8000) != 0;
+            if (!IsActive && mouseDown && !panelRect.Contains(c) && !pillRect.Contains(c)
+                && !DevicePopup.IsOpen && !NativeMethods.ForegroundIsOurs())
+                HideIsland();
+            return;
+        }
+
         if (IsActive)
         {
             _outsideSince = null;
             return;
         }
-
-        Point c = ScreenHelper.CursorDip(this);
-        var panelRect = new Rect(Left - 10, Top - 10, Width + 20, Height + 20);
-        Rect pillRect = App.Pill.PillRect();
-        pillRect.Inflate(8, 8);
 
         if (panelRect.Contains(c) || pillRect.Contains(c))
         {
@@ -333,9 +351,8 @@ public partial class PanelWindow : Window
         if (m == null) return;
 
         CardCover.Source = m.Cover ?? m.AppIcon;
-        CardAppIcon.Source = m.AppIcon;
-        CardAppName.Text = m.AppName;
-        CardAppName.ToolTip = m.AppId;
+        CardAppIcon.Source = m.Cover != null ? m.AppIcon : null;
+        CardCover.ToolTip = $"{m.AppName} ({m.AppId})";
         CardTitle.Text = m.Title;
         CardArtist.Text = m.Artist;
         PlayPauseButton.Content = m.IsPlaying ? "" : "";
@@ -348,15 +365,14 @@ public partial class PanelWindow : Window
         if (m == null || m.Duration <= TimeSpan.Zero)
         {
             ProgressFill.Width = 0;
-            PosText.Text = DurText.Text = "";
+            PosText.Text = "";
             return;
         }
 
         TimeSpan pos = m.LivePosition;
         double width = ProgressArea.ActualWidth;
         ProgressFill.Width = width > 0 ? width * Math.Clamp(pos / m.Duration, 0, 1) : 0;
-        PosText.Text = FormatTime(pos);
-        DurText.Text = FormatTime(m.Duration);
+        PosText.Text = $"{FormatTime(pos)} / {FormatTime(m.Duration)}";
     }
 
     private static string FormatTime(TimeSpan t) =>
@@ -387,30 +403,73 @@ public partial class PanelWindow : Window
         _updatingSlider = false;
         VolumeSlider.IsEnabled = level >= 0;
         VolumePercent.Text = level < 0 ? "—" : muted ? "выкл" : $"{Math.Round(level * 100)}";
-        MuteButton.Content = muted ? "" : "";
+        MuteButton.Content = muted ? "\uE74F" : "\uE767";
+
+        List<AudioDevice> devices = App.Audio.GetOutputDevices();
+        AudioDevice? current = devices.FirstOrDefault(d => d.IsDefault);
+        DeviceButtonText.Text = current != null ? ShortName(current.Name) : "Нет устройства";
+        DeviceButton.ToolTip = current?.Name ?? "Устройства вывода не найдены";
 
         DevicesPanel.Children.Clear();
-        foreach (AudioDevice device in App.Audio.GetOutputDevices())
+        foreach (AudioDevice device in devices)
         {
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            row.Children.Add(new TextBlock
+            {
+                Text = device.IsDefault ? "\uE73E" : "",
+                Width = 22,
+                FontFamily = (FontFamily)FindResource("Icons"),
+                FontSize = 12,
+                Foreground = (Brush)FindResource("Accent"),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            var name = new StackPanel();
+            name.Children.Add(new TextBlock { Text = ShortName(device.Name), FontSize = 13.5, Foreground = (Brush)FindResource("TextMain") });
+            if (ShortName(device.Name) != device.Name)
+                name.Children.Add(new TextBlock { Text = device.Name, FontSize = 11, Foreground = (Brush)FindResource("TextDim") });
+            row.Children.Add(name);
+
             var button = new Button
             {
-                Content = device.Name,
+                Content = row,
                 Style = (Style)FindResource("FlatButton"),
-                Margin = new Thickness(0, 0, 6, 6),
-                Tag = device.Id,
-                ToolTip = device.IsDefault ? "Сейчас звук идёт сюда" : "Переключить звук сюда",
+                Background = Brushes.Transparent,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 2),
+                Padding = new Thickness(8, 6, 12, 6),
             };
-            if (device.IsDefault)
-                button.Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80));
             button.Click += (_, _) =>
             {
                 App.Audio.SetDefaultOutput(device.Id);
+                DevicePopup.IsOpen = false;
                 RefreshSound();
             };
             DevicesPanel.Children.Add(button);
         }
-        if (DevicesPanel.Children.Count == 0)
-            DevicesPanel.Children.Add(new TextBlock { Text = "Устройства вывода не найдены", Style = (Style)FindResource("Hint") });
+        if (devices.Count == 0)
+            DevicesPanel.Children.Add(new TextBlock { Text = "Устройства вывода не найдены", Style = (Style)FindResource("Hint"), Margin = new Thickness(8) });
+    }
+
+    /// <summary>«Динамики (JBL Quantum350 Wireless)» → «JBL Quantum350 Wireless».</summary>
+    private static string ShortName(string name)
+    {
+        int open = name.IndexOf('(');
+        int close = name.LastIndexOf(')');
+        if (open >= 0 && close > open + 1)
+        {
+            string inner = name[(open + 1)..close].Trim();
+            // «Наушники (Oculus Virtual Audio Device)» — внутри скобок только тип драйвера, оставляем начало
+            if (!inner.Contains("Audio Device", StringComparison.OrdinalIgnoreCase)) return inner;
+            return name[..open].Trim();
+        }
+        return name;
+    }
+
+    private void DeviceButton_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshSound();
+        DevicePopup.IsOpen = !DevicePopup.IsOpen;
     }
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

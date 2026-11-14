@@ -480,7 +480,7 @@ public partial class PillWindow : Window
         else
         {
             _hoverTimer.Stop();
-            App.Panel.Toggle(activate: !App.Settings.OpenOnHover);
+            App.Panel.TogglePill();
         }
     }
 

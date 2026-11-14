@@ -437,6 +437,7 @@ public partial class PanelWindow : Window
         else App.SystemMonitor.Stop();
         TimerView.Visibility = Visibility.Collapsed;
         NotesView.Visibility = Visibility.Collapsed;
+        ZapretView.Visibility = Visibility.Collapsed;
         if (_currentNote != null) SaveCurrentNote();
         SettingsView.Visibility = key == "settings" ? Visibility.Visible : Visibility.Collapsed;
         AiHost.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
@@ -2040,7 +2041,6 @@ public partial class PanelWindow : Window
         ZapretStatusText.Text = z.Status.Length > 0 ? z.Status
             : z.Installed ? (SystemMonitorService.IsAdmin ? "Готов к работе" : "Скачан. Для запуска нужны права администратора")
             : "Ещё не скачан — нажми «Скачать zapret» (или просто включи кнопкой в пилюле)";
-        ZapretGamesBox.IsChecked = App.Settings.ZapretGameFilter;
         ZapretAutoBox.IsChecked = App.Settings.ZapretAutoStart;
 
         ZapretStrategies.Children.Clear();
@@ -2093,15 +2093,8 @@ public partial class PanelWindow : Window
 
     private void ZapretOptions_Click(object sender, RoutedEventArgs e)
     {
-        bool gamesChanged = App.Settings.ZapretGameFilter != (ZapretGamesBox.IsChecked == true);
-        App.Settings.ZapretGameFilter = ZapretGamesBox.IsChecked == true;
         App.Settings.ZapretAutoStart = ZapretAutoBox.IsChecked == true;
         App.Settings.Save();
-        if (gamesChanged && App.Zapret.IsRunning)
-        {
-            App.Zapret.Stop();
-            App.Zapret.Start();
-        }
     }
 
     private async void ZapretTile_Click(object sender, RoutedEventArgs e)
@@ -2109,5 +2102,302 @@ public partial class PanelWindow : Window
         bool wanted = !App.Zapret.IsRunning;
         await App.Zapret.ToggleAsync();
         if (wanted && !App.Zapret.IsRunning) App.Pill.ShowZapretProblem();
+    }
+
+    // ---------- zapret: дополнительно (опции service.bat) ----------
+
+    private void ZapretAdvanced_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsView.Visibility = Visibility.Collapsed;
+        ZapretView.Visibility = Visibility.Visible;
+        ZapretToolMessage.Text = "";
+        BuildZapretAdvanced();
+    }
+
+    private void ZapretBack_Click(object sender, RoutedEventArgs e)
+    {
+        ZapretView.Visibility = Visibility.Collapsed;
+        SettingsView.Visibility = Visibility.Visible;
+        UpdateZapret();
+    }
+
+    /// <summary>Выполнить действие zapret в фоне и показать итог.</summary>
+    private async void ZapretAction(Func<string> action, bool rebuild = true)
+    {
+        ZapretToolMessage.Text = "Выполняю…";
+        try
+        {
+            ZapretToolMessage.Text = await Task.Run(action);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            ZapretToolMessage.Text = "Ошибка: " + ex.Message;
+        }
+        if (rebuild) BuildZapretAdvanced();
+        App.Pill.UpdateZapret();
+    }
+
+    private async void ZapretActionAsync(Func<Task<string>> action)
+    {
+        ZapretToolMessage.Text = "Выполняю…";
+        try
+        {
+            ZapretToolMessage.Text = await action();
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            ZapretToolMessage.Text = "Ошибка: " + ex.Message;
+        }
+        BuildZapretAdvanced();
+    }
+
+    private Button SmallButton(string text, Action click, bool accent = false)
+    {
+        var b = new Button
+        {
+            Content = text,
+            Style = (Style)FindResource("FlatButton"),
+            Margin = new Thickness(0, 0, 6, 6),
+            Padding = new Thickness(10, 5, 10, 5),
+            FontSize = 12.5,
+        };
+        if (accent) b.Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80));
+        b.Click += (_, _) => click();
+        return b;
+    }
+
+    private void BuildZapretAdvanced()
+    {
+        ZapretAdvanced.Children.Clear();
+        ZapretService z = App.Zapret;
+
+        if (!z.Installed)
+        {
+            ZapretAdvanced.Children.Add(Card(Text("zapret ещё не скачан — вернись назад и нажми «Скачать zapret».", 13.5, dim: true)));
+            return;
+        }
+        if (!SystemMonitorService.IsAdmin)
+        {
+            var warn = new StackPanel();
+            warn.Children.Add(Text("Большинство опций меняют системные настройки — нужны права администратора.", 13, dim: true));
+            var wrap = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            wrap.Children.Add(SmallButton("Перезапустить от администратора", () => { if (SystemMonitorService.RestartAsAdmin()) App.Quit(); }, accent: true));
+            warn.Children.Add(wrap);
+            ZapretAdvanced.Children.Add(Card(warn));
+        }
+
+        // статус и служба
+        var service = new StackPanel();
+        service.Children.Add(CardHeader("\uE9D9", "Статус и служба Windows"));
+        foreach (string line in ZapretTools.StatusLines()) service.Children.Add(Text(line, 13, dim: true, top: 2));
+        service.Children.Add(Text("Служба запускает выбранную стратегию вместе с Windows — работает даже без острова.", 12.5, dim: true, top: 8));
+        var svcButtons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        string strategy = App.Settings.ZapretStrategy ?? "general";
+        svcButtons.Children.Add(SmallButton($"Установить службу ({ZapretService.ShortName(strategy)})", () => ZapretAction(() => ZapretTools.InstallService(strategy)), accent: true));
+        svcButtons.Children.Add(SmallButton("Удалить службы", () => ZapretAction(ZapretTools.RemoveServices)));
+        svcButtons.Children.Add(SmallButton("Обновить статус", BuildZapretAdvanced));
+        service.Children.Add(svcButtons);
+        ZapretAdvanced.Children.Add(Card(service));
+
+        // игровой фильтр
+        var game = new StackPanel();
+        game.Children.Add(CardHeader("\uE7FC", "Игровой фильтр"));
+        game.Children.Add(Text("Обход для игр и других сервисов на портах выше 1023.", 12.5, dim: true));
+        var modes = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+        foreach ((string mode, string title) in new[] { ("disabled", "Выключен"), ("all", "TCP и UDP"), ("tcp", "Только TCP"), ("udp", "Только UDP") })
+        {
+            var rb = new RadioButton
+            {
+                Content = title, GroupName = "ZapretGameMode", IsChecked = App.Settings.ZapretGameMode == mode,
+                Style = (Style)FindResource("SettingsRadio"), FontSize = 13,
+            };
+            rb.GroupName = "ZapretGameMode";
+            rb.Checked += (_, _) =>
+            {
+                if (App.Settings.ZapretGameMode == mode) return;
+                App.Settings.ZapretGameMode = mode;
+                App.Settings.Save();
+                RestartZapretIfRunning("Игровой фильтр: " + title);
+            };
+            modes.Children.Add(rb);
+        }
+        game.Children.Add(modes);
+        var ports = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+        TextBox tcpBox = PortBox(App.Settings.ZapretGameTcp);
+        TextBox udpBox = PortBox(App.Settings.ZapretGameUdp);
+        ports.Children.Add(Text("TCP:", 13, dim: true));
+        ports.Children.Add(tcpBox);
+        ports.Children.Add(Text("UDP:", 13, dim: true));
+        ports.Children.Add(udpBox);
+        ports.Children.Add(SmallButton("Сохранить порты", () =>
+        {
+            string? tcp = ZapretTools.ValidateRange(tcpBox.Text);
+            string? udp = ZapretTools.ValidateRange(udpBox.Text);
+            if (tcp == null || udp == null)
+            {
+                ZapretToolMessage.Text = "Неверные порты. Пример: 1024-65535 или 1024-1934,1936-65535";
+                return;
+            }
+            App.Settings.ZapretGameTcp = tcp;
+            App.Settings.ZapretGameUdp = udp;
+            App.Settings.Save();
+            RestartZapretIfRunning("Порты сохранены");
+        }));
+        game.Children.Add(ports);
+        ZapretAdvanced.Children.Add(Card(game));
+
+        // IPSet
+        var ipset = new StackPanel();
+        ipset.Children.Add(CardHeader("\uE968", "IPSet фильтр"));
+        ipset.Children.Add(Text("loaded — обход для IP из списка, none — ни для каких IP, any — для любых IP. Полезно для проверки, если какой-то сайт без zapret работает, а с ним — нет.", 12.5, dim: true));
+        string current = ZapretTools.IpsetMode();
+        var ipModes = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+        foreach ((string mode, string title) in new[] { ("loaded", "loaded (по списку)"), ("none", "none"), ("any", "any") })
+        {
+            var rb = new RadioButton
+            {
+                Content = title, IsChecked = current == mode, Style = (Style)FindResource("SettingsRadio"), FontSize = 13,
+            };
+            rb.GroupName = "ZapretIpset";
+            rb.Checked += (_, _) =>
+            {
+                if (ZapretTools.IpsetMode() == mode) return;
+                try { ZapretToolMessage.Text = ZapretTools.SetIpsetMode(mode); }
+                catch (Exception ex) { ZapretToolMessage.Text = "Ошибка: " + ex.Message; }
+                RestartZapretIfRunning(null);
+            };
+            ipModes.Children.Add(rb);
+        }
+        ipset.Children.Add(ipModes);
+        var ipButtons = new WrapPanel();
+        ipButtons.Children.Add(SmallButton("Обновить список IPSet", () => ZapretActionAsync(ZapretTools.UpdateIpsetAsync)));
+        ipset.Children.Add(ipButtons);
+        ZapretAdvanced.Children.Add(Card(ipset));
+
+        // фейки
+        var fakes = new StackPanel();
+        fakes.Children.Add(CardHeader("\uE8AB", "Подмена фейков"));
+        fakes.Children.Add(Text("Какой фейковый пакет отправлять для Discord UDP и для игрового UDP. Если голос в Discord не подключается — попробуй другой.", 12.5, dim: true));
+        List<string> names = ZapretTools.FakeNames();
+        foreach ((bool discord, string title) in new[] { (true, "Discord UDP"), (false, "Игровой UDP") })
+        {
+            string? cur = ZapretTools.CurrentFake(discord);
+            var row = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
+            var label = Text($"{title}:", 13);
+            label.Width = 110;
+            row.Children.Add(label);
+            var combo = new ComboBox { MinWidth = 260, FontSize = 12.5 };
+            foreach (string n in names) combo.Items.Add(n);
+            combo.SelectedItem = cur;
+            combo.SelectionChanged += (_, _) =>
+            {
+                if (combo.SelectedItem is string chosen && chosen != cur)
+                {
+                    ZapretToolMessage.Text = ZapretTools.ReplaceFake(discord, chosen);
+                    RestartZapretIfRunning(null);
+                }
+            };
+            row.Children.Add(combo);
+            fakes.Children.Add(row);
+        }
+        ZapretAdvanced.Children.Add(Card(fakes));
+
+        // hosts и Discord
+        var extra = new StackPanel();
+        extra.Children.Add(CardHeader("\uE774", "hosts и Discord"));
+        extra.Children.Add(Text("hosts чинит веб-версию Telegram и голосовые чаты Discord. Остров дописывает свой блок в конец файла и сохраняет копию hosts.wikar-backup.", 12.5, dim: true));
+        var extraButtons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        extraButtons.Children.Add(SmallButton("Проверить и обновить hosts", () => ZapretActionAsync(ZapretTools.UpdateHostsAsync)));
+        extraButtons.Children.Add(SmallButton("Убрать записи из hosts", () => ZapretAction(ZapretTools.RemoveHostsBlock)));
+        extraButtons.Children.Add(SmallButton("Очистить кэш Discord", () => ZapretAction(ZapretTools.ClearDiscordCache)));
+        extra.Children.Add(extraButtons);
+        ZapretAdvanced.Children.Add(Card(extra));
+
+        // обновления
+        var upd = new StackPanel();
+        upd.Children.Add(CardHeader("\uE895", "Обновления"));
+        upd.Children.Add(Text($"Установлена версия: {App.Settings.ZapretVersion ?? "?"}", 13, dim: true));
+        var updButtons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        updButtons.Children.Add(SmallButton("Проверить обновления", () => ZapretActionAsync(async () =>
+        {
+            string? latest = await ZapretTools.LatestVersionAsync();
+            string installed = (App.Settings.ZapretVersion ?? "").TrimStart('v', 'V');
+            if (latest == null) return "Не удалось узнать последнюю версию";
+            return latest == installed ? $"Установлена последняя версия ({latest})" : $"Доступна версия {latest} — нажми «Обновить» на прошлом экране";
+        })));
+        upd.Children.Add(updButtons);
+        ZapretAdvanced.Children.Add(Card(upd));
+
+        // диагностика
+        var diag = new StackPanel();
+        diag.Children.Add(CardHeader("\uE9F9", "Диагностика"));
+        diag.Children.Add(Text("Те же проверки, что «Run Diagnostics»: службы, конфликтующие программы, прокси, DNS, драйвер.", 12.5, dim: true));
+        var diagResults = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        var runDiag = SmallButton("Запустить диагностику", () => { }, accent: true);
+        runDiag.Click += async (_, _) =>
+        {
+            diagResults.Children.Clear();
+            diagResults.Children.Add(Text("Проверяю…", 13, dim: true));
+            List<DiagItem> items = await Task.Run(ZapretTools.Diagnose);
+            diagResults.Children.Clear();
+            foreach (DiagItem item in items.OrderBy(i => i.Level == DiagLevel.Ok ? 2 : i.Level == DiagLevel.Warning ? 1 : 0))
+            {
+                var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
+                var mark = new TextBlock
+                {
+                    Text = item.Level == DiagLevel.Ok ? "\uE73E" : item.Level == DiagLevel.Warning ? "\uE7BA" : "\uE711",
+                    FontFamily = (FontFamily)FindResource("Icons"), FontSize = 12, Width = 22, VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 2, 0, 0),
+                    Foreground = new SolidColorBrush(item.Level == DiagLevel.Ok ? Color.FromRgb(0x6E, 0xE0, 0x9A)
+                        : item.Level == DiagLevel.Warning ? Color.FromRgb(0xF5, 0xC8, 0x5A) : Color.FromRgb(0xFF, 0x5A, 0x52)),
+                };
+                row.Children.Add(mark);
+                if (item.Fix != null && item.FixTitle != null)
+                {
+                    Func<string> fix = item.Fix;
+                    var fixButton = SmallButton(item.FixTitle, () => ZapretAction(fix));
+                    fixButton.Margin = new Thickness(8, 0, 0, 0);
+                    DockPanel.SetDock(fixButton, Dock.Right);
+                    row.Children.Add(fixButton);
+                }
+                row.Children.Add(Text(item.Text, 13, dim: item.Level == DiagLevel.Ok));
+                diagResults.Children.Add(row);
+            }
+        };
+        var diagButtons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        diagButtons.Children.Add(runDiag);
+        diag.Children.Add(diagButtons);
+        diag.Children.Add(diagResults);
+        ZapretAdvanced.Children.Add(Card(diag));
+    }
+
+    private static TextBox PortBox(string value) => new()
+    {
+        Text = value,
+        Width = 150,
+        Margin = new Thickness(6, 0, 12, 6),
+        Padding = new Thickness(6, 3, 6, 3),
+        FontSize = 12.5,
+        Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x1F, 0x24)),
+        Foreground = new SolidColorBrush(Color.FromRgb(0xF2, 0xF2, 0xF5)),
+        BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF)),
+        CaretBrush = Brushes.White,
+        FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+    };
+
+    private void RestartZapretIfRunning(string? message)
+    {
+        if (App.Zapret.IsRunning)
+        {
+            App.Zapret.Stop();
+            App.Zapret.Start();
+            if (message != null) ZapretToolMessage.Text = message + " · zapret перезапущен";
+        }
+        else if (message != null)
+        {
+            ZapretToolMessage.Text = message;
+        }
     }
 }

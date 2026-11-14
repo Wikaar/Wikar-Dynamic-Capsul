@@ -131,7 +131,10 @@ public sealed class ZapretService
             }
 
             SetStatus($"Установлен zapret {tag}", false);
-            if (wasRunning) Start();
+            // служба указывает на старую папку — переустанавливаем её на новую версию
+            if (ZapretTools.InstalledServiceStrategy() is { } svcStrategy && SystemMonitorService.IsAdmin)
+                ZapretTools.InstallService(svcStrategy);
+            else if (wasRunning) Start();
             return true;
         }
         catch (UnauthorizedAccessException ex) when (ex.Message.Contains("WinDivert", StringComparison.OrdinalIgnoreCase))
@@ -205,7 +208,9 @@ public sealed class ZapretService
     }
 
     /// <summary>Достаём из .bat строку запуска winws.exe и подставляем переменные.</summary>
-    private static string BuildArgs(string strategy, bool gameFilter)
+    public static string BuildArgsFor(string strategy) => BuildArgs(strategy);
+
+    private static string BuildArgs(string strategy)
     {
         string bat = File.ReadAllText(Path.Combine(Folder, strategy + ".bat"), Encoding.UTF8);
         // склеиваем строки, продолженные «^»
@@ -217,13 +222,14 @@ public sealed class ZapretService
         int exe = line.IndexOf("winws.exe\"", StringComparison.OrdinalIgnoreCase);
         string args = exe >= 0 ? line[(exe + "winws.exe\"".Length)..] : line[(line.IndexOf("winws.exe", StringComparison.OrdinalIgnoreCase) + 9)..];
 
-        string games = gameFilter ? "1024-65535" : "12"; // «12» — так service.bat выключает игровой фильтр
+        // «12» — так service.bat выключает игровой фильтр
+        (string tcp, string udp, string any) = ZapretTools.GameFilterValues();
         return args
             .Replace("%BIN%", Bin + "\\")
             .Replace("%LISTS%", Lists + "\\")
-            .Replace("%GameFilterTCP%", games)
-            .Replace("%GameFilterUDP%", games)
-            .Replace("%GameFilter%", games)
+            .Replace("%GameFilterTCP%", tcp)
+            .Replace("%GameFilterUDP%", udp)
+            .Replace("%GameFilter%", any)
             .Trim();
     }
 
@@ -277,7 +283,8 @@ public sealed class ZapretService
         try
         {
             EnsureUserLists();
-            string args = BuildArgs(strategy, App.Settings.ZapretGameFilter);
+            ZapretTools.EnsureTcpTimestamps(); // как service.bat перед каждым запуском
+            string args = BuildArgs(strategy);
             _winws = Process.Start(new ProcessStartInfo(Path.Combine(Bin, "winws.exe"), args)
             {
                 WorkingDirectory = Bin,
@@ -292,6 +299,17 @@ public sealed class ZapretService
             App.LogError(ex);
             SetStatus("Не запустился: " + ex.Message, false);
             return false;
+        }
+    }
+
+    /// <summary>Перенос старой галочки «обход для игр» в новый режим.</summary>
+    public static void MigrateSettings()
+    {
+        if (App.Settings.ZapretGameFilter && App.Settings.ZapretGameMode == "disabled")
+        {
+            App.Settings.ZapretGameMode = "all";
+            App.Settings.ZapretGameFilter = false;
+            App.Settings.Save();
         }
     }
 

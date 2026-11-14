@@ -498,6 +498,20 @@
                          TextChanged="NoteEditor_TextChanged"/>
             </Grid>
 
+            <!-- ===== zapret: дополнительные опции (как service.bat) ===== -->
+            <ScrollViewer x:Name="ZapretView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="16,0,16,16">
+                    <DockPanel Margin="0,0,0,6">
+                        <Button DockPanel.Dock="Left" Style="{StaticResource FlatButton}" Margin="0" Background="Transparent"
+                                Content="&#x2190;  Назад" Click="ZapretBack_Click"/>
+                        <TextBlock Text="zapret — дополнительно" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextMain}" FontSize="15" FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                    </DockPanel>
+                    <TextBlock x:Name="ZapretToolMessage" Style="{StaticResource Hint}" FontSize="13" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                    <StackPanel x:Name="ZapretAdvanced"/>
+                </StackPanel>
+            </ScrollViewer>
+
             <!-- ===== Центр управления ===== -->
             <ScrollViewer x:Name="ControlView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="16,4,8,16">
@@ -656,9 +670,9 @@
                         <Button x:Name="ZapretInstallButton" Style="{StaticResource FlatButton}" Margin="0" Click="ZapretInstall_Click"/>
                         <Button Style="{StaticResource FlatButton}" Content="Подобрать стратегию" Click="ZapretFind_Click"/>
                         <Button Style="{StaticResource FlatButton}" Content="Папка" Click="ZapretFolder_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Дополнительно…" Click="ZapretAdvanced_Click"/>
                     </StackPanel>
                     <TextBlock x:Name="ZapretStatusText" Style="{StaticResource Hint}" Margin="0,6,0,0"/>
-                    <CheckBox x:Name="ZapretGamesBox" Content="Обход и для игр (порты выше 1023)" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
                     <CheckBox x:Name="ZapretAutoBox" Content="Включать zapret при запуске острова" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
                     <TextBlock Text="Стратегия" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
                                FontFamily="{StaticResource UiFont}" Margin="0,6,0,4"/>

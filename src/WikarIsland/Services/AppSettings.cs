@@ -66,7 +66,12 @@ public sealed class AppSettings
     /// <summary>Папка текущей версии zapret (каждая версия — в своей папке, старую драйвер может держать).</summary>
     public string? ZapretDir { get; set; }
     public string? ZapretStrategy { get; set; }
-    public bool ZapretGameFilter { get; set; }
+    public bool ZapretGameFilter { get; set; }  // старая галочка, переносится в ZapretGameMode
+
+    /// <summary>Игровой фильтр: disabled, all (TCP и UDP), tcp, udp.</summary>
+    public string ZapretGameMode { get; set; } = "disabled";
+    public string ZapretGameTcp { get; set; } = "1024-65535";
+    public string ZapretGameUdp { get; set; } = "1024-65535";
     public bool ZapretAutoStart { get; set; }
 
     // ---------- VPN (VLESS через Xray) ----------

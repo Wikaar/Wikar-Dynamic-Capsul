@@ -142,6 +142,7 @@ public partial class App : Application
         SystemMonitor = new SystemMonitorService();
         Vpn = new VpnService();
         Zapret = new ZapretService();
+        ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
         Panel = new PanelWindow();
@@ -266,11 +267,11 @@ public partial class App : Application
 
         Safe("трей", CreateTray);
 
-        Zapret.StateChanged += () =>
+        Zapret.StateChanged += () => Pill.Dispatcher.BeginInvoke(() =>
         {
             Pill.UpdateZapret();
             Panel.UpdateZapret();
-        };
+        });
         if (Settings.ZapretAutoStart && Zapret.Installed && SystemMonitorService.IsAdmin)
             Safe("zapret", () => Zapret.Start());
         Pill.UpdateZapret();

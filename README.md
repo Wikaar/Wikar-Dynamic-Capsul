@@ -79,6 +79,7 @@ dotnet publish src/WikarIsland -c Release -r win-x64 --self-contained true -o pu
 ### zapret (Discord и YouTube без VPN)
 - [x] Остров сам скачивает свежий релиз Flowseal/zapret-discord-youtube (MIT) и обновляет его
 - [x] Включение кнопкой в пилюле, выбор стратегии, автоподбор рабочей стратегии, обход для игр
+- [x] Всё из service.bat: служба Windows, игровой фильтр с портами, IPSet (loaded/none/any) и его обновление, подмена фейков, hosts, диагностика с исправлением, очистка кэша Discord, проверка обновлений
 - [x] Нужны права администратора (WinDivert); антивирус может потребовать исключение для папки
 
 ### VPN (VLESS)

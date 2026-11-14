@@ -751,6 +751,25 @@
                                Text="Сними галочку у программы, чтобы её уведомления не показывались."/>
                     <StackPanel x:Name="NotificationApps"/>
 
+                    <TextBlock Text="Оформление капсулы" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Text="Цвет" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
+                               FontFamily="{StaticResource UiFont}" Margin="0,0,0,6"/>
+                    <WrapPanel x:Name="PillThemes"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,4">
+                        <TextBlock Text="Прозрачность" Style="{StaticResource Hint}" VerticalAlignment="Center" Width="110"/>
+                        <Slider x:Name="PillOpacitySlider" Width="220" Minimum="0.4" Maximum="1" SmallChange="0.05" LargeChange="0.1"
+                                VerticalAlignment="Center" ValueChanged="PillOpacity_Changed"/>
+                        <TextBlock x:Name="PillOpacityText" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                    <CheckBox x:Name="MusicGlowBox" Content="Свечение цветом обложки, пока играет музыка" Style="{StaticResource SettingsCheck}" Click="Look_Changed"/>
+                    <CheckBox x:Name="MusicTintBox" Content="Слегка окрашивать капсулу в цвет обложки" Style="{StaticResource SettingsCheck}" Click="Look_Changed"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="Визуализатор:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <RadioButton x:Name="VisSpectrum" Content="под музыку" GroupName="Vis" Style="{StaticResource SettingsRadio}" Click="Look_Changed"/>
+                        <RadioButton x:Name="VisSimple" Content="простая анимация" GroupName="Vis" Style="{StaticResource SettingsRadio}" Click="Look_Changed"/>
+                        <RadioButton x:Name="VisOff" Content="выкл" GroupName="Vis" Style="{StaticResource SettingsRadio}" Click="Look_Changed"/>
+                    </StackPanel>
+
                     <TextBlock Text="Горячая клавиша" Style="{StaticResource SectionTitle}"/>
                     <StackPanel Orientation="Horizontal">
                         <TextBox x:Name="HotkeyBox" Width="200" Padding="8,5" FontSize="14"

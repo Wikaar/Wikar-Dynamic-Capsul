@@ -29,6 +29,7 @@ public partial class App : Application
     public static UpdateService Updater { get; private set; } = null!;
     public static FocusTimerService FocusTimer { get; private set; } = null!;
     public static ReminderService Reminders { get; private set; } = null!;
+    public static SpectrumService Spectrum { get; } = new();
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -388,6 +389,7 @@ public partial class App : Application
         }
         Recorder?.Stop();
         AudioRecorder?.Stop();
+        Spectrum.Dispose();
         SystemMonitor?.Dispose();
         Vpn?.Disconnect();
         Zapret?.Stop();

@@ -159,6 +159,9 @@ public partial class PillWindow : Window
         Liquid.Outline = s.Unlocked
             ? new Pen((Brush)FindResource("Accent"), 1.6)
             : new Pen(new SolidColorBrush(Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF)), 1);
+        Liquid.GlowEnabled = s.MusicGlow;
+        ApplyPillFill();
+        if (App.Media != null) UpdateMedia();
         Liquid.InvalidateVisual();
         UpdateFlush();
         Pill.Cursor = s.Unlocked ? Cursors.SizeAll : Cursors.Arrow;
@@ -180,18 +183,63 @@ public partial class PillWindow : Window
             PillCover.Source = m.Cover ?? m.AppIcon;
             PillAppIcon.Source = m.Cover != null ? m.AppIcon : null;
             PillTrack.Text = string.IsNullOrEmpty(m.Artist) ? m.Title : $"{m.Title} — {m.Artist}";
-            Eq.SetPlaying(m.IsPlaying);
+            Eq.SetPlaying(m.IsPlaying && App.Settings.MusicInPill);
             Liquid.MusicPlaying = m.IsPlaying && App.Settings.MusicInPill;
             Liquid.AccentColor = m.Accent ?? Colors.Black;
-            Eq.BarBrush = new SolidColorBrush(m.Accent ?? Colors.White);
+            Eq.BarBrush = new SolidColorBrush(Lighten(m.Accent ?? Colors.White));
             if (m.IsPlaying) _lastPlaying = DateTime.Now;
+            ApplyPillFill();
         }
         else
         {
             Eq.SetPlaying(false);
             Liquid.MusicPlaying = false;
+            ApplyPillFill();
         }
         UpdateContent();
+    }
+
+    public static readonly (string key, string name, Color color)[] Themes =
+    {
+        ("black", "Чёрная", Color.FromRgb(0x0B, 0x0B, 0x0E)),
+        ("graphite", "Графит", Color.FromRgb(0x25, 0x26, 0x2D)),
+        ("navy", "Ночная синяя", Color.FromRgb(0x10, 0x1A, 0x36)),
+        ("plum", "Слива", Color.FromRgb(0x26, 0x14, 0x36)),
+        ("forest", "Хвоя", Color.FromRgb(0x0F, 0x28, 0x22)),
+        ("wine", "Вино", Color.FromRgb(0x2E, 0x10, 0x18)),
+    };
+
+    /// <summary>Цвет капсулы: тема + прозрачность + лёгкий оттенок обложки, пока играет музыка.</summary>
+    private void ApplyPillFill()
+    {
+        AppSettings s = App.Settings;
+        Color baseColor = Array.Find(Themes, t => t.key == s.PillTheme).color;
+        if (baseColor == default) baseColor = Themes[0].color;
+        MediaInfo? m = App.Media?.Current;
+        if (s.MusicTint && m is { IsPlaying: true, Accent: Color accent } && s.MusicInPill)
+            baseColor = Blend(baseColor, accent, 0.22);
+        byte alpha = (byte)Math.Round(Math.Clamp(s.PillOpacity, 0.4, 1.0) * 255);
+        var target = Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
+
+        if (Liquid.Fill is SolidColorBrush current && !current.IsFrozen)
+        {
+            if (current.Color != target)
+                current.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(target, TimeSpan.FromMilliseconds(600)));
+        }
+        else
+        {
+            Liquid.Fill = new SolidColorBrush(target);
+        }
+    }
+
+    private static Color Blend(Color a, Color b, double t) => Color.FromRgb(
+        (byte)(a.R + (b.R - a.R) * t), (byte)(a.G + (b.G - a.G) * t), (byte)(a.B + (b.B - a.B) * t));
+
+    /// <summary>Тёмные обложки дают почти чёрные столбики — подсветляем.</summary>
+    private static Color Lighten(Color c)
+    {
+        double lum = (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255;
+        return lum >= 0.55 ? c : Blend(c, Colors.White, 0.55 - lum);
     }
 
     public void UpdateWeather()

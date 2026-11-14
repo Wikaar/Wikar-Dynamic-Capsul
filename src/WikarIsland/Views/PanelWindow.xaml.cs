@@ -1144,6 +1144,14 @@ public partial class PanelWindow : Window
         BuildVpnServers();
         VpnDnsBox.Text = s.VpnDns;
         UpdateDnd();
+        BuildPillThemes();
+        PillOpacitySlider.Value = s.PillOpacity;
+        PillOpacityText.Text = $"{Math.Round(s.PillOpacity * 100)}%";
+        MusicGlowBox.IsChecked = s.MusicGlow;
+        MusicTintBox.IsChecked = s.MusicTint;
+        VisSpectrum.IsChecked = s.Visualizer == "spectrum";
+        VisSimple.IsChecked = s.Visualizer == "simple";
+        VisOff.IsChecked = s.Visualizer == "off";
         CommandHotkeyBox.Text = s.CommandHotkey;
         CommandHotkeyStatus.Text = "Например: Win+Alt+Space, Ctrl+Shift+Space";
         CommandAiGpt.IsChecked = s.CommandAi != "claude";
@@ -2818,5 +2826,64 @@ public partial class PanelWindow : Window
             return;
         }
         if (_focusTime != null && App.FocusTimer.Active) _focusTime.Text = FocusTimerService.Format(App.FocusTimer.Remaining);
+    }
+
+    // ---------- оформление капсулы ----------
+
+    private void BuildPillThemes()
+    {
+        PillThemes.Children.Clear();
+        foreach ((string key, string name, Color color) in PillWindow.Themes)
+        {
+            bool selected = App.Settings.PillTheme == key;
+            var swatch = new Border
+            {
+                Width = 16, Height = 16, CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(color),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)), BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center,
+            };
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(swatch);
+            content.Children.Add(new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center });
+            var b = new Button
+            {
+                Content = content,
+                Style = (Style)FindResource("FlatButton"),
+                Margin = new Thickness(0, 0, 6, 6),
+                Padding = new Thickness(9, 5, 11, 5),
+                FontSize = 12.5,
+                Background = selected ? new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80)) : new SolidColorBrush(Color.FromRgb(0x24, 0x24, 0x2A)),
+            };
+            b.Click += (_, _) =>
+            {
+                App.Settings.PillTheme = key;
+                App.Settings.Save();
+                App.Pill.ApplySettings();
+                BuildPillThemes();
+            };
+            PillThemes.Children.Add(b);
+        }
+    }
+
+    private void PillOpacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (PillOpacityText == null) return;
+        PillOpacityText.Text = $"{Math.Round(e.NewValue * 100)}%";
+        if (_loadingSettings) return;
+        App.Settings.PillOpacity = Math.Round(e.NewValue, 2);
+        App.Settings.Save();
+        App.Pill.ApplySettings();
+    }
+
+    private void Look_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        AppSettings s = App.Settings;
+        s.MusicGlow = MusicGlowBox.IsChecked == true;
+        s.MusicTint = MusicTintBox.IsChecked == true;
+        s.Visualizer = VisOff.IsChecked == true ? "off" : VisSimple.IsChecked == true ? "simple" : "spectrum";
+        s.Save();
+        App.Pill.ApplySettings();
     }
 }

@@ -35,6 +35,9 @@ public sealed class LiquidPill : FrameworkElement
     public DropShadowEffect? Glow { get; set; }
     public Color AccentColor { get; set; } = Colors.Black;
     public bool MusicPlaying { get; set; }
+
+    /// <summary>Свечение вокруг капсулы цветом обложки, пока играет музыка.</summary>
+    public bool GlowEnabled { get; set; } = true;
     public Func<float>? AudioLevel { get; set; }
 
     public bool FlushTop
@@ -112,7 +115,7 @@ public sealed class LiquidPill : FrameworkElement
     private void UpdateGlow()
     {
         if (Glow == null) return;
-        if (MusicPlaying && AccentColor != Colors.Black)
+        if (GlowEnabled && MusicPlaying && AccentColor != Colors.Black)
         {
             Glow.Color = AccentColor;
             Glow.BlurRadius = 10 + _level * 18;

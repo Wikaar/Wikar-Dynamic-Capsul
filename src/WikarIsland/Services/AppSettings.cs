@@ -69,6 +69,15 @@ public sealed class AppSettings
     public bool ZapretGameFilter { get; set; }  // старая галочка, переносится в ZapretGameMode
 
     /// <summary>Игровой фильтр: disabled, all (TCP и UDP), tcp, udp.</summary>
+    // оформление капсулы
+    /// <summary>Визуализатор: spectrum (под настоящий звук), simple (анимация), off.</summary>
+    public string Visualizer { get; set; } = "spectrum";
+    public bool MusicGlow { get; set; } = true;
+    /// <summary>Слегка окрашивать саму капсулу в цвет обложки.</summary>
+    public bool MusicTint { get; set; } = true;
+    public string PillTheme { get; set; } = "black";
+    public double PillOpacity { get; set; } = 1.0;
+
     // быстрая строка, Pomodoro
     public string CommandHotkey { get; set; } = "Win+Alt+Space";
     public string CommandAi { get; set; } = "chatgpt";

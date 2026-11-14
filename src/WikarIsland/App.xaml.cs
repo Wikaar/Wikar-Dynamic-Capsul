@@ -83,6 +83,22 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Запуск модуля, который может не работать в урезанных сборках Windows (нет нужных компонентов):
+    /// ошибка пишется в лог, остальной остров продолжает работать.
+    /// </summary>
+    private static void Safe(string module, Action start)
+    {
+        try
+        {
+            start();
+        }
+        catch (Exception ex)
+        {
+            LogError(new InvalidOperationException($"Модуль «{module}» не запустился", ex));
+        }
+    }
+
     /// <summary>Понятное окно вместо «Unknown Hard Error»: что упало и где лог.</summary>
     private static void ShowFatal(Exception ex)
     {
@@ -124,7 +140,7 @@ public partial class App : Application
         AudioRecorder = new AudioRecorderService();
         SystemMonitor = new SystemMonitorService();
         Vpn = new VpnService();
-        Vpn.RecoverAfterCrash();
+        Safe("VPN", Vpn.RecoverAfterCrash);
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -148,7 +164,7 @@ public partial class App : Application
         };
 
         ClipboardHistory.Changed += () => Panel.UpdateClipboard();
-        ClipboardHistory.Attach(Pill);
+        Safe("буфер обмена", () => ClipboardHistory.Attach(Pill));
 
         Steam.Changed += () =>
         {
@@ -241,12 +257,12 @@ public partial class App : Application
             Click = () => { },
         });
 
-        _ = Media.StartAsync();
-        Steam.Start();
-        Weather.Start();
-        Notifications.Start();
+        Safe("музыка", () => _ = Media.StartAsync());
+        Safe("Steam", Steam.Start);
+        Safe("погода", Weather.Start);
+        Safe("уведомления", Notifications.Start);
 
-        CreateTray();
+        Safe("трей", CreateTray);
     }
 
     private static void CreateTray()

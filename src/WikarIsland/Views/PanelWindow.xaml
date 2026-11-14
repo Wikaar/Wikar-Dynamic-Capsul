@@ -338,10 +338,13 @@
                                 </StackPanel>
                             </DockPanel>
                         </Button>
-                        <Button Style="{StaticResource ActionTile}" Click="RecordTile_Click" ToolTip="Запись области экрана через «Ножницы» Windows (Win+Shift+R)">
+                        <Button Style="{StaticResource ActionTile}" Click="RecordTile_Click" ToolTip="Запись экрана, на котором стоит пилюля, в MP4 (без звука). Остановить — клик по пилюле">
                             <DockPanel>
-                                <TextBlock Text="&#xE714;" Style="{StaticResource ActionIcon}"/>
-                                <TextBlock Text="Запись экрана" Style="{StaticResource ActionText}" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="RecordTileIcon" Text="&#xE714;" Style="{StaticResource ActionIcon}"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="RecordTileText" Text="Запись экрана" Style="{StaticResource ActionText}"/>
+                                    <TextBlock x:Name="RecordTileState" Text="идёт запись" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
+                                </StackPanel>
                             </DockPanel>
                         </Button>
                         <Button Style="{StaticResource ActionTile}" Click="AreaTile_Click" ToolTip="Скриншот выделенной области (Win+Shift+S)">

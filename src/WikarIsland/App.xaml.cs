@@ -21,6 +21,7 @@ public partial class App : Application
     public static SteamService Steam { get; private set; } = null!;
     public static PowerTimerService PowerTimer { get; private set; } = null!;
     public static NotesService Notes { get; private set; } = null!;
+    public static RecorderService Recorder { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -53,6 +54,7 @@ public partial class App : Application
         Steam = new SteamService();
         PowerTimer = new PowerTimerService();
         Notes = new NotesService();
+        Recorder = new RecorderService();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -100,6 +102,32 @@ public partial class App : Application
             Panel.UpdateTimer();
         };
 
+        Recorder.StateChanged += () =>
+        {
+            Pill.UpdateRecording();
+            Panel.UpdateRecording();
+        };
+        Recorder.Finished += (path, error) => Pill.ShowNotification(path != null
+            ? new NotificationItem
+            {
+                AppId = "recorder",
+                AppName = "Запись экрана",
+                AppIcon = ShellHelper.GetIcon(path),
+                Title = "Запись сохранена",
+                Body = System.IO.Path.GetFileName(path) + " — нажми, чтобы открыть",
+                Time = DateTime.Now,
+                Click = () => ShellHelper.Open(path),
+            }
+            : new NotificationItem
+            {
+                AppId = "recorder",
+                AppName = "Запись экрана",
+                Title = "Не получилось записать экран",
+                Body = error ?? "Подробности в error.log",
+                Time = DateTime.Now,
+                Click = () => { },
+            });
+
         _ = Media.StartAsync();
         Steam.Start();
         Weather.Start();
@@ -139,6 +167,7 @@ public partial class App : Application
         }
         Settings.Save();
         Notes?.Save();
+        Recorder?.Stop();
         Current.Shutdown();
     }
 

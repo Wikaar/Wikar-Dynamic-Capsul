@@ -1488,9 +1488,22 @@ public partial class PanelWindow : Window
 
     private async void RecordTile_Click(object sender, RoutedEventArgs e)
     {
+        if (App.Recorder.IsRecording)
+        {
+            App.Recorder.Stop();
+            return;
+        }
         HideIsland();
-        await Task.Delay(350); // даём панели свернуться, чтобы она не попала в кадр
-        ScreenTools.WinShift('R');
+        await Task.Delay(400); // даём панели свернуться, чтобы она не попала в кадр
+        App.Recorder.Start(ScreenHelper.ScreenOf(App.Pill));
+    }
+
+    public void UpdateRecording()
+    {
+        bool rec = App.Recorder.IsRecording;
+        RecordTileText.Text = rec ? "Остановить запись" : "Запись экрана";
+        RecordTileIcon.Text = rec ? "\uE71A" : "\uE714";
+        RecordTileState.Visibility = rec ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void AreaTile_Click(object sender, RoutedEventArgs e)

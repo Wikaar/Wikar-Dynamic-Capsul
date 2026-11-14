@@ -172,18 +172,26 @@ public partial class PillWindow : Window
         // приоритет: таймер (последняя минута) > уведомление > громкость > музыка > загрузка Steam > обычное
         MediaInfo? m = App.Media?.Current;
         bool timer = App.PowerTimer?.InWarning == true;
+        bool recording = !timer && App.Recorder?.IsRecording == true;
         bool card = !timer && _card != null;
         bool volume = !timer && !card && DateTime.Now < _volumeUntil;
-        bool music = !timer && !card && !volume && App.Settings.MusicInPill && m != null
+        if (card || volume) recording = false;
+        bool music = !timer && !recording && !card && !volume && App.Settings.MusicInPill && m != null
                      && (m.IsPlaying || (DateTime.Now - _lastPlaying).TotalSeconds < 15);
-        bool steam = !timer && !card && !volume && !music && App.Steam?.Downloads.Count > 0;
+        bool steam = !timer && !recording && !card && !volume && !music && App.Steam?.Downloads.Count > 0;
 
         TimerPart.Visibility = timer ? Visibility.Visible : Visibility.Collapsed;
+        RecordPart.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
+        if (recording)
+        {
+            TimeSpan t = DateTime.Now - App.Recorder!.StartedAt;
+            RecordTime.Text = $"{(int)t.TotalMinutes}:{t.Seconds:00}";
+        }
         NotifyPart.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
         VolumePart.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
         MusicPart.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
         SteamPart.Visibility = steam ? Visibility.Visible : Visibility.Collapsed;
-        IdlePart.Visibility = !timer && !card && !volume && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
+        IdlePart.Visibility = !timer && !recording && !card && !volume && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
 
         if (timer)
             TimerTitle.Text = $"{PowerTimerService.ActionName(App.PowerTimer!.Action)} через {Math.Ceiling(App.PowerTimer.Remaining.TotalSeconds):0} с";
@@ -318,6 +326,24 @@ public partial class PillWindow : Window
         {
             TimeSpan t = DateTime.Now - steam.RunningSince;
             GameChip.Text = $"▶ {steam.RunningName} · {(int)t.TotalHours}:{t.Minutes:00}";
+        }
+        UpdateContent();
+    }
+
+    public void UpdateRecording()
+    {
+        if (App.Recorder.IsRecording)
+        {
+            if (_hidden) SlideIn();
+            RecordDot.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.25, TimeSpan.FromSeconds(0.7))
+            {
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+            });
+        }
+        else
+        {
+            RecordDot.BeginAnimation(OpacityProperty, null);
         }
         UpdateContent();
     }
@@ -492,6 +518,10 @@ public partial class PillWindow : Window
             try { DragMove(); } catch (InvalidOperationException) { }
             SnapAndSave();
         }
+        else if (App.Recorder.IsRecording && _card == null)
+        {
+            App.Recorder.Stop();
+        }
         else if (App.PowerTimer.InWarning)
         {
             App.PowerTimer.Cancel();
@@ -586,7 +616,7 @@ public partial class PillWindow : Window
         }
 
         var near = new Rect(pill.Left - 30, b.Top - 2, pill.Width + 60, pill.Bottom - b.Top + 30);
-        if (near.Contains(c) || App.Panel.IsVisible || _card != null || App.PowerTimer.InWarning || Pill.ContextMenu?.IsOpen == true)
+        if (near.Contains(c) || App.Panel.IsVisible || _card != null || App.PowerTimer.InWarning || App.Recorder.IsRecording || Pill.ContextMenu?.IsOpen == true)
         {
             _awaySince = null;
             return;

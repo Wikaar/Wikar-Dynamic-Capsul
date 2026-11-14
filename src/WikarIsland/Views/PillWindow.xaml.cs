@@ -63,6 +63,9 @@ public partial class PillWindow : Window
         };
 
         BuildContextMenu();
+
+        Liquid.Glow = PillGlow;
+        Liquid.AudioLevel = () => App.Audio.Peak;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -113,10 +116,11 @@ public partial class PillWindow : Window
         TimeText.Visibility = mode == "eyes" ? Visibility.Collapsed : Visibility.Visible;
         TimeText.Margin = new Thickness(mode == "clock" && PillWeather.Visibility != Visibility.Visible ? 2 : 10, 0, 2, 0);
 
-        Pill.BorderBrush = s.Unlocked
-            ? (Brush)FindResource("Accent")
-            : new SolidColorBrush(Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF));
-        Pill.BorderThickness = new Thickness(s.Unlocked ? 1.6 : 1);
+        Liquid.Outline = s.Unlocked
+            ? new Pen((Brush)FindResource("Accent"), 1.6)
+            : new Pen(new SolidColorBrush(Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF)), 1);
+        Liquid.InvalidateVisual();
+        UpdateFlush();
         Pill.Cursor = s.Unlocked ? Cursors.SizeAll : Cursors.Arrow;
 
         UpdateWeather();
@@ -136,11 +140,15 @@ public partial class PillWindow : Window
             PillAppIcon.Source = m.Cover != null ? m.AppIcon : null;
             PillTrack.Text = string.IsNullOrEmpty(m.Artist) ? m.Title : $"{m.Title} — {m.Artist}";
             Eq.SetPlaying(m.IsPlaying);
+            Liquid.MusicPlaying = m.IsPlaying && App.Settings.MusicInPill;
+            Liquid.AccentColor = m.Accent ?? Colors.Black;
+            Eq.BarBrush = new SolidColorBrush(m.Accent ?? Colors.White);
             if (m.IsPlaying) _lastPlaying = DateTime.Now;
         }
         else
         {
             Eq.SetPlaying(false);
+            Liquid.MusicPlaying = false;
         }
         UpdateContent();
     }
@@ -235,6 +243,7 @@ public partial class PillWindow : Window
         _cardUntil = DateTime.Now.AddSeconds(6);
 
         _hoverTimer.Stop();
+        Liquid.Pulse();
         UpdateContent();
     }
 
@@ -267,7 +276,7 @@ public partial class PillWindow : Window
 
     private void AnimatePillHeight(double height, double radius)
     {
-        Pill.CornerRadius = new CornerRadius(radius);
+        Liquid.CornerRadius = radius;
         Pill.BeginAnimation(HeightProperty, new DoubleAnimation(height, TimeSpan.FromMilliseconds(220))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
@@ -347,6 +356,15 @@ public partial class PillWindow : Window
         Pill.VerticalAlignment = Top + Height / 2 > b.Top + b.Height / 2
             ? VerticalAlignment.Bottom
             : VerticalAlignment.Top;
+        UpdateFlush();
+    }
+
+    /// <summary>У верхнего края экрана пилюля срастается с рамкой монитора.</summary>
+    private void UpdateFlush()
+    {
+        bool flush = !App.Settings.Unlocked && IsDockedTop() && Pill.VerticalAlignment == VerticalAlignment.Top;
+        Liquid.FlushTop = flush;
+        Pill.RenderTransformOrigin = flush ? new Point(0.5, 0) : new Point(0.5, 0.5);
     }
 
     /// <summary>Прямоугольник самой пилюли на экране (DIP), без прозрачных полей окна.</summary>

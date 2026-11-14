@@ -36,6 +36,39 @@ public sealed class AudioService
         }
     }
 
+    private IAudioMeterInformation? _meter;
+    private DateTime _meterAt;
+
+    /// <summary>Текущий пик звука 0..1 на устройстве по умолчанию — для «живой» пилюли.</summary>
+    public float Peak
+    {
+        get
+        {
+            try
+            {
+                if (_meter == null || (DateTime.Now - _meterAt).TotalSeconds > 3)
+                {
+                    _meterAt = DateTime.Now;
+                    _meter = null;
+                    if (_enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia, out IMMDevice device) == 0)
+                    {
+                        Guid iid = typeof(IAudioMeterInformation).GUID;
+                        device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out object o);
+                        _meter = (IAudioMeterInformation)o;
+                    }
+                }
+                if (_meter == null) return 0;
+                _meter.GetPeakValue(out float peak);
+                return peak;
+            }
+            catch
+            {
+                _meter = null;
+                return 0;
+            }
+        }
+    }
+
     /// <summary>Громкость 0..1, или -1, если устройства нет.</summary>
     public float Volume
     {
@@ -205,6 +238,15 @@ public sealed class AudioService
         [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);
         [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid context);
         [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
+    }
+
+    [ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioMeterInformation
+    {
+        [PreserveSig] int GetPeakValue(out float peak);
+        [PreserveSig] int GetMeteringChannelCount(out uint count);
+        [PreserveSig] int GetChannelsPeakValues(uint count, IntPtr peaks);
+        [PreserveSig] int QueryHardwareSupport(out uint mask);
     }
 
     [ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

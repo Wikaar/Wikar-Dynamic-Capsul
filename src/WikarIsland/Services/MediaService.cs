@@ -29,6 +29,9 @@ public sealed class MediaInfo
     public string AppName { get; init; } = "";
     public string AppId { get; init; } = "";
 
+    /// <summary>Основной цвет обложки (для свечения пилюли и эквалайзера).</summary>
+    public Color? Accent { get; init; }
+
     /// <summary>Позиция «сейчас» с учётом времени, прошедшего с последнего обновления.</summary>
     public TimeSpan LivePosition
     {
@@ -56,6 +59,7 @@ public sealed class MediaService
     private GlobalSystemMediaTransportControlsSession? _session;
     private string _coverKey = "";
     private ImageSource? _cover;
+    private Color? _accent;
     private string _iconKey = "";
     private (ImageSource? icon, string name) _icon;
 
@@ -154,6 +158,7 @@ public sealed class MediaService
             {
                 _coverKey = coverKey;
                 _cover = await ReadImageAsync(props.Thumbnail);
+                _accent = _cover is BitmapSource bmp ? ColorHelper.Dominant(bmp) : null;
             }
 
             if (appId != _iconKey)
@@ -171,6 +176,7 @@ public sealed class MediaService
                 Duration = timeline != null ? timeline.EndTime - timeline.StartTime : TimeSpan.Zero,
                 PositionUpdated = timeline?.LastUpdatedTime ?? default,
                 Cover = _cover,
+                Accent = _accent,
                 AppIcon = _icon.icon,
                 AppName = _icon.name,
                 AppId = appId,
@@ -242,6 +248,44 @@ public sealed class MediaService
     public async void Seek(TimeSpan position)
     {
         try { if (_session != null) await _session.TryChangePlaybackPositionAsync(position.Ticks); } catch { }
+    }
+}
+
+/// <summary>Яркий основной цвет картинки.</summary>
+internal static class ColorHelper
+{
+    public static Color? Dominant(BitmapSource source)
+    {
+        try
+        {
+            double scale = 24.0 / Math.Max(source.PixelWidth, source.PixelHeight);
+            BitmapSource small = new TransformedBitmap(source, new ScaleTransform(scale, scale));
+            var bgra = new FormatConvertedBitmap(small, PixelFormats.Bgra32, null, 0);
+            int w = bgra.PixelWidth, h = bgra.PixelHeight, stride = w * 4;
+            byte[] px = new byte[stride * h];
+            bgra.CopyPixels(px, stride, 0);
+
+            double r = 0, g = 0, b = 0, total = 0;
+            for (int i = 0; i < px.Length; i += 4)
+            {
+                double pb = px[i], pg = px[i + 1], pr = px[i + 2];
+                double max = Math.Max(pr, Math.Max(pg, pb)), min = Math.Min(pr, Math.Min(pg, pb));
+                double weight = 0.05 + (max - min) / 255.0 * (max / 255.0); // яркие и насыщенные важнее
+                r += pr * weight; g += pg * weight; b += pb * weight; total += weight;
+            }
+            if (total <= 0) return null;
+            r /= total; g /= total; b /= total;
+
+            // поднимаем яркость, чтобы свечение было видно на тёмном
+            double m = Math.Max(r, Math.Max(g, b));
+            if (m < 1) return Color.FromRgb(200, 200, 210);
+            double k = Math.Min(255 / m, 1.6);
+            return Color.FromRgb((byte)Math.Min(255, r * k), (byte)Math.Min(255, g * k), (byte)Math.Min(255, b * k));
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 

@@ -743,6 +743,46 @@
                     <TextBlock x:Name="HotkeyStatus" Style="{StaticResource Hint}" Margin="0,6,0,0"
                                Text="Например: Ctrl+Alt+Space, Win+Shift+I, Alt+Q"/>
 
+                    <TextBlock Text="Не беспокоить" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                               Text="Уведомления не всплывают в капсуле, но остаются в истории. Когда режим выключится, остров покажет, сколько их пришло. Быстро включить — в меню значка в трее."/>
+                    <CheckBox x:Name="DndManualBox" Content="Включить сейчас" Style="{StaticResource SettingsCheck}" Click="Dnd_Changed"/>
+                    <CheckBox x:Name="DndFullscreenBox" Content="Автоматически, пока открыта игра или видео на весь экран" Style="{StaticResource SettingsCheck}" Click="Dnd_Changed"/>
+                    <CheckBox x:Name="DndHidePillBox" Content="…и прятать саму капсулу" Style="{StaticResource SettingsCheck}" Margin="24,0,0,6" Click="Dnd_Changed"/>
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox x:Name="DndScheduleBox" Content="По расписанию с" Style="{StaticResource SettingsCheck}" Click="Dnd_Changed" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DndFromBox" Width="60" Padding="6,3" Margin="8,0,6,0" FontSize="12.5" VerticalAlignment="Center" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5" LostFocus="DndTime_LostFocus"/>
+                        <TextBlock Text="до" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DndToBox" Width="60" Padding="6,3" Margin="6,0,0,0" FontSize="12.5" VerticalAlignment="Center" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5" LostFocus="DndTime_LostFocus"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Обновления" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock x:Name="UpdateStatusText" Style="{StaticResource Hint}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="UpdateCheckButton" Style="{StaticResource FlatButton}" Margin="0" Content="Проверить обновления" Click="UpdateCheck_Click"/>
+                        <Button x:Name="UpdateInstallButton" Style="{StaticResource FlatButton}" Content="Обновить" Visibility="Collapsed" Click="UpdateInstall_Click"
+                                Background="#3A4580"/>
+                        <Button x:Name="UpdateNotesButton" Style="{StaticResource FlatButton}" Content="Что нового" Visibility="Collapsed" Click="UpdateNotes_Click"/>
+                    </StackPanel>
+                    <CheckBox x:Name="AutoUpdateBox" Content="Проверять обновления автоматически (раз в сутки)" Style="{StaticResource SettingsCheck}" Margin="0,8,0,0" Click="AutoUpdate_Click"/>
+
+                    <TextBlock Text="Резервная копия" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Все настройки, заметки, ярлыки и VPN-серверы в одном файле — для переустановки Windows или чтобы перенести остров на другой компьютер."/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource FlatButton}" Margin="0" Content="Сохранить копию…" Click="BackupExport_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Восстановить из копии…" Click="BackupImport_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="BackupStatusText" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+
+                    <TextBlock Text="Журнал ошибок" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock x:Name="LogStatusText" Style="{StaticResource Hint}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource FlatButton}" Margin="0" Content="Скопировать" Click="LogCopy_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Открыть" Click="LogOpen_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Очистить" Click="LogClear_Click"/>
+                    </StackPanel>
+
                     <TextBlock Text="ИИ-чаты" Style="{StaticResource SectionTitle}"/>
                     <TextBlock Style="{StaticResource Hint}"
                                Text="ChatGPT, Claude, Gemini, DeepSeek и DeepL открываются как сайты. Вход в аккаунты сохраняется."/>

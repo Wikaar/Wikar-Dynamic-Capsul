@@ -44,6 +44,8 @@ public partial class PillWindow : Window
         _clockTimer.Tick += (_, _) =>
         {
             UpdateTime();
+            FocusService.Poll();
+            UpdateDnd();
             UpdateContent();
             CheckDiscordFocused();
         };
@@ -198,6 +200,8 @@ public partial class PillWindow : Window
         VpnChip.Visibility = !timer && !recording && !card && !volume && App.Settings.VpnServers.Count > 0
                              && (App.Settings.VpnShowInPill || App.Vpn?.IsConnected == true)
             ? Visibility.Visible : Visibility.Collapsed;
+        DndIcon.Visibility = !timer && !recording && !card && !volume && FocusService.Active
+            ? Visibility.Visible : Visibility.Collapsed;
         ZapretChip.Visibility = !timer && !recording && !card && !volume && App.Zapret?.Installed == true
                                 && (App.Settings.ZapretShowInPill || App.Zapret.IsRunning)
             ? Visibility.Visible : Visibility.Collapsed;
@@ -243,6 +247,65 @@ public partial class PillWindow : Window
         App.Panel.RefreshSound();
         e.Handled = true;
     }
+
+    // ---------- «Не беспокоить» ----------
+
+    private int _missed;
+    private bool _dndWas;
+    private bool _pillHiddenForFullscreen;
+
+    /// <summary>Уведомление пришло в режиме «Не беспокоить» — запоминаем, покажем итог потом.</summary>
+    public void CountMissed()
+    {
+        _missed++;
+        UpdateDiscordBadge();
+    }
+
+    public void UpdateDnd()
+    {
+        bool active = FocusService.Active;
+        if (_dndWas && !active && _missed > 0)
+        {
+            int n = _missed;
+            _missed = 0;
+            ShowNotification(new NotificationItem
+            {
+                AppId = "wikar.dnd",
+                AppName = "Wikar Island",
+                Title = "Пока было «Не беспокоить»",
+                Body = $"Пришло уведомлений: {n}. Нажми, чтобы посмотреть",
+                Time = DateTime.Now,
+                Click = () => App.Panel.ShowTab("home", activate: true),
+            });
+        }
+        _dndWas = active;
+
+        // игра или видео на весь экран — прячем саму капсулу (кроме предупреждения таймера выключения)
+        bool hide = FocusService.HidePill && App.PowerTimer?.InWarning != true && !App.Panel.IsVisible;
+        if (hide != _pillHiddenForFullscreen)
+        {
+            _pillHiddenForFullscreen = hide;
+            BeginAnimation(OpacityProperty, new DoubleAnimation(hide ? 0 : 1, TimeSpan.FromMilliseconds(250)));
+        }
+    }
+
+    private void DndIcon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (App.Settings.DndManual) App.SetDnd(false);
+        else App.Panel.ShowTab("settings", activate: true);
+    }
+
+    /// <summary>Вышла новая версия острова — карточка, по клику открываем настройки с кнопкой обновления.</summary>
+    public void ShowUpdateAvailable(string tag) => ShowNotification(new NotificationItem
+    {
+        AppId = "wikar.update",
+        AppName = "Wikar Island",
+        Title = $"Доступна версия {tag}",
+        Body = "Нажми, чтобы обновить остров",
+        Time = DateTime.Now,
+        Click = () => App.Panel.ShowTab("settings", activate: true),
+    });
 
     // ---------- уведомления ----------
 

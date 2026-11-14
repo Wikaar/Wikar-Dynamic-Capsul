@@ -28,6 +28,10 @@
             <!-- живая подложка: форма пилюли рисуется здесь -->
             <controls:LiquidPill x:Name="Liquid"/>
             <StackPanel Orientation="Horizontal" Margin="12,0" HorizontalAlignment="Center">
+                <!-- «Не беспокоить» -->
+                <TextBlock x:Name="DndIcon" Visibility="Collapsed" Text="&#xE708;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                           FontSize="12.5" Foreground="#B9A6FF" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand"
+                           ToolTip="Не беспокоить — нажми, чтобы выключить" MouseLeftButtonDown="DndIcon_MouseLeftButtonDown"/>
                 <!-- VPN: один клик — подключить / отключить -->
                 <Border x:Name="VpnChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="7,3"
                         Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"

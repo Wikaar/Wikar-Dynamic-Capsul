@@ -1118,6 +1118,10 @@ public partial class PanelWindow : Window
         NotificationsBox.IsChecked = s.NotificationsEnabled;
         BuildVpnServers();
         VpnDnsBox.Text = s.VpnDns;
+        UpdateDnd();
+        AutoUpdateBox.IsChecked = s.AutoUpdateCheck;
+        UpdateUpdater();
+        UpdateLogStatus();
         UpdateZapret();
         BuildEyeStyles();
         BuildNotificationApps();
@@ -2421,5 +2425,179 @@ public partial class PanelWindow : Window
         {
             ZapretToolMessage.Text = message;
         }
+    }
+
+    // ---------- «Не беспокоить» ----------
+
+    public void UpdateDnd()
+    {
+        bool was = _loadingSettings;
+        _loadingSettings = true;
+        AppSettings s = App.Settings;
+        DndManualBox.IsChecked = s.DndManual;
+        DndFullscreenBox.IsChecked = s.DndFullscreen;
+        DndHidePillBox.IsChecked = s.DndHidePill;
+        DndHidePillBox.IsEnabled = s.DndFullscreen;
+        DndScheduleBox.IsChecked = s.DndSchedule;
+        if (!DndFromBox.IsKeyboardFocused) DndFromBox.Text = s.DndFrom;
+        if (!DndToBox.IsKeyboardFocused) DndToBox.Text = s.DndTo;
+        _loadingSettings = was;
+    }
+
+    private void Dnd_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        AppSettings s = App.Settings;
+        s.DndFullscreen = DndFullscreenBox.IsChecked == true;
+        s.DndHidePill = DndHidePillBox.IsChecked == true;
+        s.DndSchedule = DndScheduleBox.IsChecked == true;
+        App.SetDnd(DndManualBox.IsChecked == true); // сохраняет и обновляет капсулу
+    }
+
+    private void DndTime_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var box = (TextBox)sender;
+        if (TimeSpan.TryParse(box.Text.Trim(), out TimeSpan t) && t.TotalHours < 24)
+        {
+            string value = $"{t.Hours:00}:{t.Minutes:00}";
+            box.Text = value;
+            if (box == DndFromBox) App.Settings.DndFrom = value;
+            else App.Settings.DndTo = value;
+            App.Settings.Save();
+        }
+        else
+        {
+            box.Text = box == DndFromBox ? App.Settings.DndFrom : App.Settings.DndTo;
+        }
+    }
+
+    // ---------- обновления ----------
+
+    private void UpdateUpdater()
+    {
+        UpdateService u = App.Updater;
+        string current = UpdateService.Current.ToString(3);
+        UpdateStatusText.Text = u.IsBusy ? UpdateStatusText.Text
+            : u.LatestTag == null ? $"Установлена версия {current}"
+            : u.Available ? $"Установлена {current} · доступна {u.LatestTag}"
+            : $"Установлена последняя версия ({current})";
+        UpdateInstallButton.Visibility = u.Available ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNotesButton.Visibility = u.Available && !string.IsNullOrWhiteSpace(u.LatestNotes) ? Visibility.Visible : Visibility.Collapsed;
+        UpdateCheckButton.IsEnabled = UpdateInstallButton.IsEnabled = !u.IsBusy;
+    }
+
+    private async void UpdateCheck_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateStatusText.Text = "Проверяю…";
+        try
+        {
+            await App.Updater.CheckAsync();
+            UpdateUpdater();
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = "Не удалось проверить: " + ex.Message;
+        }
+    }
+
+    private async void UpdateInstall_Click(object sender, RoutedEventArgs e)
+    {
+        var progress = new Progress<string>(t => UpdateStatusText.Text = t);
+        try
+        {
+            await App.Updater.InstallAsync(progress);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            UpdateStatusText.Text = "Не удалось обновить: " + ex.Message;
+            UpdateUpdater();
+        }
+    }
+
+    private void UpdateNotes_Click(object sender, RoutedEventArgs e) =>
+        MessageBox.Show(App.Updater.LatestNotes ?? "", $"Что нового в {App.Updater.LatestTag}", MessageBoxButton.OK, MessageBoxImage.Information);
+
+    private void AutoUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.AutoUpdateCheck = AutoUpdateBox.IsChecked == true;
+        App.Settings.Save();
+    }
+
+    // ---------- резервная копия ----------
+
+    private void BackupExport_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"WikarIsland-backup-{DateTime.Now:yyyy-MM-dd}.zip",
+            Filter = "Резервная копия (*.zip)|*.zip",
+        };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            BackupStatusText.Text = BackupService.Export(dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            BackupStatusText.Text = "Не удалось сохранить: " + ex.Message;
+        }
+    }
+
+    private void BackupImport_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Резервная копия (*.zip)|*.zip" };
+        if (dialog.ShowDialog() != true) return;
+        if (MessageBox.Show("Текущие настройки, заметки и ярлыки заменятся данными из копии, остров перезапустится. Продолжить?",
+                "Восстановить из копии", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        try
+        {
+            BackupService.Import(dialog.FileName);
+            App.Restart(saveSettings: false);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            BackupStatusText.Text = "Не удалось восстановить: " + ex.Message;
+        }
+    }
+
+    // ---------- журнал ошибок ----------
+
+    private static string LogPath => System.IO.Path.Combine(AppSettings.DataDir, "error.log");
+
+    private void UpdateLogStatus()
+    {
+        var info = new System.IO.FileInfo(LogPath);
+        LogStatusText.Text = !info.Exists || info.Length == 0
+            ? "Ошибок не было"
+            : $"Записей: {System.IO.File.ReadAllText(LogPath).Split("\n\n[", StringSplitOptions.RemoveEmptyEntries).Length}, последняя — {info.LastWriteTime:dd.MM HH:mm}. Если что-то сломалось, нажми «Скопировать» и пришли текст.";
+    }
+
+    private void LogCopy_Click(object sender, RoutedEventArgs e)
+    {
+        string text = System.IO.File.Exists(LogPath) ? System.IO.File.ReadAllText(LogPath) : "";
+        string header = $"Wikar Island {UpdateService.Current.ToString(3)} · Windows {Environment.OSVersion.Version} · " +
+                        $"{(SystemMonitorService.IsAdmin ? "администратор" : "обычные права")}\n\n";
+        // последние ~30 КБ, чтобы влезло в сообщение
+        if (text.Length > 30000) text = "…\n" + text[^30000..];
+        Clipboard.SetText(header + (text.Length > 0 ? text : "Ошибок нет"));
+        LogStatusText.Text = "Скопировано в буфер обмена";
+    }
+
+    private void LogOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (!System.IO.File.Exists(LogPath))
+        {
+            LogStatusText.Text = "Ошибок не было — журнал пуст";
+            return;
+        }
+        ShellHelper.Open(LogPath);
+    }
+
+    private void LogClear_Click(object sender, RoutedEventArgs e)
+    {
+        try { System.IO.File.Delete(LogPath); } catch { }
+        UpdateLogStatus();
     }
 }

@@ -26,6 +26,7 @@ public partial class App : Application
     public static SystemMonitorService SystemMonitor { get; private set; } = null!;
     public static VpnService Vpn { get; private set; } = null!;
     public static ZapretService Zapret { get; private set; } = null!;
+    public static UpdateService Updater { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -142,6 +143,7 @@ public partial class App : Application
         SystemMonitor = new SystemMonitorService();
         Vpn = new VpnService();
         Zapret = new ZapretService();
+        Updater = new UpdateService();
         ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
@@ -159,7 +161,11 @@ public partial class App : Application
             Pill.UpdateWeather();
             Panel.UpdateWeather();
         };
-        Notifications.Arrived += item => Pill.ShowNotification(item);
+        Notifications.Arrived += item =>
+        {
+            if (FocusService.Active) Pill.CountMissed(); // «Не беспокоить»: только в истории
+            else Pill.ShowNotification(item);
+        };
         Notifications.HistoryChanged += () =>
         {
             Pill.UpdateDiscordBadge();
@@ -274,6 +280,15 @@ public partial class App : Application
         });
         if (Settings.ZapretAutoStart && Zapret.Installed && SystemMonitorService.IsAdmin)
             Safe("zapret", () => Zapret.Start());
+
+        // проверка обновлений — через полминуты после запуска, раз в сутки
+        var updateTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        updateTimer.Tick += async (_, _) =>
+        {
+            updateTimer.Interval = TimeSpan.FromHours(6);
+            await Updater.AutoCheckAsync();
+        };
+        updateTimer.Start();
         Pill.UpdateZapret();
     }
 
@@ -282,6 +297,10 @@ public partial class App : Application
         var menu = new WF.ContextMenuStrip();
         menu.Items.Add("Открыть остров", null, (_, _) => Panel.Toggle(activate: true));
         menu.Items.Add("Настройки", null, (_, _) => Panel.ShowTab("settings", activate: true));
+        var dnd = new WF.ToolStripMenuItem("Не беспокоить") { CheckOnClick = true };
+        dnd.Click += (_, _) => SetDnd(dnd.Checked);
+        menu.Opening += (_, _) => dnd.Checked = Settings.DndManual;
+        menu.Items.Add(dnd);
         menu.Items.Add("Вернуть пилюлю по центру", null, (_, _) => Pill.ResetPosition());
         menu.Items.Add(new WF.ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => Quit());
@@ -299,6 +318,26 @@ public partial class App : Application
         };
     }
 
+    public static void SetDnd(bool on)
+    {
+        Settings.DndManual = on;
+        Settings.Save();
+        Pill?.UpdateDnd();
+        Panel?.UpdateDnd();
+    }
+
+    private static bool _skipSave;
+
+    /// <summary>Перезапуск острова; saveSettings=false — когда настройки только что подменили из копии.</summary>
+    public static void Restart(bool saveSettings = true)
+    {
+        if (Environment.ProcessPath is not { } exe) return;
+        _skipSave = !saveSettings;
+        if (!saveSettings) AppSettings.Frozen = true;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, $"--wait-for {Environment.ProcessId}") { UseShellExecute = true });
+        Quit();
+    }
+
     public static void Quit()
     {
         if (_tray != null)
@@ -306,8 +345,11 @@ public partial class App : Application
             _tray.Visible = false;
             _tray.Dispose();
         }
-        Settings.Save();
-        Notes?.Save();
+        if (!_skipSave)
+        {
+            Settings.Save();
+            Notes?.Save();
+        }
         Recorder?.Stop();
         AudioRecorder?.Stop();
         SystemMonitor?.Dispose();

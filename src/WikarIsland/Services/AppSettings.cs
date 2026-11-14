@@ -69,6 +69,19 @@ public sealed class AppSettings
     public bool ZapretGameFilter { get; set; }  // старая галочка, переносится в ZapretGameMode
 
     /// <summary>Игровой фильтр: disabled, all (TCP и UDP), tcp, udp.</summary>
+    // обновления
+    public bool AutoUpdateCheck { get; set; } = true;
+    public DateTime? LastUpdateCheck { get; set; }
+    public string? SkippedUpdate { get; set; }
+
+    // «Не беспокоить»
+    public bool DndManual { get; set; }
+    public bool DndFullscreen { get; set; } = true;
+    public bool DndHidePill { get; set; } = true;
+    public bool DndSchedule { get; set; }
+    public string DndFrom { get; set; } = "23:00";
+    public string DndTo { get; set; } = "08:00";
+
     public bool ZapretShowInPill { get; set; } = true;
     public bool VpnShowInPill { get; set; } = true;
 
@@ -114,8 +127,12 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
+    /// <summary>Запрет записи: настройки только что восстановлены из копии и остров перезапускается.</summary>
+    public static bool Frozen { get; set; }
+
     public void Save()
     {
+        if (Frozen) return;
         try
         {
             Directory.CreateDirectory(DataDir);

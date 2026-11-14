@@ -53,6 +53,57 @@ public partial class App : Application
             LogError(args.Exception);
             args.Handled = true;
         };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+            {
+                LogError(ex);
+                ShowFatal(ex);
+            }
+        };
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            LogError(args.Exception);
+            args.SetObserved();
+        };
+
+        try
+        {
+            StartApp();
+        }
+        catch (Exception ex)
+        {
+            LogError(ex);
+            ShowFatal(ex);
+            Shutdown();
+        }
+    }
+
+    /// <summary>Понятное окно вместо «Unknown Hard Error»: что упало и где лог.</summary>
+    private static void ShowFatal(Exception ex)
+    {
+        try
+        {
+            string log = System.IO.Path.Combine(AppSettings.DataDir, "error.log");
+            MessageBox.Show(
+                "Wikar Island не смог запуститься.\n\n" +
+                $"{ex.GetType().Name}: {ex.Message}\n\n" +
+                $"Windows {Environment.OSVersion.Version}\n" +
+                $"Подробности записаны в:\n{log}",
+                "Wikar Island — ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        catch
+        {
+            // даже окно показать не получилось
+        }
+    }
+
+    private void StartApp()
+    {
+        // Windows 10 старше версии 2004 (сборка 19041) не умеет нужные системные функции
+        if (Environment.OSVersion.Version.Build < 19041)
+            throw new PlatformNotSupportedException(
+                $"Нужна Windows 10 версии 2004 (сборка 19041) или новее, а здесь сборка {Environment.OSVersion.Version.Build}. Обнови Windows.");
 
         Settings = AppSettings.Load();
         if (Settings.AutoStart && !Settings.AutoStartElevated) AutoStart.Apply(true, false); // обновить путь, если exe переехал

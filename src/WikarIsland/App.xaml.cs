@@ -100,10 +100,10 @@ public partial class App : Application
 
     private void StartApp()
     {
-        // Windows 10 старше версии 2004 (сборка 19041) не умеет нужные системные функции
-        if (Environment.OSVersion.Version.Build < 19041)
+        // Windows 10 старше 1809 (сборка 17763) не умеет системные функции, на которых держится остров
+        if (Environment.OSVersion.Version.Build < 17763)
             throw new PlatformNotSupportedException(
-                $"Нужна Windows 10 версии 2004 (сборка 19041) или новее, а здесь сборка {Environment.OSVersion.Version.Build}. Обнови Windows.");
+                $"Нужна Windows 10 версии 1809 (сборка 17763) или новее, а здесь сборка {Environment.OSVersion.Version.Build}. Обнови Windows.");
 
         Settings = AppSettings.Load();
         if (Settings.AutoStart && !Settings.AutoStartElevated) AutoStart.Apply(true, false); // обновить путь, если exe переехал

@@ -296,7 +296,8 @@ internal static class AppIconHelper
     {
         if (string.IsNullOrEmpty(appId)) return (null, "");
 
-        // 1) приложения из Microsoft Store и программы, зарегистрированные в меню «Пуск»
+        // 1) приложения из Microsoft Store и программы, зарегистрированные в меню «Пуск» (Windows 10 2004+)
+        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
         try
         {
             AppInfo info = AppInfo.GetFromAppUserModelId(appId);

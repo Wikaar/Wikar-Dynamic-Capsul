@@ -118,5 +118,10 @@
   "version": "0.12.0",
   "sha": "9404cde205c2ac50547113d7b35f3f3ee8b470f0",
   "title": "zapret: все опции service.bat"
+ },
+ {
+  "version": "0.12.1",
+  "sha": "9cee55c0d823930dd5f246036ea1687dbef624e9",
+  "title": "Диагностика zapret на русской Windows"
  }
 ]

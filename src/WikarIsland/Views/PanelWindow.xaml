@@ -607,6 +607,8 @@
                     <TextBlock Text="Общее" Style="{StaticResource SectionTitle}" Margin="0,6,0,6"/>
                     <CheckBox x:Name="AutoStartBox" Content="Запускать вместе с Windows"
                               Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
+                    <CheckBox x:Name="AutoStartAdminBox" Content="…с правами администратора (нужно для температуры процессора)"
+                              Style="{StaticResource SettingsCheck}" Margin="24,0,0,6" Click="Setting_Changed"/>
                     <CheckBox x:Name="OpenOnHoverBox" Content="Раскрывать при наведении (иначе — по клику)"
                               Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
                     <CheckBox x:Name="AutoHideBox" Content="Прятать остров за верхний край"

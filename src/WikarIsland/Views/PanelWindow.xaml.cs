@@ -1103,6 +1103,8 @@ public partial class PanelWindow : Window
         _loadingSettings = true;
         AppSettings s = App.Settings;
         AutoStartBox.IsChecked = s.AutoStart;
+        AutoStartAdminBox.IsChecked = s.AutoStartElevated;
+        AutoStartAdminBox.IsEnabled = s.AutoStart;
         AutoHideBox.IsChecked = s.AutoHide;
         OpenOnHoverBox.IsChecked = s.OpenOnHover;
         EyesBox.IsChecked = s.EyesEnabled;
@@ -1125,8 +1127,11 @@ public partial class PanelWindow : Window
         AppSettings s = App.Settings;
 
         bool autoStart = AutoStartBox.IsChecked == true;
-        if (autoStart != s.AutoStart) AutoStart.Set(autoStart);
+        bool elevated = AutoStartAdminBox.IsChecked == true;
+        if (autoStart != s.AutoStart || elevated != s.AutoStartElevated) AutoStart.Apply(autoStart, elevated);
         s.AutoStart = autoStart;
+        s.AutoStartElevated = elevated;
+        AutoStartAdminBox.IsEnabled = autoStart;
         s.AutoHide = AutoHideBox.IsChecked == true;
         s.OpenOnHover = OpenOnHoverBox.IsChecked == true;
         s.EyesEnabled = EyesBox.IsChecked == true;

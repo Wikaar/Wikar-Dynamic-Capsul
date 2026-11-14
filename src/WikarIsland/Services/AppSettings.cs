@@ -24,6 +24,9 @@ public sealed class PillPosition
 public sealed class AppSettings
 {
     public bool AutoStart { get; set; }
+
+    /// <summary>Автозапуск с правами администратора (задача в Планировщике) — нужен для температуры CPU.</summary>
+    public bool AutoStartElevated { get; set; }
     public bool AutoHide { get; set; }
 
     /// <summary>Раскрывать остров при наведении (иначе — по клику).</summary>

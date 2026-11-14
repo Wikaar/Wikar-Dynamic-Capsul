@@ -54,7 +54,7 @@ public partial class App : Application
         };
 
         Settings = AppSettings.Load();
-        if (Settings.AutoStart) AutoStart.Set(true); // обновить путь, если exe переехал
+        if (Settings.AutoStart && !Settings.AutoStartElevated) AutoStart.Apply(true, false); // обновить путь, если exe переехал
 
         Media = new MediaService();
         Weather = new WeatherService();

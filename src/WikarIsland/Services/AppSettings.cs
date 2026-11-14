@@ -9,6 +9,9 @@ public sealed class PillPosition
 {
     public double Left { get; set; }
     public double Top { get; set; }
+
+    /// <summary>left / center / right — к какому краю прижата пилюля внутри своего окна.</summary>
+    public string Align { get; set; } = "center";
 }
 
 /// <summary>Настройки, хранятся в %AppData%\WikarIsland\settings.json.</summary>
@@ -30,6 +33,12 @@ public sealed class AppSettings
     public Dictionary<string, PillPosition> Positions { get; set; } = new();
 
     public string? LastScreen { get; set; }
+
+    public bool MusicInPill { get; set; } = true;
+    public bool WeatherInPill { get; set; } = true;
+    public string? WeatherCity { get; set; }
+    public double? WeatherLat { get; set; }
+    public double? WeatherLon { get; set; }
     public string LastTab { get; set; } = "home";
 
     public static string DataDir =>

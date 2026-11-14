@@ -13,6 +13,9 @@ public partial class App : Application
     public static AppSettings Settings { get; private set; } = null!;
     public static PillWindow Pill { get; private set; } = null!;
     public static PanelWindow Panel { get; private set; } = null!;
+    public static MediaService Media { get; private set; } = null!;
+    public static WeatherService Weather { get; private set; } = null!;
+    public static AudioService Audio { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -37,9 +40,26 @@ public partial class App : Application
         Settings = AppSettings.Load();
         if (Settings.AutoStart) AutoStart.Set(true); // обновить путь, если exe переехал
 
+        Media = new MediaService();
+        Weather = new WeatherService();
+        Audio = new AudioService();
+
         Panel = new PanelWindow();
         Pill = new PillWindow();
         Pill.Show();
+
+        Media.Changed += () =>
+        {
+            Pill.UpdateMedia();
+            Panel.UpdateMedia();
+        };
+        Weather.Changed += () =>
+        {
+            Pill.UpdateWeather();
+            Panel.UpdateWeather();
+        };
+        _ = Media.StartAsync();
+        Weather.Start();
 
         CreateTray();
     }

@@ -3,18 +3,20 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:WikarIsland.Controls"
         Title="Wikar Island"
-        Width="176" Height="46"
+        Width="440" Height="46"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True" ShowActivated="False"
         WindowStartupLocation="Manual">
-    <Grid>
+    <!-- Окно шире пилюли: пилюля меняет ширину по содержимому, прозрачные поля пропускают клики насквозь -->
+    <Grid Margin="8,6">
         <Border x:Name="Pill"
-                Width="150" Height="34" CornerRadius="17"
+                Height="34" MinWidth="150" CornerRadius="17"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 Background="#FF0B0B0E" BorderBrush="#26FFFFFF" BorderThickness="1"
                 RenderTransformOrigin="0.5,0.5"
                 MouseLeftButtonDown="Pill_MouseLeftButtonDown"
-                MouseEnter="Pill_MouseEnter" MouseLeave="Pill_MouseLeave">
+                MouseEnter="Pill_MouseEnter" MouseLeave="Pill_MouseLeave"
+                MouseWheel="Pill_MouseWheel">
             <Border.RenderTransform>
                 <ScaleTransform x:Name="PillScale" ScaleX="1" ScaleY="1"/>
             </Border.RenderTransform>
@@ -22,12 +24,51 @@
                 <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.45"/>
             </Border.Effect>
 
-            <Grid Margin="14,0">
-                <controls:EyesControl x:Name="Eyes" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TimeText" Text="00:00"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"
-                           Foreground="#F2F2F5" FontSize="14" FontWeight="SemiBold"
-                           FontFamily="Segoe UI Variable Display, Segoe UI"/>
+            <Grid Margin="12,0" HorizontalAlignment="Center">
+
+                <!-- Обычное состояние: глаза, погода, часы -->
+                <StackPanel x:Name="IdlePart" Orientation="Horizontal" VerticalAlignment="Center">
+                    <controls:EyesControl x:Name="Eyes" VerticalAlignment="Center" Margin="2,0"/>
+                    <TextBlock x:Name="PillWeather" VerticalAlignment="Center" Margin="10,0,0,0"
+                               Foreground="#D8D8E0" FontSize="13"
+                               FontFamily="Segoe UI Variable Display, Segoe UI Emoji, Segoe UI"/>
+                    <TextBlock x:Name="TimeText" Text="00:00" VerticalAlignment="Center" Margin="10,0,2,0"
+                               Foreground="#F2F2F5" FontSize="14" FontWeight="SemiBold"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                </StackPanel>
+
+                <!-- Играет музыка -->
+                <StackPanel x:Name="MusicPart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                    <Grid Width="24" Height="24">
+                        <Image x:Name="PillCover" Stretch="UniformToFill">
+                            <Image.Clip>
+                                <RectangleGeometry Rect="0,0,24,24" RadiusX="6" RadiusY="6"/>
+                            </Image.Clip>
+                        </Image>
+                        <Image x:Name="PillAppIcon" Width="12" Height="12" Margin="0,0,-4,-4"
+                               HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                    </Grid>
+                    <TextBlock x:Name="PillTrack" MaxWidth="190" Margin="10,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                               FontFamily="Segoe UI Variable Text, Segoe UI"/>
+                    <controls:EqualizerControl x:Name="Eq" Margin="0,0,2,0"/>
+                </StackPanel>
+
+                <!-- Громкость (колёсико мыши над пилюлей) -->
+                <StackPanel x:Name="VolumePart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                    <TextBlock x:Name="VolumeIcon" Text="&#xE767;" VerticalAlignment="Center"
+                               Foreground="#F2F2F5" FontSize="15"
+                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                    <Grid Width="90" Height="5" Margin="10,0" VerticalAlignment="Center">
+                        <Border Background="#33FFFFFF" CornerRadius="2.5"/>
+                        <Border x:Name="VolumeFill" Background="#F2F2F5" CornerRadius="2.5"
+                                HorizontalAlignment="Left" Width="45"/>
+                    </Grid>
+                    <TextBlock x:Name="VolumeText" Text="50" Width="26" VerticalAlignment="Center"
+                               Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

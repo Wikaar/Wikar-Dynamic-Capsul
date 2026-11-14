@@ -13,11 +13,13 @@ namespace WikarIsland.Views;
 
 /// <summary>
 /// Пилюля поверх всех окон. Не забирает фокус, раскрывает панель при наведении,
-/// умеет открепляться, перетаскиваться, прилипать к краям и прятаться за край экрана.
+/// показывает музыку, погоду, громкость; умеет открепляться, перетаскиваться,
+/// прилипать к краям и прятаться за верхний край экрана.
 /// </summary>
 public partial class PillWindow : Window
 {
     private const double SnapDistance = 28;
+    private const double SideMargin = 8; // поле вокруг пилюли внутри окна (под тень)
 
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _hoverTimer;
@@ -25,13 +27,19 @@ public partial class PillWindow : Window
     private HotkeyService? _hotkey;
     private bool _hidden;
     private DateTime? _awaySince;
+    private DateTime _volumeUntil;
+    private DateTime _lastPlaying;
 
     public PillWindow()
     {
         InitializeComponent();
 
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _clockTimer.Tick += (_, _) => UpdateTime();
+        _clockTimer.Tick += (_, _) =>
+        {
+            UpdateTime();
+            UpdateContent();
+        };
 
         _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
         _hoverTimer.Tick += (_, _) =>
@@ -70,7 +78,6 @@ public partial class PillWindow : Window
         base.OnClosed(e);
     }
 
-    /// <summary>Перерегистрировать горячую клавишу из настроек.</summary>
     public bool SetHotkey(string text, out string error)
     {
         error = "";
@@ -85,7 +92,7 @@ public partial class PillWindow : Window
         return true;
     }
 
-    /// <summary>Применить вид пилюли: глаза/часы и рамку открепления.</summary>
+    /// <summary>Применить вид пилюли: глаза/часы/погода и рамку открепления.</summary>
     public void ApplySettings()
     {
         AppSettings s = App.Settings;
@@ -93,19 +100,116 @@ public partial class PillWindow : Window
 
         Eyes.Visibility = mode == "clock" ? Visibility.Collapsed : Visibility.Visible;
         TimeText.Visibility = mode == "eyes" ? Visibility.Collapsed : Visibility.Visible;
-        Eyes.HorizontalAlignment = mode == "eyes" ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        TimeText.HorizontalAlignment = mode == "clock" ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+        TimeText.Margin = new Thickness(mode == "clock" && PillWeather.Visibility != Visibility.Visible ? 2 : 10, 0, 2, 0);
 
         Pill.BorderBrush = s.Unlocked
             ? (Brush)FindResource("Accent")
             : new SolidColorBrush(Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF));
         Pill.BorderThickness = new Thickness(s.Unlocked ? 1.6 : 1);
         Pill.Cursor = s.Unlocked ? Cursors.SizeAll : Cursors.Arrow;
+
+        UpdateWeather();
+        UpdateContent();
     }
 
     private void UpdateTime() => TimeText.Text = DateTime.Now.ToString("HH:mm");
 
+    // ---------- содержимое: громкость > музыка > обычное ----------
+
+    public void UpdateMedia()
+    {
+        MediaInfo? m = App.Media.Current;
+        if (m != null)
+        {
+            PillCover.Source = m.Cover ?? m.AppIcon;
+            PillAppIcon.Source = m.Cover != null ? m.AppIcon : null;
+            PillTrack.Text = string.IsNullOrEmpty(m.Artist) ? m.Title : $"{m.Title} — {m.Artist}";
+            Eq.SetPlaying(m.IsPlaying);
+            if (m.IsPlaying) _lastPlaying = DateTime.Now;
+        }
+        else
+        {
+            Eq.SetPlaying(false);
+        }
+        UpdateContent();
+    }
+
+    public void UpdateWeather()
+    {
+        WeatherData? w = App.Weather.Current;
+        bool show = App.Settings.WeatherInPill && w != null && App.Settings.PillMode != "eyes";
+        PillWeather.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (w != null) PillWeather.Text = w.Short;
+        PillWeather.Margin = new Thickness(Eyes.Visibility == Visibility.Visible ? 10 : 2, 0, 0, 0);
+    }
+
+    private void UpdateContent()
+    {
+        MediaInfo? m = App.Media?.Current;
+        bool volume = DateTime.Now < _volumeUntil;
+        bool music = !volume && App.Settings.MusicInPill && m != null
+                     && (m.IsPlaying || (DateTime.Now - _lastPlaying).TotalSeconds < 15);
+
+        VolumePart.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
+        MusicPart.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
+        IdlePart.Visibility = !volume && !music ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ShowVolume()
+    {
+        float level = App.Audio.Volume;
+        if (level < 0) return;
+        bool muted = App.Audio.Muted;
+        int percent = (int)Math.Round(level * 100);
+
+        VolumeText.Text = muted ? "0" : percent.ToString();
+        VolumeFill.Width = 90 * (muted ? 0 : level);
+        VolumeIcon.Text = muted || percent == 0 ? "" : percent < 34 ? "" : percent < 67 ? "" : "";
+
+        _volumeUntil = DateTime.Now.AddSeconds(1.4);
+        UpdateContent();
+        var hide = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        hide.Tick += (_, _) =>
+        {
+            hide.Stop();
+            UpdateContent();
+        };
+        hide.Start();
+    }
+
+    private void Pill_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        App.Audio.Step(e.Delta > 0 ? 0.02f : -0.02f);
+        ShowVolume();
+        App.Panel.RefreshSound();
+        e.Handled = true;
+    }
+
     // ---------- позиция ----------
+
+    /// <summary>Прямоугольник самой пилюли на экране (DIP), без прозрачных полей окна.</summary>
+    public Rect PillRect()
+    {
+        Point p = Pill.TranslatePoint(new Point(0, 0), this);
+        return new Rect(Left + p.X, Top + p.Y, Pill.ActualWidth, Pill.ActualHeight);
+    }
+
+    private void SetAlign(string align)
+    {
+        Pill.HorizontalAlignment = align switch
+        {
+            "left" => HorizontalAlignment.Left,
+            "right" => HorizontalAlignment.Right,
+            _ => HorizontalAlignment.Center,
+        };
+    }
+
+    private string CurrentAlign() => Pill.HorizontalAlignment switch
+    {
+        HorizontalAlignment.Left => "left",
+        HorizontalAlignment.Right => "right",
+        _ => "center",
+    };
 
     private void RestorePosition()
     {
@@ -116,10 +220,11 @@ public partial class PillWindow : Window
             {
                 if (screen.DeviceName != s.LastScreen) continue;
                 Rect b = ScreenHelper.ToDip(screen.Bounds, this);
-                if (b.Contains(new Point(pos.Left + Width / 2, pos.Top + Height / 2)))
+                if (b.IntersectsWith(new Rect(pos.Left, pos.Top, Width, Height)))
                 {
                     Left = pos.Left;
                     Top = pos.Top;
+                    SetAlign(pos.Align);
                     return;
                 }
             }
@@ -132,8 +237,9 @@ public partial class PillWindow : Window
     {
         Rect b = ScreenHelper.ToDip(WF.Screen.PrimaryScreen!.Bounds, this);
         BeginAnimation(TopProperty, null);
+        SetAlign("center");
         Left = b.Left + (b.Width - Width) / 2;
-        Top = b.Top - 2;
+        Top = b.Top - 4;
         _hidden = false;
 
         if (save)
@@ -146,7 +252,9 @@ public partial class PillWindow : Window
 
     private Rect ScreenBounds() => ScreenHelper.ToDip(ScreenHelper.ScreenOf(this).Bounds, this);
 
-    private bool IsDockedTop() => _hidden || Top <= ScreenBounds().Top + 4;
+    private double DockedTop() => ScreenBounds().Top - 4;
+
+    private bool IsDockedTop() => _hidden || Top <= ScreenBounds().Top + 2;
 
     /// <summary>Прилипание к краям и центру, затем сохранение позиции для этого монитора.</summary>
     private void SnapAndSave()
@@ -154,15 +262,31 @@ public partial class PillWindow : Window
         WF.Screen screen = ScreenHelper.ScreenOf(this);
         Rect b = ScreenHelper.ToDip(screen.Bounds, this);
         Rect wa = ScreenHelper.ToDip(screen.WorkingArea, this);
+        Rect pill = PillRect();
+        double pillCenter = pill.Left + pill.Width / 2;
 
-        double centerX = Left + Width / 2;
-        if (Math.Abs(centerX - (b.Left + b.Width / 2)) < SnapDistance) Left = b.Left + (b.Width - Width) / 2;
-        if (Left - wa.Left < SnapDistance) Left = wa.Left;
-        if (wa.Right - (Left + Width) < SnapDistance) Left = wa.Right - Width;
-        if (Top - b.Top < SnapDistance) Top = b.Top - 2;
-        else if (wa.Bottom - (Top + Height) < SnapDistance) Top = wa.Bottom - Height + 2;
+        if (pill.Left - wa.Left < SnapDistance)
+        {
+            SetAlign("left");
+            Left = wa.Left - SideMargin;
+        }
+        else if (wa.Right - pill.Right < SnapDistance)
+        {
+            SetAlign("right");
+            Left = wa.Right - Width + SideMargin;
+        }
+        else
+        {
+            SetAlign("center");
+            Left = Math.Abs(pillCenter - (b.Left + b.Width / 2)) < SnapDistance
+                ? b.Left + (b.Width - Width) / 2
+                : pillCenter - Width / 2;
+        }
 
-        App.Settings.Positions[screen.DeviceName] = new PillPosition { Left = Left, Top = Top };
+        if (pill.Top - b.Top < SnapDistance) Top = DockedTop();
+        else if (wa.Bottom - pill.Bottom < SnapDistance) Top = wa.Bottom - Height + 4;
+
+        App.Settings.Positions[screen.DeviceName] = new PillPosition { Left = Left, Top = Top, Align = CurrentAlign() };
         App.Settings.LastScreen = screen.DeviceName;
         App.Settings.Save();
     }
@@ -250,15 +374,16 @@ public partial class PillWindow : Window
 
         Rect b = ScreenBounds();
         Point c = ScreenHelper.CursorDip(this);
-        var near = new Rect(Left - 30, b.Top - 2, Width + 60, Height + 30);
+        Rect pill = PillRect();
 
         if (_hidden)
         {
-            bool atEdge = c.Y <= b.Top + 2 && c.X >= Left - 40 && c.X <= Left + Width + 40;
+            bool atEdge = c.Y <= b.Top + 2 && c.X >= pill.Left - 40 && c.X <= pill.Right + 40;
             if (atEdge) SlideIn();
             return;
         }
 
+        var near = new Rect(pill.Left - 30, b.Top - 2, pill.Width + 60, pill.Bottom - b.Top + 30);
         if (near.Contains(c) || App.Panel.IsVisible || Pill.ContextMenu?.IsOpen == true)
         {
             _awaySince = null;
@@ -273,14 +398,14 @@ public partial class PillWindow : Window
     {
         _hidden = true;
         _awaySince = null;
-        // пилюля 34 px по центру окна 46 px: оставляем видимой полоску в ~3 px
+        // пилюля 34 px с полем 6 px сверху: оставляем видимой полоску в ~3 px
         AnimateTop(ScreenBounds().Top - 37);
     }
 
     private void SlideIn()
     {
         _hidden = false;
-        AnimateTop(ScreenBounds().Top - 2);
+        AnimateTop(DockedTop());
     }
 
     private void AnimateTop(double to)

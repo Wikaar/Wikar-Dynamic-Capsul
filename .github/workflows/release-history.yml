@@ -79,8 +79,13 @@ jobs:
             if gh release view "v$v" >/dev/null 2>&1; then echo "v$v already exists"; continue; fi
             if [ ! -f "$zip" ]; then echo "::warning::v$v was not built, skipping"; continue; fi
             latest="--latest=false"; [ "$v" = "$last" ] && latest="--latest"
-            gh release create "v$v" "$zip" --target "$sha" \
+            # Тег ставим на текущий main: токен Actions не может создавать теги на старых
+            # коммитах с другими workflow-файлами (403). Сама сборка — из коммита $sha.
+            notes="$RUNNER_TEMP/notes-$v.md"
+            cat ".github/release-notes/v$v.md" > "$notes"
+            printf '\n\n---\nСобрано из коммита %s\n' "$sha" >> "$notes"
+            gh release create "v$v" "$zip" --target "$GITHUB_SHA" \
               --title "Wikar Island $v — $title" \
-              --notes-file ".github/release-notes/v$v.md" $latest
+              --notes-file "$notes" $latest
             sleep 2
           done

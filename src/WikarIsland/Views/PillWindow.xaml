@@ -28,6 +28,24 @@
             <!-- живая подложка: форма пилюли рисуется здесь -->
             <controls:LiquidPill x:Name="Liquid"/>
             <StackPanel Orientation="Horizontal" Margin="12,0" HorizontalAlignment="Center">
+                <!-- таймер / Pomodoro: клик — пауза, правый клик — стоп -->
+                <Border x:Name="FocusChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="6,3,8,3"
+                        Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonDown="FocusChip_MouseLeftButtonDown" MouseRightButtonUp="FocusChip_MouseRightButtonUp">
+                    <StackPanel Orientation="Horizontal">
+                        <Grid Width="16" Height="16" VerticalAlignment="Center">
+                            <Ellipse Stroke="#30FFFFFF" StrokeThickness="2"/>
+                            <!-- длина окружности ≈ 3.14 × 14 ≈ 44 px; StrokeDashArray задаётся в толщинах линии -->
+                            <Ellipse x:Name="FocusRing" StrokeThickness="2" Stroke="#9CB0FF" RenderTransformOrigin="0.5,0.5" StrokeDashArray="0 1000">
+                                <Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform>
+                            </Ellipse>
+                            <TextBlock x:Name="FocusIcon" Text="&#xE916;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="7"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9CB0FF"/>
+                        </Grid>
+                        <TextBlock x:Name="FocusText" Margin="6,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="#9CB0FF"
+                                   VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="0:00"/>
+                    </StackPanel>
+                </Border>
                 <!-- «Не беспокоить» -->
                 <TextBlock x:Name="DndIcon" Visibility="Collapsed" Text="&#xE708;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
                            FontSize="12.5" Foreground="#B9A6FF" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand"

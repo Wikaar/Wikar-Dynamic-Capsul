@@ -438,6 +438,7 @@ public partial class PanelWindow : Window
         TimerView.Visibility = Visibility.Collapsed;
         NotesView.Visibility = Visibility.Collapsed;
         ZapretView.Visibility = Visibility.Collapsed;
+        FocusView.Visibility = Visibility.Collapsed;
         if (_currentNote != null) SaveCurrentNote();
         SettingsView.Visibility = key == "settings" ? Visibility.Visible : Visibility.Collapsed;
         AiHost.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
@@ -453,7 +454,7 @@ public partial class PanelWindow : Window
         if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
         if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); UpdateZapret(); }
-        if (key == "home") { BuildLauncher(); UpdateWeather(); UpdateNotesTile(); }
+        if (key == "home") { BuildLauncher(); UpdateWeather(); UpdateNotesTile(); UpdateFocusTile(); }
 
         if (IsVisible && !_closing)
         {
@@ -463,6 +464,30 @@ public partial class PanelWindow : Window
         }
 
         App.Settings.LastTab = key;
+    }
+
+    private readonly Dictionary<string, string> _pendingAiUrl = new();
+
+    /// <summary>Открыть ИИ-вкладку сразу с вопросом (ChatGPT/Claude — через ?q=, DeepL — через #auto/ru/…).</summary>
+    public void AskAi(string key, string query)
+    {
+        string q = Uri.EscapeDataString(query);
+        string url = key switch
+        {
+            "claude" => "https://claude.ai/new?q=" + q,
+            "deepl" => "https://www.deepl.com/translator#auto/" + (System.Text.RegularExpressions.Regex.IsMatch(query, "[а-яё]", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ? "en" : "ru") + "/" + q,
+            _ => "https://chatgpt.com/?q=" + q,
+        };
+        if (key is not ("claude" or "deepl")) key = "chatgpt";
+        if (_views.TryGetValue(key, out WebView2? view) && view.CoreWebView2 != null) view.CoreWebView2.Navigate(url);
+        else _pendingAiUrl[key] = url;
+        ShowTab(key, activate: true);
+    }
+
+    public void Screenshot(bool full)
+    {
+        if (full) FullTile_Click(this, new RoutedEventArgs());
+        else AreaTile_Click(this, new RoutedEventArgs());
     }
 
     private async Task CreateAiViewAsync(string key)
@@ -480,7 +505,7 @@ public partial class PanelWindow : Window
             await view.EnsureCoreWebView2Async(env);
             view.CoreWebView2.Settings.IsStatusBarEnabled = false;
             HookNewWindows(view.CoreWebView2);
-            view.CoreWebView2.Navigate(AiUrls[key]);
+            view.CoreWebView2.Navigate(_pendingAiUrl.Remove(key, out string? pending) ? pending : AiUrls[key]);
         }
         catch (Exception ex)
         {
@@ -1119,6 +1144,13 @@ public partial class PanelWindow : Window
         BuildVpnServers();
         VpnDnsBox.Text = s.VpnDns;
         UpdateDnd();
+        CommandHotkeyBox.Text = s.CommandHotkey;
+        CommandHotkeyStatus.Text = "Например: Win+Alt+Space, Ctrl+Shift+Space";
+        CommandAiGpt.IsChecked = s.CommandAi != "claude";
+        CommandAiClaude.IsChecked = s.CommandAi == "claude";
+        PomodoroWorkBox.Text = s.PomodoroWork.ToString();
+        PomodoroBreakBox.Text = s.PomodoroBreak.ToString();
+        PomodoroLongBox.Text = s.PomodoroLong.ToString();
         AutoUpdateBox.IsChecked = s.AutoUpdateCheck;
         UpdateUpdater();
         UpdateLogStatus();
@@ -1201,6 +1233,37 @@ public partial class PanelWindow : Window
             CityResults.Children.Clear();
             CityResults.Children.Add(new TextBlock { Text = "Не получилось найти: " + ex.Message, Style = (Style)FindResource("Hint") });
         }
+    }
+
+    private void ApplyCommandHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        string text = CommandHotkeyBox.Text.Trim();
+        CommandHotkeyStatus.Text = App.Pill.SetCommandHotkey(text, out string error) ? $"Готово: {text}" : $"Не получилось: {error}";
+    }
+
+    private void OpenCommandBar_Click(object sender, RoutedEventArgs e)
+    {
+        HideIsland();
+        App.Pill.OpenCommandBar();
+    }
+
+    private void CommandAi_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.CommandAi = CommandAiClaude.IsChecked == true ? "claude" : "chatgpt";
+        App.Settings.Save();
+    }
+
+    private void Pomodoro_LostFocus(object sender, RoutedEventArgs e)
+    {
+        AppSettings s = App.Settings;
+        static int Read(TextBox box, int fallback) => int.TryParse(box.Text.Trim(), out int v) && v is > 0 and <= 180 ? v : fallback;
+        s.PomodoroWork = Read(PomodoroWorkBox, s.PomodoroWork);
+        s.PomodoroBreak = Read(PomodoroBreakBox, s.PomodoroBreak);
+        s.PomodoroLong = Read(PomodoroLongBox, s.PomodoroLong);
+        PomodoroWorkBox.Text = s.PomodoroWork.ToString();
+        PomodoroBreakBox.Text = s.PomodoroBreak.ToString();
+        PomodoroLongBox.Text = s.PomodoroLong.ToString();
+        s.Save();
     }
 
     private void ApplyHotkey_Click(object sender, RoutedEventArgs e)
@@ -1494,12 +1557,14 @@ public partial class PanelWindow : Window
         HomeView.Visibility = Visibility.Collapsed;
         TimerView.Visibility = view == TimerView ? Visibility.Visible : Visibility.Collapsed;
         NotesView.Visibility = view == NotesView ? Visibility.Visible : Visibility.Collapsed;
+        FocusView.Visibility = view == FocusView ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
         TimerView.Visibility = Visibility.Collapsed;
         NotesView.Visibility = Visibility.Collapsed;
+        FocusView.Visibility = Visibility.Collapsed;
         HomeView.Visibility = Visibility.Visible;
         UpdateNotesTile();
     }
@@ -2599,5 +2664,159 @@ public partial class PanelWindow : Window
     {
         try { System.IO.File.Delete(LogPath); } catch { }
         UpdateLogStatus();
+    }
+
+    // ---------- таймер, Pomodoro, напоминания ----------
+
+    private void FocusTile_Click(object sender, RoutedEventArgs e) => ShowFocus();
+
+    public void ShowFocus()
+    {
+        if (!IsVisible || _current != "home") ShowTab("home", activate: true);
+        ShowSubView(FocusView);
+        BuildFocus();
+    }
+
+    private void UpdateFocusTile()
+    {
+        FocusTimerService f = App.FocusTimer;
+        int count = App.Reminders.Items.Count;
+        FocusTileState.Text = f.Active ? $"{f.Label} · {FocusTimerService.Format(f.Remaining)}"
+            : count > 0 ? $"напоминаний: {count}" : "";
+        FocusTileState.Visibility = FocusTileState.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Таймер изменился — перерисовать экран, если он открыт (раз в секунду обновляем только цифры).</summary>
+    public void UpdateFocus()
+    {
+        if (_current == "home" && HomeView.Visibility == Visibility.Visible) UpdateFocusTile();
+        if (FocusView.Visibility == Visibility.Visible) BuildFocus();
+    }
+
+    private TextBlock? _focusTime;
+    private DispatcherTimer? _focusTicker;
+
+    private void BuildFocus()
+    {
+        FocusContent.Children.Clear();
+        FocusTimerService f = App.FocusTimer;
+
+        // --- таймер ---
+        var timer = new StackPanel();
+        timer.Children.Add(CardHeader("\uE916", "Таймер"));
+        if (f.Active)
+        {
+            _focusTime = Text(FocusTimerService.Format(f.Remaining), 34);
+            _focusTime.FontWeight = FontWeights.SemiBold;
+            _focusTime.Margin = new Thickness(0, 4, 0, 0);
+            timer.Children.Add(Text(f.Label + (f.Paused ? " · пауза" : ""), 13, dim: true));
+            timer.Children.Add(_focusTime);
+            var controls = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            controls.Children.Add(SmallButton(f.Paused ? "Продолжить" : "Пауза", f.TogglePause, accent: true));
+            controls.Children.Add(SmallButton("+1 мин", () => f.AddMinutes(1)));
+            controls.Children.Add(SmallButton("+5 мин", () => f.AddMinutes(5)));
+            controls.Children.Add(SmallButton("Стоп", f.Stop));
+            timer.Children.Add(controls);
+        }
+        else
+        {
+            var presets = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+            foreach (int min in new[] { 1, 3, 5, 10, 15, 25, 30, 45, 60 })
+                presets.Children.Add(SmallButton(min < 60 ? $"{min} мин" : "1 час", () => f.Start(TimeSpan.FromMinutes(min))));
+            timer.Children.Add(presets);
+            var custom = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+            TextBox box = PortBox("");
+            box.Width = 220;
+            box.ToolTip = "Например: 7, 1:30, 1 ч 20 мин, 90 с";
+            var start = SmallButton("Запустить", () =>
+            {
+                if (CommandService.TryParseDuration(box.Text, out TimeSpan d, out string rest))
+                    f.Start(d, rest.Length > 0 ? char.ToUpper(rest[0]) + rest[1..] : "");
+            });
+            box.KeyDown += (_, a) =>
+            {
+                if (a.Key != Key.Enter) return;
+                if (CommandService.TryParseDuration(box.Text, out TimeSpan d, out string rest))
+                    f.Start(d, rest.Length > 0 ? char.ToUpper(rest[0]) + rest[1..] : "");
+            };
+            custom.Children.Add(box);
+            custom.Children.Add(start);
+            timer.Children.Add(custom);
+        }
+        FocusContent.Children.Add(Card(timer));
+
+        // --- Pomodoro ---
+        AppSettings s = App.Settings;
+        var pomo = new StackPanel();
+        pomo.Children.Add(CardHeader("\uE945", "Pomodoro"));
+        pomo.Children.Add(Text($"{s.PomodoroWork} минут работы → {s.PomodoroBreak} минут отдыха, каждый четвёртый перерыв — {s.PomodoroLong} минут. Длительность меняется в настройках.", 12.5, dim: true));
+        if (f.Pomodoro)
+            pomo.Children.Add(Text(f.IsBreak ? "Сейчас перерыв" : $"Сейчас фокус, отрезок {f.Round} из 4", 13, top: 6));
+        var pomoButtons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        pomoButtons.Children.Add(f.Pomodoro
+            ? SmallButton("Остановить Pomodoro", f.Stop)
+            : SmallButton("Начать Pomodoro", f.StartPomodoro, accent: true));
+        pomo.Children.Add(pomoButtons);
+        FocusContent.Children.Add(Card(pomo));
+
+        // --- напоминания ---
+        var rem = new StackPanel();
+        rem.Children.Add(CardHeader("\uE823", "Напоминания"));
+        rem.Children.Add(Text("Например: «в 18:30 позвонить маме», «через 20 мин духовка», «завтра в 9 врач», «каждый день в 9:00 таблетки», «по будням в 8 зарядка».", 12.5, dim: true));
+        var add = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
+        TextBox remBox = PortBox("");
+        remBox.Width = 380;
+        remBox.FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
+        var status = Text("", 12.5, dim: true, top: 4);
+        void AddReminder()
+        {
+            if (!CommandService.TryParseReminder(remBox.Text, out DateTime due, out string what, out string repeat))
+            {
+                status.Text = "Не понял время — начни с «в 18:30», «через 20 мин», «завтра в 9» или «каждый день в 9:00»";
+                return;
+            }
+            App.Reminders.Add(what.Length > 0 ? char.ToUpper(what[0]) + what[1..] : "Напоминание", due, repeat);
+        }
+        remBox.KeyDown += (_, a) => { if (a.Key == Key.Enter) AddReminder(); };
+        add.Children.Add(remBox);
+        add.Children.Add(SmallButton("Добавить", AddReminder, accent: true));
+        rem.Children.Add(add);
+        rem.Children.Add(status);
+
+        foreach (Reminder r in App.Reminders.Upcoming)
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+            Reminder item = r;
+            var del = SmallButton("\uE711", () => App.Reminders.Remove(item));
+            del.FontFamily = (FontFamily)FindResource("Icons");
+            del.ToolTip = "Удалить";
+            del.Margin = new Thickness(8, 0, 0, 0);
+            DockPanel.SetDock(del, Dock.Right);
+            row.Children.Add(del);
+            var when = Text(CommandService.FormatDue(r.Due) + (r.Repeat != "none" ? $" · {r.RepeatName}" : ""), 12.5, dim: true);
+            when.Width = 210;
+            row.Children.Add(when);
+            row.Children.Add(Text(r.Text, 13.5));
+            rem.Children.Add(row);
+        }
+        if (App.Reminders.Items.Count == 0) rem.Children.Add(Text("Пока нет напоминаний", 13, dim: true, top: 8));
+        rem.Children.Add(Text("Ещё быстрее — из быстрой строки: " + App.Settings.CommandHotkey + " → «напомни …»", 12, dim: true, top: 10));
+        FocusContent.Children.Add(Card(rem));
+
+        // цифры таймера обновляем раз в секунду без перестройки экрана
+        _focusTicker ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _focusTicker.Tick -= FocusTicker_Tick;
+        _focusTicker.Tick += FocusTicker_Tick;
+        _focusTicker.Start();
+    }
+
+    private void FocusTicker_Tick(object? sender, EventArgs e)
+    {
+        if (FocusView.Visibility != Visibility.Visible || !IsVisible)
+        {
+            _focusTicker?.Stop();
+            return;
+        }
+        if (_focusTime != null && App.FocusTimer.Active) _focusTime.Text = FocusTimerService.Format(App.FocusTimer.Remaining);
     }
 }

@@ -9,7 +9,7 @@ namespace WikarIsland.Services;
 public sealed class HotkeyService : IDisposable
 {
     private const int WM_HOTKEY = 0x0312;
-    private const int HotkeyId = 0xB001;
+    private readonly int HotkeyId;
     private const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_SHIFT = 0x4, MOD_WIN = 0x8, MOD_NOREPEAT = 0x4000;
 
     private readonly HwndSource _source;
@@ -17,8 +17,9 @@ public sealed class HotkeyService : IDisposable
 
     public event Action? Pressed;
 
-    public HotkeyService(Window window)
+    public HotkeyService(Window window, int id = 0xB001)
     {
+        HotkeyId = id;
         IntPtr handle = new WindowInteropHelper(window).EnsureHandle();
         _source = HwndSource.FromHwnd(handle)!;
         _source.AddHook(Hook);

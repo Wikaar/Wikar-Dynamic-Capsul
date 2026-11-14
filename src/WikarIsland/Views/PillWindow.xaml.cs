@@ -27,6 +27,8 @@ public partial class PillWindow : Window
     private readonly DispatcherTimer _hoverTimer;
     private readonly DispatcherTimer _autoHideTimer;
     private HotkeyService? _hotkey;
+    private HotkeyService? _commandHotkey;
+    private CommandWindow? _commandBar;
     private bool _hidden;
     private DateTime? _awaySince;
     private DateTime _volumeUntil;
@@ -45,6 +47,9 @@ public partial class PillWindow : Window
         {
             UpdateTime();
             FocusService.Poll();
+            App.FocusTimer.Tick();
+            App.Reminders.Tick();
+            if (App.FocusTimer.Active) UpdateFocus();
             UpdateDnd();
             UpdateContent();
             CheckDiscordFocused();
@@ -80,6 +85,9 @@ public partial class PillWindow : Window
         _hotkey = new HotkeyService(this);
         _hotkey.Pressed += () => App.Panel.Toggle(activate: true);
         _hotkey.Register(App.Settings.Hotkey, out _);
+        _commandHotkey = new HotkeyService(this, 0xB002);
+        _commandHotkey.Pressed += OpenCommandBar;
+        _commandHotkey.Register(App.Settings.CommandHotkey, out _);
 
         RestorePosition();
         ApplySettings();
@@ -91,7 +99,36 @@ public partial class PillWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _hotkey?.Dispose();
+        _commandHotkey?.Dispose();
         base.OnClosed(e);
+    }
+
+    public bool SetCommandHotkey(string text, out string error)
+    {
+        error = "";
+        if (_commandHotkey == null) return false;
+        if (!_commandHotkey.Register(text, out error))
+        {
+            _commandHotkey.Register(App.Settings.CommandHotkey, out _);
+            return false;
+        }
+        App.Settings.CommandHotkey = text;
+        App.Settings.Save();
+        return true;
+    }
+
+    /// <summary>Быстрая строка под капсулой.</summary>
+    public void OpenCommandBar()
+    {
+        if (_commandBar != null)
+        {
+            _commandBar.Activate();
+            return;
+        }
+        if (_hidden) SlideIn();
+        _commandBar = new CommandWindow();
+        _commandBar.Closed += (_, _) => _commandBar = null;
+        _commandBar.ShowUnder(PillRect());
     }
 
     public bool SetHotkey(string text, out string error)
@@ -200,6 +237,8 @@ public partial class PillWindow : Window
         VpnChip.Visibility = !timer && !recording && !card && !volume && App.Settings.VpnServers.Count > 0
                              && (App.Settings.VpnShowInPill || App.Vpn?.IsConnected == true)
             ? Visibility.Visible : Visibility.Collapsed;
+        FocusChip.Visibility = !timer && !recording && !card && !volume && App.FocusTimer?.Active == true
+            ? Visibility.Visible : Visibility.Collapsed;
         DndIcon.Visibility = !timer && !recording && !card && !volume && FocusService.Active
             ? Visibility.Visible : Visibility.Collapsed;
         ZapretChip.Visibility = !timer && !recording && !card && !volume && App.Zapret?.Installed == true
@@ -246,6 +285,44 @@ public partial class PillWindow : Window
         ShowVolume();
         App.Panel.RefreshSound();
         e.Handled = true;
+    }
+
+    // ---------- таймер / Pomodoro ----------
+
+    public void UpdateFocus()
+    {
+        FocusTimerService f = App.FocusTimer;
+        if (!f.Active)
+        {
+            UpdateContent();
+            return;
+        }
+        Color color = f.Paused ? Color.FromRgb(0x8A, 0x8A, 0x94)
+            : f.Pomodoro && f.IsBreak ? Color.FromRgb(0x6E, 0xE0, 0x9A)
+            : f.Pomodoro ? Color.FromRgb(0xFF, 0x7A, 0x6B)
+            : Color.FromRgb(0x9C, 0xB0, 0xFF);
+        var brush = new SolidColorBrush(color);
+        FocusText.Text = FocusTimerService.Format(f.Remaining);
+        FocusText.Foreground = brush;
+        FocusIcon.Foreground = brush;
+        FocusIcon.Text = f.Paused ? "\uE769" : f.Pomodoro ? (f.IsBreak ? "\uEC32" : "\uE945") : "\uE916";
+        FocusRing.Stroke = brush;
+        double p = f.Progress;
+        FocusRing.StrokeDashArray = new DoubleCollection { p * 44.0 / FocusRing.StrokeThickness, 1000 };
+        FocusChip.ToolTip = $"{f.Label} · осталось {FocusTimerService.Format(f.Remaining)}\nНажми — {(f.Paused ? "продолжить" : "пауза")}, правой кнопкой — остановить";
+        UpdateContent();
+    }
+
+    private void FocusChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        App.FocusTimer.TogglePause();
+    }
+
+    private void FocusChip_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        App.FocusTimer.Stop();
     }
 
     // ---------- «Не беспокоить» ----------

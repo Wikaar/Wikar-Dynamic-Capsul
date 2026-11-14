@@ -343,6 +343,15 @@
                                     </StackPanel>
                                 </DockPanel>
                             </Button>
+                            <Button Style="{StaticResource ActionTile}" Click="FocusTile_Click">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE916;" Style="{StaticResource ActionIcon}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Таймер и напоминания" Style="{StaticResource ActionText}"/>
+                                        <TextBlock x:Name="FocusTileState" Style="{StaticResource ActionSub}"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Button>
                             <Button Style="{StaticResource ActionTile}" Click="NotesTile_Click">
                                 <DockPanel>
                                     <TextBlock Text="&#xE70B;" Style="{StaticResource ActionIcon}"/>
@@ -473,6 +482,15 @@
             </ScrollViewer>
 
             <!-- ===== Заметки (из плитки) ===== -->
+            <!-- Таймер, Pomodoro и напоминания -->
+            <ScrollViewer x:Name="FocusView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="14,0,14,12">
+                    <Button Style="{StaticResource FlatButton}" HorizontalAlignment="Left" Margin="0,0,0,10" Click="Back_Click"
+                            Background="Transparent" Content="&#x2190;  Назад"/>
+                    <StackPanel x:Name="FocusContent"/>
+                </StackPanel>
+            </ScrollViewer>
+
             <Grid x:Name="NotesView" Visibility="Collapsed" Margin="14,0,14,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -742,6 +760,32 @@
                     </StackPanel>
                     <TextBlock x:Name="HotkeyStatus" Style="{StaticResource Hint}" Margin="0,6,0,0"
                                Text="Например: Ctrl+Alt+Space, Win+Shift+I, Alt+Q"/>
+
+                    <TextBlock Text="Быстрая строка" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Открывается под капсулой: «таймер 10 мин», «напомни в 18:30 …», «выключи через час», «скрин», «vpn», «переведи …». Всё остальное — вопрос к ИИ."/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="CommandHotkeyBox" Width="200" Padding="8,5" FontSize="14" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Применить" Click="ApplyCommandHotkey_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Открыть" Click="OpenCommandBar_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="CommandHotkeyStatus" Style="{StaticResource Hint}" Margin="0,6,0,6"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Вопросы задавать:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <RadioButton x:Name="CommandAiGpt" Content="ChatGPT" GroupName="CommandAi" Style="{StaticResource SettingsRadio}" Click="CommandAi_Click"/>
+                        <RadioButton x:Name="CommandAiClaude" Content="Claude" GroupName="CommandAi" Style="{StaticResource SettingsRadio}" Click="CommandAi_Click"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Pomodoro" Style="{StaticResource SectionTitle}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Работа" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PomodoroWorkBox" Width="44" Padding="6,3" Margin="6,0,14,0" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5" LostFocus="Pomodoro_LostFocus"/>
+                        <TextBlock Text="перерыв" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PomodoroBreakBox" Width="44" Padding="6,3" Margin="6,0,14,0" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5" LostFocus="Pomodoro_LostFocus"/>
+                        <TextBlock Text="длинный перерыв" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PomodoroLongBox" Width="44" Padding="6,3" Margin="6,0,8,0" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5" LostFocus="Pomodoro_LostFocus"/>
+                        <TextBlock Text="мин" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                    </StackPanel>
 
                     <TextBlock Text="Не беспокоить" Style="{StaticResource SectionTitle}"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"

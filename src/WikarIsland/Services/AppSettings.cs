@@ -69,6 +69,13 @@ public sealed class AppSettings
     public bool ZapretGameFilter { get; set; }  // старая галочка, переносится в ZapretGameMode
 
     /// <summary>Игровой фильтр: disabled, all (TCP и UDP), tcp, udp.</summary>
+    // быстрая строка, Pomodoro
+    public string CommandHotkey { get; set; } = "Win+Alt+Space";
+    public string CommandAi { get; set; } = "chatgpt";
+    public int PomodoroWork { get; set; } = 25;
+    public int PomodoroBreak { get; set; } = 5;
+    public int PomodoroLong { get; set; } = 15;
+
     // обновления
     public bool AutoUpdateCheck { get; set; } = true;
     public DateTime? LastUpdateCheck { get; set; }

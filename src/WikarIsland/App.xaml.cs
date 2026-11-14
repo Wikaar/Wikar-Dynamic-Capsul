@@ -27,6 +27,8 @@ public partial class App : Application
     public static VpnService Vpn { get; private set; } = null!;
     public static ZapretService Zapret { get; private set; } = null!;
     public static UpdateService Updater { get; private set; } = null!;
+    public static FocusTimerService FocusTimer { get; private set; } = null!;
+    public static ReminderService Reminders { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -144,6 +146,8 @@ public partial class App : Application
         Vpn = new VpnService();
         Zapret = new ZapretService();
         Updater = new UpdateService();
+        FocusTimer = new FocusTimerService();
+        Reminders = new ReminderService();
         ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
@@ -165,6 +169,38 @@ public partial class App : Application
         {
             if (FocusService.Active) Pill.CountMissed(); // «Не беспокоить»: только в истории
             else Pill.ShowNotification(item);
+        };
+        FocusTimer.Changed += () =>
+        {
+            Pill.UpdateFocus();
+            Panel.UpdateFocus();
+        };
+        FocusTimer.Finished += (title, body) => Pill.ShowNotification(new NotificationItem
+        {
+            AppId = "wikar.timer",
+            AppName = "Таймер",
+            Title = title,
+            Body = body,
+            Time = DateTime.Now,
+            Click = () => Panel.ShowFocus(),
+        });
+        Reminders.Changed += () => Panel.UpdateFocus();
+        Reminders.Fired += r =>
+        {
+            FocusTimerService.PlayChime();
+            Pill.ShowNotification(new NotificationItem
+            {
+                AppId = "wikar.reminder",
+                AppName = "Напоминание",
+                Title = r.Text,
+                Body = (r.Repeat != "none" ? $"Повтор: {r.RepeatName} · " : "") + "нажми, чтобы отложить на 10 минут",
+                Time = DateTime.Now,
+                Click = () =>
+                {
+                    if (r.Repeat == "none") Reminders.Snooze(r, 10);
+                    else Reminders.Add(r.Text, DateTime.Now.AddMinutes(10));
+                },
+            });
         };
         Notifications.HistoryChanged += () =>
         {

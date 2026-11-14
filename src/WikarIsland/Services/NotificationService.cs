@@ -22,11 +22,19 @@ public sealed class NotificationItem
     public string Body { get; init; } = "";
     public DateTime Time { get; init; }
 
+    /// <summary>Своё действие по клику (например, «запустить игру»); если нет — открываем программу.</summary>
+    public Action? Click { get; init; }
+
     public bool IsDiscord => AppId.Contains("Discord", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Открыть программу, приславшую уведомление.</summary>
     public void OpenApp()
     {
+        if (Click != null)
+        {
+            Click();
+            return;
+        }
         try
         {
             Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{AppId}") { UseShellExecute = true });

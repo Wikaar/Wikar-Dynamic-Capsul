@@ -44,6 +44,7 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <RadioButton x:Name="TabHome" Tag="home" Content="Главная" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
                     <RadioButton x:Name="TabWeather" Tag="weather" Content="Погода" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
+                    <RadioButton x:Name="TabClipboard" Tag="clipboard" Content="Буфер" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
                     <RadioButton x:Name="TabChatGpt" Tag="chatgpt" Content="ChatGPT" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
                     <RadioButton x:Name="TabClaude" Tag="claude" Content="Claude" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
                     <RadioButton x:Name="TabGemini" Tag="gemini" Content="Gemini" Style="{StaticResource TabButton}" Checked="Tab_Checked"/>
@@ -135,6 +136,53 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Таймер выключения -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Таймер выключения" Foreground="{StaticResource TextMain}" FontSize="15"
+                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}" Margin="0,0,0,8"/>
+                                <WrapPanel>
+                                    <RadioButton x:Name="ActShutdown" Content="Выключить" GroupName="PowerAction" IsChecked="True" Style="{StaticResource SettingsRadio}"/>
+                                    <RadioButton x:Name="ActRestart" Content="Перезагрузить" GroupName="PowerAction" Style="{StaticResource SettingsRadio}"/>
+                                    <RadioButton x:Name="ActSleep" Content="Сон" GroupName="PowerAction" Style="{StaticResource SettingsRadio}"/>
+                                    <RadioButton x:Name="ActHibernate" Content="Гибернация" GroupName="PowerAction" Style="{StaticResource SettingsRadio}"/>
+                                </WrapPanel>
+                                <WrapPanel x:Name="TimerButtons" Margin="0,6,0,0">
+                                    <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="15 мин" Tag="15" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="30 мин" Tag="30" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="1 час" Tag="60" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="2 часа" Tag="120" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="После трека" Click="TimerAfterTrack_Click"/>
+                                    <TextBox x:Name="TimerCustomBox" Width="110" Padding="6,4" FontSize="13" Margin="0,0,6,6"
+                                             Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"
+                                             ToolTip="Минуты (45) или время (01:30)" KeyDown="TimerCustomBox_KeyDown"/>
+                                    <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="Старт" Click="TimerCustom_Click"/>
+                                </WrapPanel>
+                                <DockPanel x:Name="TimerStatusRow" Visibility="Collapsed" Margin="0,4,0,0">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Style="{StaticResource FlatButton}" Content="+15 мин" Click="TimerPlus_Click"/>
+                                        <Button Style="{StaticResource FlatButton}" Content="Отменить" Click="TimerCancel_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TimerStatus" VerticalAlignment="Center" Foreground="#FFB4AD" FontSize="14"
+                                               FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                                </DockPanel>
+                                <TextBlock x:Name="TimerHint" Style="{StaticResource Hint}" Margin="0,4,0,0"
+                                           Text="Свободное поле: число минут (45) или время (01:30). За минуту до срабатывания пилюля предупредит — нажми на неё, чтобы отменить."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Steam -->
+                        <Border x:Name="SteamCard" Style="{StaticResource Card}" Visibility="Collapsed">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Image x:Name="SteamCardIcon" Width="18" Height="18" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Steam" Foreground="{StaticResource TextMain}" FontSize="15"
+                                               FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                                </StackPanel>
+                                <StackPanel x:Name="SteamList"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Уведомления -->
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
@@ -150,6 +198,26 @@
                     </StackPanel>
                 </ScrollViewer>
 
+                <!-- ===== Буфер обмена ===== -->
+                <Grid x:Name="ClipboardView" Visibility="Collapsed" Margin="24,6,24,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Очистить"
+                                ToolTip="Удалить всё, кроме закреплённого" Click="ClipClear_Click"/>
+                        <TextBlock Text="&#xE721;" DockPanel.Dock="Left" FontFamily="{StaticResource Icons}" FontSize="15"
+                                   Foreground="{StaticResource TextDim}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox x:Name="ClipSearch" Padding="8,5" FontSize="14"
+                                 Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"
+                                 ToolTip="Поиск по истории" TextChanged="ClipSearch_TextChanged"/>
+                    </DockPanel>
+                    <ScrollViewer Grid.Row="1" Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="ClipList"/>
+                    </ScrollViewer>
+                </Grid>
+
                 <!-- ===== Погода ===== -->
                 <ScrollViewer x:Name="WeatherView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="WeatherContent" Margin="24,6,24,20"/>
@@ -163,6 +231,8 @@
                     <StackPanel Margin="28,4,28,28" MaxWidth="620" HorizontalAlignment="Left">
                         <TextBlock Text="Общее" Style="{StaticResource SectionTitle}"/>
                         <CheckBox x:Name="AutoStartBox" Content="Запускать вместе с Windows"
+                                  Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
+                        <CheckBox x:Name="OpenOnHoverBox" Content="Раскрывать остров при наведении (иначе — по клику)"
                                   Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
                         <CheckBox x:Name="AutoHideBox" Content="Прятать остров за верхний край, когда не нужен"
                                   Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>

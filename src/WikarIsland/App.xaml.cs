@@ -17,6 +17,9 @@ public partial class App : Application
     public static WeatherService Weather { get; private set; } = null!;
     public static AudioService Audio { get; private set; } = null!;
     public static NotificationService Notifications { get; private set; } = null!;
+    public static ClipboardService ClipboardHistory { get; private set; } = null!;
+    public static SteamService Steam { get; private set; } = null!;
+    public static PowerTimerService PowerTimer { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -45,6 +48,9 @@ public partial class App : Application
         Weather = new WeatherService();
         Audio = new AudioService();
         Notifications = new NotificationService();
+        ClipboardHistory = new ClipboardService();
+        Steam = new SteamService();
+        PowerTimer = new PowerTimerService();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -67,7 +73,33 @@ public partial class App : Application
             Panel.UpdateNotifications();
         };
 
+        ClipboardHistory.Changed += () => Panel.UpdateClipboard();
+        ClipboardHistory.Attach(Pill);
+
+        Steam.Changed += () =>
+        {
+            Pill.UpdateSteam();
+            Panel.UpdateSteam();
+        };
+        Steam.Finished += (id, name) => Pill.ShowNotification(new NotificationItem
+        {
+            AppId = "steam",
+            AppName = "Steam",
+            AppIcon = Steam.SteamIcon,
+            Title = $"{name} — готово",
+            Body = "Загрузка завершена. Нажми, чтобы запустить игру",
+            Time = DateTime.Now,
+            Click = () => SteamService.Launch(id),
+        });
+
+        PowerTimer.Changed += () =>
+        {
+            Pill.UpdateTimer();
+            Panel.UpdateTimer();
+        };
+
         _ = Media.StartAsync();
+        Steam.Start();
         Weather.Start();
         Notifications.Start();
 

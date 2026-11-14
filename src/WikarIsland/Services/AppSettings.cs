@@ -19,6 +19,9 @@ public sealed class AppSettings
 {
     public bool AutoStart { get; set; }
     public bool AutoHide { get; set; }
+
+    /// <summary>Раскрывать остров при наведении (иначе — по клику).</summary>
+    public bool OpenOnHover { get; set; }
     public bool EyesEnabled { get; set; } = true;
 
     /// <summary>both — глаза и часы, eyes — только глаза, clock — только часы.</summary>

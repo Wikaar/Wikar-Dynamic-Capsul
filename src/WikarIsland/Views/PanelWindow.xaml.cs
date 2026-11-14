@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -41,6 +42,7 @@ public partial class PanelWindow : Window
     private bool _loadingSettings;
     private bool _updatingSlider;
     private DateTime? _outsideSince;
+    private IntPtr _previousForeground;
 
     public PanelWindow()
     {
@@ -143,6 +145,8 @@ public partial class PanelWindow : Window
     {
         if (!IsVisible)
         {
+            // запоминаем окно, где печатали, — туда вставляется запись из буфера
+            if (!NativeMethods.ForegroundIsOurs()) _previousForeground = NativeMethods.GetForegroundWindow();
             PositionNearPill();
             if (TabHome.IsChecked != true && TabWeather.IsChecked != true && TabSettings.IsChecked != true
                 && !_views.ContainsKey(_current))
@@ -222,12 +226,13 @@ public partial class PanelWindow : Window
 
     private void SelectTab(string key)
     {
-        if (key != "home" && key != "weather" && key != "settings" && !AiUrls.ContainsKey(key)) key = "home";
+        if (key is not ("home" or "weather" or "clipboard" or "settings") && !AiUrls.ContainsKey(key)) key = "home";
         _current = key;
 
         RadioButton tab = key switch
         {
             "weather" => TabWeather,
+            "clipboard" => TabClipboard,
             "chatgpt" => TabChatGpt,
             "claude" => TabClaude,
             "gemini" => TabGemini,
@@ -241,6 +246,7 @@ public partial class PanelWindow : Window
         bool isAi = AiUrls.ContainsKey(key);
         HomeView.Visibility = key == "home" ? Visibility.Visible : Visibility.Collapsed;
         WeatherView.Visibility = key == "weather" ? Visibility.Visible : Visibility.Collapsed;
+        ClipboardView.Visibility = key == "clipboard" ? Visibility.Visible : Visibility.Collapsed;
         SettingsView.Visibility = key == "settings" ? Visibility.Visible : Visibility.Collapsed;
         AiHost.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
         PopOutButton.Visibility = isAi ? Visibility.Visible : Visibility.Collapsed;
@@ -252,7 +258,8 @@ public partial class PanelWindow : Window
         if (isAi && !_views.ContainsKey(key)) _ = CreateAiViewAsync(key);
         if (key == "settings") LoadSettings();
         if (key == "weather") BuildWeatherView();
-        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); }
+        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
+        if (key == "clipboard") UpdateClipboard();
 
         App.Settings.LastTab = key;
     }
@@ -419,6 +426,206 @@ public partial class PanelWindow : Window
         App.Audio.Muted = !App.Audio.Muted;
         RefreshSound();
     }
+
+    // ---------- буфер обмена ----------
+
+    public void UpdateClipboard()
+    {
+        if (_current != "clipboard") return;
+        ClipList.Children.Clear();
+        string filter = ClipSearch.Text.Trim();
+
+        IEnumerable<ClipItem> items = App.ClipboardHistory.Items
+            .OrderByDescending(i => i.Pinned)
+            .ThenByDescending(i => i.Time);
+        if (filter.Length > 0)
+            items = items.Where(i => i.Text?.Contains(filter, StringComparison.CurrentCultureIgnoreCase) == true);
+
+        int count = 0;
+        foreach (ClipItem item in items)
+        {
+            count++;
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            FrameworkElement content = item.Image != null
+                ? new Image { Source = item.Image, MaxHeight = 90, HorizontalAlignment = HorizontalAlignment.Left, Stretch = Stretch.Uniform }
+                : new TextBlock
+                {
+                    Text = item.Text!.Length > 400 ? item.Text[..400] : item.Text,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxHeight = 40,
+                    FontSize = 13.5,
+                    Foreground = (Brush)FindResource("TextMain"),
+                    FontFamily = (FontFamily)FindResource("UiFont"),
+                };
+            grid.Children.Add(content);
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(10, 0, 0, 0) };
+            var pin = IconButton(item.Pinned ? "\uE77A" : "\uE718", item.Pinned ? "Открепить" : "Закрепить");
+            if (item.Pinned) pin.Foreground = (Brush)FindResource("Accent");
+            pin.Click += (_, e) => { App.ClipboardHistory.TogglePin(item); e.Handled = true; };
+            var del = IconButton("\uE74D", "Удалить");
+            del.Click += (_, e) => { App.ClipboardHistory.Remove(item); e.Handled = true; };
+            buttons.Children.Add(pin);
+            buttons.Children.Add(del);
+            Grid.SetColumn(buttons, 1);
+            grid.Children.Add(buttons);
+
+            var card = new Border
+            {
+                Child = grid,
+                Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(12, 9, 8, 9),
+                Margin = new Thickness(0, 0, 0, 6),
+                Cursor = Cursors.Hand,
+                ToolTip = "Нажми, чтобы вставить",
+            };
+            card.MouseEnter += (_, _) => card.Background = new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2E));
+            card.MouseLeave += (_, _) => card.Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22));
+            card.MouseLeftButtonUp += async (_, _) =>
+            {
+                HideIsland();
+                await App.ClipboardHistory.PasteAsync(item, _previousForeground);
+            };
+            ClipList.Children.Add(card);
+        }
+
+        if (count == 0)
+            ClipList.Children.Add(Text(filter.Length > 0 ? "Ничего не нашлось" : "Скопируй что-нибудь (Ctrl+C) — оно появится здесь.", 13.5, dim: true));
+    }
+
+    private Button IconButton(string glyph, string tip) => new()
+    {
+        Content = glyph,
+        ToolTip = tip,
+        Style = (Style)FindResource("FlatButton"),
+        FontFamily = (FontFamily)FindResource("Icons"),
+        FontSize = 13,
+        Padding = new Thickness(8, 5, 8, 5),
+        Background = Brushes.Transparent,
+    };
+
+    private void ClipSearch_TextChanged(object sender, TextChangedEventArgs e) => UpdateClipboard();
+
+    private void ClipClear_Click(object sender, RoutedEventArgs e) => App.ClipboardHistory.ClearUnpinned();
+
+    // ---------- Steam ----------
+
+    public void UpdateSteam()
+    {
+        if (_current != "home") return;
+        SteamService steam = App.Steam;
+        bool any = steam.RunningAppId != 0 || steam.Downloads.Count > 0;
+        SteamCard.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        if (!any) return;
+
+        SteamCardIcon.Source = steam.SteamIcon;
+        SteamList.Children.Clear();
+        if (steam.RunningAppId != 0)
+        {
+            TimeSpan t = DateTime.Now - steam.RunningSince;
+            SteamList.Children.Add(Text($"▶ Играешь в {steam.RunningName} · {(int)t.TotalHours} ч {t.Minutes:00} мин", 14));
+        }
+        foreach (SteamDownload d in steam.Downloads)
+        {
+            var row = new StackPanel { Margin = new Thickness(0, 8, 0, 0), Cursor = Cursors.Hand, Background = Brushes.Transparent };
+            row.Children.Add(Text(d.Total > 0
+                ? $"{d.Name} — {d.Progress * 100:0}% ({d.Done / 1073741824.0:0.0} из {d.Total / 1073741824.0:0.0} ГБ)"
+                : $"{d.Name} — готовится к загрузке", 13.5));
+            var bar = new Grid { Height = 4, Margin = new Thickness(0, 5, 0, 0) };
+            bar.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), CornerRadius = new CornerRadius(2) });
+            bar.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(0x66, 0xC0, 0xF4)),
+                CornerRadius = new CornerRadius(2),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Width = Math.Max(0, 560 * d.Progress),
+            });
+            row.Children.Add(bar);
+            row.ToolTip = "Открыть загрузки Steam";
+            row.MouseLeftButtonUp += (_, _) => SteamService.OpenDownloads();
+            SteamList.Children.Add(row);
+        }
+    }
+
+    // ---------- таймер выключения ----------
+
+    public void UpdateTimer()
+    {
+        PowerTimerService timer = App.PowerTimer;
+        TimerStatusRow.Visibility = timer.Active ? Visibility.Visible : Visibility.Collapsed;
+        TimerHint.Visibility = timer.Active ? Visibility.Collapsed : Visibility.Visible;
+        if (!timer.Active) return;
+
+        string action = PowerTimerService.ActionName(timer.Action);
+        if (timer.AfterTrack)
+        {
+            TimerStatus.Text = $"{action} после текущего трека";
+        }
+        else
+        {
+            TimeSpan r = timer.Remaining;
+            string left = r.TotalHours >= 1 ? $"{(int)r.TotalHours}:{r.Minutes:00}:{r.Seconds:00}" : $"{r.Minutes}:{r.Seconds:00}";
+            TimerStatus.Text = $"{action} через {left} (в {timer.Target:HH:mm})";
+        }
+    }
+
+    private PowerAction SelectedAction() =>
+        ActRestart.IsChecked == true ? PowerAction.Restart
+        : ActSleep.IsChecked == true ? PowerAction.Sleep
+        : ActHibernate.IsChecked == true ? PowerAction.Hibernate
+        : PowerAction.Shutdown;
+
+    private void TimerPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string minutes })
+            App.PowerTimer.StartIn(TimeSpan.FromMinutes(int.Parse(minutes)), SelectedAction());
+    }
+
+    private void TimerAfterTrack_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.Media.Current == null)
+        {
+            TimerHint.Text = "Сейчас ничего не играет — включи музыку и нажми ещё раз.";
+            return;
+        }
+        App.PowerTimer.StartAfterTrack(SelectedAction());
+    }
+
+    private void TimerCustomBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) TimerCustom_Click(sender, e);
+    }
+
+    private void TimerCustom_Click(object sender, RoutedEventArgs e)
+    {
+        string text = TimerCustomBox.Text.Trim();
+        if (TimeSpan.TryParseExact(text, new[] { @"h\:mm", @"hh\:mm" }, CultureInfo.InvariantCulture, out TimeSpan at))
+        {
+            DateTime target = DateTime.Today + at;
+            if (target <= DateTime.Now) target = target.AddDays(1);
+            App.PowerTimer.StartIn(target - DateTime.Now, SelectedAction());
+        }
+        else if (int.TryParse(text, out int minutes) && minutes > 0 && minutes < 24 * 60)
+        {
+            App.PowerTimer.StartIn(TimeSpan.FromMinutes(minutes), SelectedAction());
+        }
+        else
+        {
+            TimerHint.Visibility = Visibility.Visible;
+            TimerHint.Text = "Не понял время. Напиши число минут (45) или время (01:30).";
+            return;
+        }
+        TimerCustomBox.Text = "";
+    }
+
+    private void TimerPlus_Click(object sender, RoutedEventArgs e) => App.PowerTimer.AddMinutes(15);
+
+    private void TimerCancel_Click(object sender, RoutedEventArgs e) => App.PowerTimer.Cancel();
 
     // ---------- уведомления ----------
 
@@ -620,6 +827,7 @@ public partial class PanelWindow : Window
         AppSettings s = App.Settings;
         AutoStartBox.IsChecked = s.AutoStart;
         AutoHideBox.IsChecked = s.AutoHide;
+        OpenOnHoverBox.IsChecked = s.OpenOnHover;
         EyesBox.IsChecked = s.EyesEnabled;
         ModeBoth.IsChecked = s.PillMode == "both";
         ModeEyes.IsChecked = s.PillMode == "eyes";
@@ -642,6 +850,7 @@ public partial class PanelWindow : Window
         if (autoStart != s.AutoStart) AutoStart.Set(autoStart);
         s.AutoStart = autoStart;
         s.AutoHide = AutoHideBox.IsChecked == true;
+        s.OpenOnHover = OpenOnHoverBox.IsChecked == true;
         s.EyesEnabled = EyesBox.IsChecked == true;
         s.PillMode = ModeEyes.IsChecked == true ? "eyes" : ModeClock.IsChecked == true ? "clock" : "both";
         s.MusicInPill = MusicPillBox.IsChecked == true;

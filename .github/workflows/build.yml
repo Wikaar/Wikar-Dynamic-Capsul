@@ -19,6 +19,13 @@ jobs:
       - name: Publish (self-contained, win-x64)
         run: dotnet publish src/WikarIsland/WikarIsland.csproj -c Release -r win-x64 --self-contained true -o publish
 
+      - name: Add Xray-core (VLESS)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-windows-64.zip" -OutFile xray.zip
+          Expand-Archive xray.zip -DestinationPath publish/xray -Force
+          Get-ChildItem publish/xray
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:

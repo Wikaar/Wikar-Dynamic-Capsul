@@ -27,7 +27,19 @@
             <Grid>
             <!-- живая подложка: форма пилюли рисуется здесь -->
             <controls:LiquidPill x:Name="Liquid"/>
-            <Grid Margin="12,0" HorizontalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Margin="12,0" HorizontalAlignment="Center">
+                <!-- VPN: один клик — подключить / отключить -->
+                <Border x:Name="VpnChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="7,3"
+                        Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonDown="VpnChip_MouseLeftButtonDown">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="VpnIcon" Text="&#xEA18;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                                   Foreground="#8A8A94" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="VpnText" Margin="5,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="#8A8A94"
+                                   VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="VPN"/>
+                    </StackPanel>
+                </Border>
+                <Grid VerticalAlignment="Center">
 
                 <!-- Обычное состояние: глаза, погода, часы -->
                 <StackPanel x:Name="IdlePart" Orientation="Horizontal" VerticalAlignment="Center">
@@ -172,7 +184,8 @@
                                Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
                 </StackPanel>
-            </Grid>
+                </Grid>
+            </StackPanel>
             </Grid>
         </Border>
     </Grid>

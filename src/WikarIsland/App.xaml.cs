@@ -24,6 +24,7 @@ public partial class App : Application
     public static RecorderService Recorder { get; private set; } = null!;
     public static AudioRecorderService AudioRecorder { get; private set; } = null!;
     public static SystemMonitorService SystemMonitor { get; private set; } = null!;
+    public static VpnService Vpn { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -67,6 +68,8 @@ public partial class App : Application
         Recorder = new RecorderService();
         AudioRecorder = new AudioRecorderService();
         SystemMonitor = new SystemMonitorService();
+        Vpn = new VpnService();
+        Vpn.RecoverAfterCrash();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -168,6 +171,21 @@ public partial class App : Application
 
         SystemMonitor.Updated += () => Panel.Dispatcher.BeginInvoke(() => Panel.UpdateSystem());
 
+        Vpn.StateChanged += () =>
+        {
+            Pill.UpdateVpn();
+            Panel.UpdateVpn();
+        };
+        Vpn.Connected += (exit, error) => Pill.ShowNotification(new NotificationItem
+        {
+            AppId = "vpn",
+            AppName = "VPN",
+            Title = exit != null ? $"VPN подключён · {exit.Country}" : "VPN не подключился",
+            Body = exit != null ? $"{Vpn.ServerName} · IP {exit.Ip}" : error ?? "",
+            Time = DateTime.Now,
+            Click = () => { },
+        });
+
         _ = Media.StartAsync();
         Steam.Start();
         Weather.Start();
@@ -210,6 +228,7 @@ public partial class App : Application
         Recorder?.Stop();
         AudioRecorder?.Stop();
         SystemMonitor?.Dispose();
+        Vpn?.Disconnect();
         Current.Shutdown();
     }
 

@@ -125,6 +125,7 @@ public partial class PillWindow : Window
         Pill.Cursor = s.Unlocked ? Cursors.SizeAll : Cursors.Arrow;
 
         UpdateWeather();
+        if (App.Vpn != null) UpdateVpn();
         UpdateContent();
     }
 
@@ -194,6 +195,8 @@ public partial class PillWindow : Window
         MusicPart.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
         SteamPart.Visibility = steam ? Visibility.Visible : Visibility.Collapsed;
         IdlePart.Visibility = !timer && !recording && !card && !volume && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
+        VpnChip.Visibility = !timer && !recording && !card && !volume && App.Settings.VpnServers.Count > 0
+            ? Visibility.Visible : Visibility.Collapsed;
 
         if (timer)
             TimerTitle.Text = $"{PowerTimerService.ActionName(App.PowerTimer!.Action)} через {Math.Ceiling(App.PowerTimer.Remaining.TotalSeconds):0} с";
@@ -326,6 +329,30 @@ public partial class PillWindow : Window
         // запущенную игру в пилюле не показываем — только загрузки (игра видна на «Главной»)
         GameChip.Visibility = Visibility.Collapsed;
         UpdateContent();
+    }
+
+    public void UpdateVpn()
+    {
+        VpnService vpn = App.Vpn;
+        Color color = vpn.IsBusy ? Color.FromRgb(0xF5, 0xC8, 0x5A)
+            : vpn.IsConnected ? Color.FromRgb(0x6E, 0xE0, 0x9A)
+            : Color.FromRgb(0x8A, 0x8A, 0x94);
+        var brush = new SolidColorBrush(color);
+        VpnIcon.Foreground = brush;
+        VpnText.Foreground = brush;
+        VpnIcon.Text = vpn.IsConnected ? "\uEA18" : "\uEA18";
+        VpnText.Text = vpn.IsBusy ? "…" : vpn.IsConnected ? (vpn.Exit?.CountryCode is { Length: > 0 } cc ? cc : "VPN") : "VPN";
+        VpnChip.Background = new SolidColorBrush(vpn.IsConnected ? Color.FromArgb(0x30, 0x6E, 0xE0, 0x9A) : Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF));
+        VpnChip.ToolTip = vpn.IsConnected
+            ? $"VPN включён: {vpn.ServerName}{(vpn.Exit != null ? $" · {vpn.Exit.Country}, {vpn.Exit.Ip}" : "")}\nНажми, чтобы отключить"
+            : $"VPN выключен{(vpn.ActiveServer != null ? $" · {vpn.ActiveServer.Name}" : "")}\nНажми, чтобы подключить";
+        UpdateContent();
+    }
+
+    private void VpnChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true; // не открываем панель
+        _ = App.Vpn.ToggleAsync();
     }
 
     public void UpdateRecording()

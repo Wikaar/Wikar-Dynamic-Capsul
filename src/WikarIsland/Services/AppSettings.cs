@@ -60,6 +60,14 @@ public sealed class AppSettings
 
     public bool NotificationsEnabled { get; set; } = true;
 
+    // ---------- VPN (VLESS через Xray) ----------
+    public List<VpnServer> VpnServers { get; set; } = new();
+    public int VpnActive { get; set; }
+    public bool VpnProxyWasSet { get; set; }
+    public int VpnPrevProxyEnable { get; set; }
+    public string? VpnPrevProxyServer { get; set; }
+    public string? VpnPrevProxyOverride { get; set; }
+
     /// <summary>Программы, уведомления которых не показываем (AppUserModelId).</summary>
     public List<string> MutedNotificationApps { get; set; } = new();
 

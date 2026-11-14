@@ -451,7 +451,7 @@ public partial class PanelWindow : Window
         if (key == "weather") BuildWeatherView();
         if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
-        if (key == "control") _ = RefreshControlAsync();
+        if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); }
         if (key == "home") { BuildLauncher(); UpdateWeather(); UpdateNotesTile(); }
 
         if (IsVisible && !_closing)
@@ -1115,6 +1115,7 @@ public partial class PanelWindow : Window
         WeatherPillBox.IsChecked = s.WeatherInPill;
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
+        BuildVpnServers();
         BuildEyeStyles();
         BuildNotificationApps();
         WeatherCityText.Text = s.WeatherCity != null ? $"Сейчас: {s.WeatherCity}" : "Город не выбран";
@@ -1889,4 +1890,110 @@ public partial class PanelWindow : Window
 
     private static Color LoadColor(double p) =>
         p >= 90 ? Color.FromRgb(0xFF, 0x5A, 0x52) : p >= 70 ? Color.FromRgb(0xFF, 0xB0, 0x40) : Color.FromRgb(0x7C, 0x9C, 0xFF);
+
+    // ---------- VPN ----------
+
+    public void UpdateVpn()
+    {
+        VpnService vpn = App.Vpn;
+        VpnTile.Background = vpn.IsConnected ? TileOn : TileOff;
+        VpnState.Text = vpn.IsBusy ? "Подключаю…"
+            : vpn.IsConnected ? (vpn.Exit != null ? $"{vpn.Exit.Country}" : "Подключён")
+            : App.Settings.VpnServers.Count == 0 ? "Добавь ссылку в ⚙" : "Выключен";
+        VpnTile.ToolTip = vpn.IsConnected ? $"{vpn.ServerName} · IP {vpn.Exit?.Ip}" : vpn.ActiveServer?.Name;
+        if (_current == "settings") BuildVpnServers();
+    }
+
+    private async void VpnTile_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.Settings.VpnServers.Count == 0)
+        {
+            SelectTab("settings");
+            return;
+        }
+        await App.Vpn.ToggleAsync();
+    }
+
+    private void VpnAdd_Click(object sender, RoutedEventArgs e)
+    {
+        int added = 0;
+        var errors = new List<string>();
+        foreach (string raw in VpnLinkBox.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            try
+            {
+                VlessLink link = VlessLink.Parse(raw);
+                App.Settings.VpnServers.Add(new VpnServer { Name = link.Name, Link = raw });
+                added++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add(ex.Message);
+            }
+        }
+        App.Settings.Save();
+        VpnLinkBox.Text = "";
+        VpnAddStatus.Text = added > 0
+            ? $"Добавлено: {added}" + (errors.Count > 0 ? $", не распознано: {errors.Count}" : "")
+            : errors.Count > 0 ? errors[0] : "Вставь ссылку vless://";
+        BuildVpnServers();
+        App.Pill.UpdateVpn();
+        UpdateVpn();
+    }
+
+    private void BuildVpnServers()
+    {
+        VpnServersList.Children.Clear();
+        List<VpnServer> list = App.Settings.VpnServers;
+        for (int i = 0; i < list.Count; i++)
+        {
+            int index = i;
+            VpnServer server = list[i];
+            bool active = i == Math.Clamp(App.Settings.VpnActive, 0, list.Count - 1);
+
+            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+            var del = IconButton("\uE74D", "Удалить сервер");
+            del.Click += (_, _) =>
+            {
+                if (active && App.Vpn.IsConnected) App.Vpn.Disconnect();
+                list.RemoveAt(index);
+                App.Settings.VpnActive = Math.Clamp(App.Settings.VpnActive, 0, Math.Max(0, list.Count - 1));
+                App.Settings.Save();
+                BuildVpnServers();
+                App.Pill.UpdateVpn();
+                UpdateVpn();
+            };
+            DockPanel.SetDock(del, Dock.Right);
+            row.Children.Add(del);
+
+            var radio = new RadioButton
+            {
+                Content = server.Name + (active && App.Vpn.IsConnected ? "  — подключён" : ""),
+                GroupName = "VpnServer",
+                IsChecked = active,
+                Style = (Style)FindResource("SettingsRadio"),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            radio.GroupName = "VpnServer";
+            radio.Checked += async (_, _) =>
+            {
+                if (App.Settings.VpnActive == index) return;
+                App.Settings.VpnActive = index;
+                App.Settings.Save();
+                if (App.Vpn.IsConnected)
+                {
+                    // переключаемся на выбранный сервер
+                    App.Vpn.Disconnect();
+                    await App.Vpn.ConnectAsync();
+                }
+                App.Pill.UpdateVpn();
+            };
+            row.Children.Add(radio);
+            VpnServersList.Children.Add(row);
+        }
+        if (list.Count == 0)
+            VpnServersList.Children.Add(Text("Серверов пока нет.", 13, dim: true));
+        if (!VpnService.XrayAvailable)
+            VpnServersList.Children.Add(Text("⚠ Рядом с программой нет папки xray — скачай свежую сборку целиком.", 12.5, dim: true, top: 6));
+    }
 }

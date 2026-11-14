@@ -516,6 +516,13 @@
                                 <TextBlock x:Name="BluetoothState" FontSize="11.5" Opacity="0.75"/>
                             </StackPanel>
                         </Button>
+                        <Button x:Name="VpnTile" Style="{StaticResource Tile}" Click="VpnTile_Click">
+                            <StackPanel>
+                                <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="20"/>
+                                <TextBlock Text="VPN" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="VpnState" FontSize="11.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Button>
                         <Button x:Name="IconsTile" Style="{StaticResource Tile}" Click="DesktopIcons_Click">
                             <StackPanel>
                                 <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource Icons}" FontSize="20"/>
@@ -634,6 +641,18 @@
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                         <Button Style="{StaticResource FlatButton}" Margin="0" Content="Вернуть пилюлю по центру" Click="ResetPill_Click"/>
                     </StackPanel>
+
+                    <TextBlock Text="VPN (VLESS)" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Вставь одну или несколько ссылок vless:// (каждую с новой строки) и нажми «Добавить». Включается кнопкой-щитом в пилюле или в «Центре». Работает на ядре Xray (как v2rayN), трафик идёт через системный прокси Windows. Ссылки хранятся зашифрованными."/>
+                    <TextBox x:Name="VpnLinkBox" Height="64" Padding="8,5" FontSize="12.5" TextWrapping="Wrap" AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto" FontFamily="Cascadia Mono, Consolas"
+                             Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Style="{StaticResource FlatButton}" Margin="0" Content="Добавить" Click="VpnAdd_Click"/>
+                        <TextBlock x:Name="VpnAddStatus" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel x:Name="VpnServersList" Margin="0,10,0,0"/>
 
                     <TextBlock Text="Погода" Style="{StaticResource SectionTitle}"/>
                     <TextBlock x:Name="WeatherCityText" Style="{StaticResource Hint}" FontSize="14" Margin="0,0,0,8"/>

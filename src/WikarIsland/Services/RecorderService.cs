@@ -285,7 +285,7 @@ internal sealed class SystemAudio : IDisposable
         SampleRate = f.SampleRate;
         Channels = Math.Min(f.Channels, 2);
         _float = f.Encoding == WaveFormatEncoding.IeeeFloat
-                 || (f is WaveFormatExtensible ext && ext.SubFormat == AudioMediaSubtypes.MEDIASUBTYPE_IEEE_FLOAT);
+                 || (f is WaveFormatExtensible ext && ext.SubFormat == new Guid("00000003-0000-0010-8000-00aa00389b71") // KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
         _bytesPerSample = f.BitsPerSample / 8;
         _capture.DataAvailable += OnData;
     }

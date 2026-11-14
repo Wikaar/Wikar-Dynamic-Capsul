@@ -194,6 +194,7 @@ public partial class PanelWindow : Window
             Rect from = PillRectLocal();
             ApplyRegion(from, 17);
             UpdateCapsule();
+            if (_current == "system") App.SystemMonitor.Start();
             _shownAt = DateTime.Now;
             _capsulePressed = false;
             Show();
@@ -220,6 +221,7 @@ public partial class PanelWindow : Window
             _closing = false;
             Hide();
             ClearRegion();
+            App.SystemMonitor.Stop();
             App.Settings.Save();
         });
     }
@@ -296,7 +298,7 @@ public partial class PanelWindow : Window
         bool wide = AiUrls.ContainsKey(key);
         Rect wa = ScreenHelper.ToDip(ScreenHelper.ScreenOf(App.Pill).WorkingArea, App.Pill);
         // «Главная» как на картинке: плеер слева, кнопки справа
-        Width = Math.Min(wide ? 940 : key == "home" ? 780 : 560, wa.Width - 20);
+        Width = Math.Min(wide ? 940 : key == "home" ? 780 : 620, wa.Width - 20);
         Height = Math.Min(wide ? 700 : 620, wa.Height - 10);
     }
 
@@ -402,12 +404,13 @@ public partial class PanelWindow : Window
 
     private void SelectTab(string key)
     {
-        if (key is not ("home" or "control" or "weather" or "clipboard" or "settings") && !AiUrls.ContainsKey(key)) key = "home";
+        if (key is not ("home" or "control" or "system" or "weather" or "clipboard" or "settings") && !AiUrls.ContainsKey(key)) key = "home";
         _current = key;
 
         RadioButton tab = key switch
         {
             "control" => TabCenter,
+            "system" => TabSystem,
             "weather" => TabWeather,
             "clipboard" => TabClipboard,
             "chatgpt" => TabChatGpt,
@@ -425,6 +428,13 @@ public partial class PanelWindow : Window
         WeatherView.Visibility = key == "weather" ? Visibility.Visible : Visibility.Collapsed;
         ClipboardView.Visibility = key == "clipboard" ? Visibility.Visible : Visibility.Collapsed;
         ControlView.Visibility = key == "control" ? Visibility.Visible : Visibility.Collapsed;
+        SystemView.Visibility = key == "system" ? Visibility.Visible : Visibility.Collapsed;
+        if (key == "system")
+        {
+            App.SystemMonitor.Start();
+            UpdateSystem();
+        }
+        else App.SystemMonitor.Stop();
         TimerView.Visibility = Visibility.Collapsed;
         NotesView.Visibility = Visibility.Collapsed;
         if (_currentNote != null) SaveCurrentNote();
@@ -1687,4 +1697,191 @@ public partial class PanelWindow : Window
         _noteSaveTimer?.Stop();
         App.Notes.Save();
     }
+
+    // ---------- система ----------
+
+    public void UpdateSystem()
+    {
+        if (_current != "system" || !IsVisible) return;
+        SystemContent.Children.Clear();
+        SystemSnapshot? snap = App.SystemMonitor.Current;
+
+        if (snap == null)
+        {
+            SystemContent.Children.Add(Text("Собираю данные с датчиков… первый раз это занимает пару секунд.", 13.5, dim: true, top: 6));
+            return;
+        }
+
+        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2 };
+        grid.Children.Add(ChipCard("Процессор", "\uE950", snap.Cpu, null));
+        grid.Children.Add(ChipCard("Видеокарта", "\uE7F4", snap.Gpu, null));
+        SystemContent.Children.Add(grid);
+
+        // оперативная память
+        var ram = new StackPanel();
+        ram.Children.Add(CardHeader("\uE964", "Оперативная память"));
+        double ramPct = snap.RamTotalGb > 0 ? snap.RamUsedGb / snap.RamTotalGb * 100 : 0;
+        var ramRow = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+        var ramText = Text($"{snap.RamUsedGb:0.0} из {snap.RamTotalGb:0.0} ГБ", 13.5, dim: true);
+        DockPanel.SetDock(ramText, Dock.Right);
+        ramRow.Children.Add(ramText);
+        ramRow.Children.Add(Text($"{ramPct:0}%", 22, bold: true));
+        ram.Children.Add(ramRow);
+        ram.Children.Add(Bar(ramPct, LoadColor(ramPct)));
+        SystemContent.Children.Add(Card(ram));
+
+        // все датчики температуры
+        var temps = new StackPanel();
+        temps.Children.Add(CardHeader("\uE9CA", "Температуры по датчикам"));
+        if (snap.Temperatures.Count > 0)
+        {
+            double max = snap.Temperatures.Max(t => t.Celsius);
+            TempSensor hottest = snap.Temperatures.First(t => t.Celsius == max);
+            var summary = Text($"Самое горячее: {hottest.Group} — {hottest.Name}, {max:0}°", 13, dim: true);
+            summary.Margin = new Thickness(0, 0, 0, 6);
+            temps.Children.Add(summary);
+            foreach (IGrouping<string, TempSensor> group in snap.Temperatures.GroupBy(t => t.Group))
+            {
+                temps.Children.Add(Text(group.Key, 12.5, bold: true, top: 8));
+                foreach (TempSensor t in group.OrderByDescending(t => t.Celsius))
+                {
+                    var row = new DockPanel { Margin = new Thickness(0, 3, 0, 0) };
+                    var value = new TextBlock
+                    {
+                        Text = $"{t.Celsius:0}°", FontSize = 13.5, FontWeight = FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(TempColor(t.Celsius)),
+                    };
+                    DockPanel.SetDock(value, Dock.Right);
+                    row.Children.Add(value);
+                    row.Children.Add(Text(t.Name, 13, dim: true));
+                    temps.Children.Add(row);
+                }
+            }
+        }
+        else
+        {
+            temps.Children.Add(Text("Датчики температуры недоступны.", 13, dim: true));
+        }
+        SystemContent.Children.Add(Card(temps));
+
+        // подсказка про права администратора
+        if (!snap.IsAdmin || snap.Cpu?.Temperature == null)
+        {
+            var hint = new StackPanel();
+            hint.Children.Add(Text(snap.IsAdmin
+                ? "Температура процессора не читается. Установи драйвер PawnIO (через него LibreHardwareMonitor читает датчики CPU) и перезапусти остров."
+                : "Температуру процессора и часть датчиков платы Windows отдаёт только программам с правами администратора (и с установленным драйвером PawnIO).", 13, dim: true));
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+            if (!snap.IsAdmin)
+            {
+                var admin = new Button { Content = "Перезапустить от администратора", Style = (Style)FindResource("FlatButton"), Margin = new Thickness(0, 0, 8, 0) };
+                admin.Click += (_, _) =>
+                {
+                    if (SystemMonitorService.RestartAsAdmin()) App.Quit();
+                };
+                buttons.Children.Add(admin);
+            }
+            var pawn = new Button { Content = "Скачать PawnIO", Style = (Style)FindResource("FlatButton"), Margin = new Thickness(0) };
+            pawn.Click += (_, _) => ShellHelper.Open("https://github.com/namazso/PawnIO.Setup/releases");
+            buttons.Children.Add(pawn);
+            hint.Children.Add(buttons);
+            SystemContent.Children.Add(Card(hint));
+        }
+    }
+
+    private Border Card(UIElement child) => new()
+    {
+        Child = child,
+        Background = new SolidColorBrush(Color.FromRgb(0x17, 0x17, 0x1D)),
+        CornerRadius = new CornerRadius(16),
+        Padding = new Thickness(14, 12, 14, 12),
+        Margin = new Thickness(0, 0, 0, 10),
+    };
+
+    private StackPanel CardHeader(string glyph, string title)
+    {
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        header.Children.Add(new TextBlock
+        {
+            Text = glyph, FontFamily = (FontFamily)FindResource("Icons"), FontSize = 14,
+            Foreground = (Brush)FindResource("TextDim"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0),
+        });
+        header.Children.Add(Text(title, 13.5, bold: true));
+        return header;
+    }
+
+    private Border ChipCard(string title, string glyph, ChipStats? chip, string? _)
+    {
+        var body = new StackPanel();
+        body.Children.Add(CardHeader(glyph, title));
+        if (chip == null)
+        {
+            body.Children.Add(Text("Нет данных", 13, dim: true));
+            var empty = Card(body);
+            empty.Margin = new Thickness(0, 0, title == "Процессор" ? 5 : 0, 10);
+            empty.Margin = new Thickness(title == "Процессор" ? 0 : 5, 0, title == "Процессор" ? 5 : 0, 10);
+            return empty;
+        }
+
+        var name = Text(chip.Name, 11.5, dim: true);
+        name.TextTrimming = TextTrimming.CharacterEllipsis;
+        name.TextWrapping = TextWrapping.NoWrap;
+        name.ToolTip = chip.Name;
+        body.Children.Add(name);
+
+        // температура крупно
+        var temp = new TextBlock
+        {
+            Text = chip.Temperature is double t ? $"{t:0}°" : "—°",
+            FontSize = 34, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0),
+            Foreground = new SolidColorBrush(chip.Temperature is double tc ? TempColor(tc) : Color.FromRgb(0xA0, 0xA0, 0xAA)),
+            FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
+            ToolTip = chip.Temperature == null ? "Нужны права администратора" : null,
+        };
+        body.Children.Add(temp);
+
+        double load = chip.Load ?? 0;
+        var loadRow = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+        var loadValue = Text(chip.Load is double l ? $"{l:0}%" : "—", 13, bold: true);
+        DockPanel.SetDock(loadValue, Dock.Right);
+        loadRow.Children.Add(loadValue);
+        loadRow.Children.Add(Text("Нагрузка", 13, dim: true));
+        body.Children.Add(loadRow);
+        body.Children.Add(Bar(load, LoadColor(load)));
+
+        body.Children.Add(StatRow("Частота", chip.ClockMHz is double mhz ? (mhz >= 1000 ? $"{mhz / 1000:0.00} ГГц" : $"{mhz:0} МГц") : "—"));
+        if (chip.Power is double w) body.Children.Add(StatRow("Мощность", $"{w:0} Вт"));
+        if (chip.MemoryTotalGb is double total && total > 0)
+            body.Children.Add(StatRow("Видеопамять", $"{chip.MemoryUsedGb ?? 0:0.0} / {total:0.0} ГБ"));
+
+        Border card = Card(body);
+        card.Margin = new Thickness(title == "Процессор" ? 0 : 5, 0, title == "Процессор" ? 5 : 0, 10);
+        return card;
+    }
+
+    private DockPanel StatRow(string label, string value)
+    {
+        var row = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+        var v = Text(value, 13, bold: true);
+        DockPanel.SetDock(v, Dock.Right);
+        row.Children.Add(v);
+        row.Children.Add(Text(label, 13, dim: true));
+        return row;
+    }
+
+    private static Grid Bar(double percent, Color color)
+    {
+        var bar = new Grid { Height = 5, Margin = new Thickness(0, 5, 0, 0) };
+        bar.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), CornerRadius = new CornerRadius(2.5) });
+        var fill = new Border { Background = new SolidColorBrush(color), CornerRadius = new CornerRadius(2.5), HorizontalAlignment = HorizontalAlignment.Left };
+        bar.SizeChanged += (_, _) => fill.Width = bar.ActualWidth * Math.Clamp(percent / 100, 0, 1);
+        bar.Children.Add(fill);
+        return bar;
+    }
+
+    private static Color TempColor(double c) =>
+        c >= 85 ? Color.FromRgb(0xFF, 0x5A, 0x52) : c >= 70 ? Color.FromRgb(0xFF, 0xB0, 0x40) : c >= 55 ? Color.FromRgb(0xF5, 0xD7, 0x5A) : Color.FromRgb(0x6E, 0xE0, 0x9A);
+
+    private static Color LoadColor(double p) =>
+        p >= 90 ? Color.FromRgb(0xFF, 0x5A, 0x52) : p >= 70 ? Color.FromRgb(0xFF, 0xB0, 0x40) : Color.FromRgb(0x7C, 0x9C, 0xFF);
 }

@@ -23,12 +23,21 @@ public partial class App : Application
     public static NotesService Notes { get; private set; } = null!;
     public static RecorderService Recorder { get; private set; } = null!;
     public static AudioRecorderService AudioRecorder { get; private set; } = null!;
+    public static SystemMonitorService SystemMonitor { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // перезапуск (например, от администратора): ждём, пока старый экземпляр закроется
+        int waitIndex = Array.IndexOf(e.Args, "--wait-for");
+        if (waitIndex >= 0 && waitIndex + 1 < e.Args.Length && int.TryParse(e.Args[waitIndex + 1], out int oldPid))
+        {
+            try { System.Diagnostics.Process.GetProcessById(oldPid).WaitForExit(10000); }
+            catch { /* уже закрылся */ }
+        }
+
         // второй экземпляр не запускаем
         _instanceMutex = new Mutex(true, "WikarIsland.SingleInstance", out bool isFirst);
         if (!isFirst)
@@ -57,6 +66,7 @@ public partial class App : Application
         Notes = new NotesService();
         Recorder = new RecorderService();
         AudioRecorder = new AudioRecorderService();
+        SystemMonitor = new SystemMonitorService();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -156,6 +166,8 @@ public partial class App : Application
                 Click = () => { },
             });
 
+        SystemMonitor.Updated += () => Panel.Dispatcher.BeginInvoke(() => Panel.UpdateSystem());
+
         _ = Media.StartAsync();
         Steam.Start();
         Weather.Start();
@@ -197,6 +209,7 @@ public partial class App : Application
         Notes?.Save();
         Recorder?.Stop();
         AudioRecorder?.Stop();
+        SystemMonitor?.Dispose();
         Current.Shutdown();
     }
 

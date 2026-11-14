@@ -193,6 +193,13 @@
                                    Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </RadioButton>
+                <RadioButton x:Name="TabSystem" Tag="system" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Показатели ПК">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE9D9;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Система" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
                 <RadioButton x:Name="TabWeather" Tag="weather" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Погода">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE706;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
@@ -559,6 +566,11 @@
                         </DockPanel>
                     </Border>
                 </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== Система: показатели ПК ===== -->
+            <ScrollViewer x:Name="SystemView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="SystemContent" Margin="14,0,14,14"/>
             </ScrollViewer>
 
             <!-- ===== Погода ===== -->

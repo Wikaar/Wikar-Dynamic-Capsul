@@ -15,13 +15,14 @@
     <AssemblyName>WikarIsland</AssemblyName>
     <RootNamespace>WikarIsland</RootNamespace>
     <Product>Wikar Island</Product>
-    <Version>0.8.2</Version>
+    <Version>0.9.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.*" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.*" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
 
 </Project>

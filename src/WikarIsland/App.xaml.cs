@@ -47,6 +47,10 @@ public partial class App : Application
             return;
         }
 
+        // запасной режим для проблемных видеодрайверов: WikarIsland.exe --software
+        if (Array.IndexOf(e.Args, "--software") >= 0)
+            System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+
         base.OnStartup(e);
         DispatcherUnhandledException += (_, args) =>
         {

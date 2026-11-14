@@ -15,7 +15,7 @@
     <AssemblyName>WikarIsland</AssemblyName>
     <RootNamespace>WikarIsland</RootNamespace>
     <Product>Wikar Island</Product>
-    <Version>0.10.3</Version>
+    <Version>0.10.4</Version>
   </PropertyGroup>
 
   <ItemGroup>

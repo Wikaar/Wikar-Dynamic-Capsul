@@ -123,5 +123,10 @@
   "version": "0.12.1",
   "sha": "9cee55c0d823930dd5f246036ea1687dbef624e9",
   "title": "Диагностика zapret на русской Windows"
+ },
+ {
+  "version": "0.12.2",
+  "sha": "e087c5c5fa5e5ef1a4e0527fa39edfb865194a4a",
+  "title": "Скрытие кнопок в капсуле, удаление zapret"
  }
 ]

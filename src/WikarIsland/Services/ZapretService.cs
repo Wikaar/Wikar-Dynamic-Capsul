@@ -25,8 +25,12 @@ public sealed class ZapretService
 
     private Process? _winws;
 
-    public static string Folder => Path.Combine(
+    /// <summary>Общая папка: её и стоит добавить в исключения антивируса.</summary>
+    public static string Root => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WikarIsland", "zapret");
+
+    /// <summary>Папка текущей версии внутри Root.</summary>
+    public static string Folder => App.Settings.ZapretDir is { Length: > 0 } dir && Directory.Exists(dir) ? dir : Path.Combine(Root, "current");
 
     private static string Bin => Path.Combine(Folder, "bin");
     private static string Lists => Path.Combine(Folder, "lists");
@@ -81,9 +85,16 @@ public sealed class ZapretService
             byte[] zip = await Http.GetByteArrayAsync(url);
 
             SetStatus("Распаковываю…", true);
-            string temp = Path.Combine(Path.GetTempPath(), "wikar-zapret-" + Guid.NewGuid().ToString("N"));
+            // Драйвер WinDivert после прошлого запуска держит свой .sys, поэтому старую папку не перезаписываем:
+            // каждая версия распаковывается в новую папку, а старые удаляем, когда получится.
+            ReleaseDriver();
+            string target = Path.Combine(Root, $"{SafeName(tag)}-{DateTime.Now:yyyyMMddHHmmss}");
+            string oldFolder = Folder;
             await Task.Run(() =>
             {
+                Directory.CreateDirectory(Root);
+                string temp = Path.Combine(Root, "_download");
+                if (Directory.Exists(temp)) Directory.Delete(temp, true);
                 using (var ms = new MemoryStream(zip))
                 using (var archive = new ZipArchive(ms))
                     archive.ExtractToDirectory(temp);
@@ -95,20 +106,18 @@ public sealed class ZapretService
                 if (!File.Exists(Path.Combine(source, "bin", "winws.exe")))
                     throw new InvalidOperationException("В архиве нет bin\\winws.exe");
 
-                // сохраняем пользовательские списки
-                var keep = new Dictionary<string, byte[]>();
-                if (Directory.Exists(Lists))
-                    foreach (string f in Directory.GetFiles(Lists, "*-user.txt"))
-                        keep[Path.GetFileName(f)] = File.ReadAllBytes(f);
+                Directory.Move(source, target);
+                try { if (Directory.Exists(temp)) Directory.Delete(temp, true); } catch { }
 
-                if (Directory.Exists(Folder)) Directory.Delete(Folder, recursive: true);
-                Directory.CreateDirectory(Path.GetDirectoryName(Folder)!);
-                Directory.Move(source, Folder);
-
-                foreach (KeyValuePair<string, byte[]> f in keep)
-                    File.WriteAllBytes(Path.Combine(Lists, f.Key), f.Value);
-                try { Directory.Delete(temp, true); } catch { }
+                // переносим пользовательские списки из прошлой версии
+                string oldLists = Path.Combine(oldFolder, "lists");
+                if (Directory.Exists(oldLists))
+                    foreach (string f in Directory.GetFiles(oldLists, "*-user.txt"))
+                        File.Copy(f, Path.Combine(target, "lists", Path.GetFileName(f)), overwrite: true);
             });
+
+            App.Settings.ZapretDir = target;
+            CleanupOldVersions();
 
             App.Settings.ZapretVersion = tag;
             if (App.Settings.ZapretStrategy == null || !Strategies().Contains(App.Settings.ZapretStrategy))
@@ -117,7 +126,7 @@ public sealed class ZapretService
 
             if (!DriverPresent)
             {
-                SetStatus("Антивирус удалил WinDivert. Добавь папку zapret в исключения и обнови ещё раз", false);
+                SetStatus($"Антивирус удалил WinDivert. Добавь в исключения папку {Root} и нажми «Обновить»", false);
                 return false;
             }
 
@@ -125,12 +134,54 @@ public sealed class ZapretService
             if (wasRunning) Start();
             return true;
         }
+        catch (UnauthorizedAccessException ex) when (ex.Message.Contains("WinDivert", StringComparison.OrdinalIgnoreCase))
+        {
+            App.LogError(ex);
+            SetStatus($"Антивирус не даёт записать WinDivert. Добавь в исключения папку {Root} и нажми ещё раз", false);
+            return false;
+        }
         catch (Exception ex)
         {
             App.LogError(ex);
             SetStatus("Не удалось скачать: " + ex.Message, false);
             return false;
         }
+    }
+
+    private static string SafeName(string tag) =>
+        string.Concat(tag.Select(c => char.IsLetterOrDigit(c) || c == '.' ? c : '_'));
+
+    /// <summary>Выгрузить драйвер WinDivert (если остался после прошлого запуска), чтобы освободить файлы.</summary>
+    private static void ReleaseDriver()
+    {
+        if (!SystemMonitorService.IsAdmin) return;
+        foreach (string cmd in new[] { "stop WinDivert", "delete WinDivert", "stop WinDivert14", "delete WinDivert14" })
+        {
+            try
+            {
+                using Process? p = Process.Start(new ProcessStartInfo("sc.exe", cmd) { CreateNoWindow = true, UseShellExecute = false });
+                p?.WaitForExit(5000);
+            }
+            catch
+            {
+                // службы нет — и хорошо
+            }
+        }
+    }
+
+    /// <summary>Удаляем старые версии; занятые драйвером пропускаем до следующего раза.</summary>
+    private static void CleanupOldVersions()
+    {
+        if (!Directory.Exists(Root)) return;
+        string current = App.Settings.ZapretDir ?? "";
+        foreach (string dir in Directory.GetDirectories(Root))
+        {
+            if (string.Equals(dir, current, StringComparison.OrdinalIgnoreCase)) continue;
+            try { Directory.Delete(dir, true); } catch { }
+        }
+        // файлы самой первой версии (раньше распаковывались прямо в Root)
+        foreach (string file in Directory.GetFiles(Root))
+            try { File.Delete(file); } catch { }
     }
 
     // ---------- стратегии ----------

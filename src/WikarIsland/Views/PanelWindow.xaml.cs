@@ -2087,8 +2087,8 @@ public partial class PanelWindow : Window
 
     private void ZapretFolder_Click(object sender, RoutedEventArgs e)
     {
-        System.IO.Directory.CreateDirectory(ZapretService.Folder);
-        ShellHelper.Open(ZapretService.Folder);
+        System.IO.Directory.CreateDirectory(ZapretService.Root);
+        ShellHelper.Open(ZapretService.Root);
     }
 
     private void ZapretOptions_Click(object sender, RoutedEventArgs e)

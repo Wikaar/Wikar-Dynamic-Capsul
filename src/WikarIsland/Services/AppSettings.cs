@@ -62,6 +62,9 @@ public sealed class AppSettings
 
     // ---------- zapret ----------
     public string? ZapretVersion { get; set; }
+
+    /// <summary>Папка текущей версии zapret (каждая версия — в своей папке, старую драйвер может держать).</summary>
+    public string? ZapretDir { get; set; }
     public string? ZapretStrategy { get; set; }
     public bool ZapretGameFilter { get; set; }
     public bool ZapretAutoStart { get; set; }

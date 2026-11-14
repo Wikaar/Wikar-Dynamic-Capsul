@@ -323,12 +323,8 @@ public partial class PillWindow : Window
             SteamPercent.Text = d.Total > 0 ? $"{d.Progress * 100:0}%" : "…";
         }
 
-        GameChip.Visibility = steam.RunningAppId != 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (steam.RunningAppId != 0)
-        {
-            TimeSpan t = DateTime.Now - steam.RunningSince;
-            GameChip.Text = $"▶ {steam.RunningName} · {(int)t.TotalHours}:{t.Minutes:00}";
-        }
+        // запущенную игру в пилюле не показываем — только загрузки (игра видна на «Главной»)
+        GameChip.Visibility = Visibility.Collapsed;
         UpdateContent();
     }
 

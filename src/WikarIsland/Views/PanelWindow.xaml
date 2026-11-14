@@ -653,6 +653,28 @@
                         <TextBlock x:Name="VpnAddStatus" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel x:Name="VpnServersList" Margin="0,10,0,0"/>
+                    <TextBlock Text="DNS для VPN" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
+                               FontFamily="{StaticResource UiFont}" Margin="0,10,0,4"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                               Text="Свои DNS-серверы через запятую: обычные (1.1.1.1) или зашифрованные DoH (https://…/dns-query). Пусто — как в системе."/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="VpnDnsBox" Width="330" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
+                                 Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Сохранить" Click="VpnDnsSave_Click"/>
+                    </StackPanel>
+                    <WrapPanel Margin="0,6,0,0">
+                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Cloudflare"
+                                Tag="https://1.1.1.1/dns-query, 1.1.1.1" Click="VpnDnsPreset_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Google"
+                                Tag="https://dns.google/dns-query, 8.8.8.8" Click="VpnDnsPreset_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="AdGuard (без рекламы)"
+                                Tag="https://dns.adguard-dns.com/dns-query, 94.140.14.14" Click="VpnDnsPreset_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Quad9"
+                                Tag="https://dns.quad9.net/dns-query, 9.9.9.9" Click="VpnDnsPreset_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Системный"
+                                Tag="" Click="VpnDnsPreset_Click"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="VpnDnsStatus" Style="{StaticResource Hint}"/>
 
                     <TextBlock Text="Погода" Style="{StaticResource SectionTitle}"/>
                     <TextBlock x:Name="WeatherCityText" Style="{StaticResource Hint}" FontSize="14" Margin="0,0,0,8"/>

@@ -117,7 +117,7 @@ public sealed class VlessLink
     }
 
     /// <summary>Конфиг Xray: локальные HTTP- и SOCKS-входы, выход VLESS, локальные адреса — напрямую.</summary>
-    public string ToXrayConfig(int httpPort, int socksPort)
+    public string ToXrayConfig(int httpPort, int socksPort, IReadOnlyList<string>? dnsServers = null)
     {
         string network = Q("type", "tcp").ToLowerInvariant();
         if (network == "raw") network = "tcp";
@@ -207,7 +207,12 @@ public sealed class VlessLink
                     },
                     ["streamSettings"] = stream,
                 },
-                new JsonObject { ["tag"] = "direct", ["protocol"] = "freedom" },
+                new JsonObject
+                {
+                    ["tag"] = "direct", ["protocol"] = "freedom",
+                    // со своим DNS прямые соединения тоже резолвим через него
+                    ["settings"] = dnsServers is { Count: > 0 } ? new JsonObject { ["domainStrategy"] = "UseIP" } : new JsonObject(),
+                },
                 new JsonObject { ["tag"] = "block", ["protocol"] = "blackhole" }),
             ["routing"] = new JsonObject
             {
@@ -217,6 +222,14 @@ public sealed class VlessLink
                     new JsonObject { ["type"] = "field", ["domain"] = new JsonArray("localhost"), ["outboundTag"] = "direct" }),
             },
         };
+        if (dnsServers is { Count: > 0 })
+        {
+            config["dns"] = new JsonObject
+            {
+                ["servers"] = new JsonArray(dnsServers.Select(d => (JsonNode)d).ToArray()),
+                ["queryStrategy"] = "UseIPv4",
+            };
+        }
         return config.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 }
@@ -316,7 +329,7 @@ public sealed class VpnService
 
             string configPath = Path.Combine(AppSettings.DataDir, "xray-config.json");
             Directory.CreateDirectory(AppSettings.DataDir);
-            File.WriteAllText(configPath, link.ToXrayConfig(_httpPort, socksPort));
+            File.WriteAllText(configPath, link.ToXrayConfig(_httpPort, socksPort, ParseDns(App.Settings.VpnDns)));
 
             var info = new ProcessStartInfo(XrayExe, $"run -c \"{configPath}\"")
             {
@@ -390,6 +403,21 @@ public sealed class VpnService
         IsConnected = false;
         Exit = null;
         StateChanged?.Invoke();
+    }
+
+    /// <summary>«1.1.1.1, https://dns.google/dns-query» → список серверов для Xray.</summary>
+    public static List<string> ParseDns(string text) =>
+        text.Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(d => d.Length > 0)
+            .Distinct()
+            .ToList();
+
+    /// <summary>Переподключиться, если VPN включён (например, после смены DNS или сервера).</summary>
+    public async Task ReconnectIfConnectedAsync()
+    {
+        if (!IsConnected) return;
+        Disconnect();
+        await ConnectAsync();
     }
 
     private static void AppendLog(string path, string? line)

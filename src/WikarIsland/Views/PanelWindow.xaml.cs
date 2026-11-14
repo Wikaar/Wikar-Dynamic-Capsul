@@ -1116,6 +1116,7 @@ public partial class PanelWindow : Window
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
         BuildVpnServers();
+        VpnDnsBox.Text = s.VpnDns;
         BuildEyeStyles();
         BuildNotificationApps();
         WeatherCityText.Text = s.WeatherCity != null ? $"Сейчас: {s.WeatherCity}" : "Город не выбран";
@@ -1995,5 +1996,29 @@ public partial class PanelWindow : Window
             VpnServersList.Children.Add(Text("Серверов пока нет.", 13, dim: true));
         if (!VpnService.XrayAvailable)
             VpnServersList.Children.Add(Text("⚠ Рядом с программой нет папки xray — скачай свежую сборку целиком.", 12.5, dim: true, top: 6));
+    }
+
+    private async void VpnDnsSave_Click(object sender, RoutedEventArgs e) => await SaveDnsAsync(VpnDnsBox.Text);
+
+    private async void VpnDnsPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string dns }) return;
+        VpnDnsBox.Text = dns;
+        await SaveDnsAsync(dns);
+    }
+
+    private async Task SaveDnsAsync(string text)
+    {
+        List<string> servers = VpnService.ParseDns(text);
+        App.Settings.VpnDns = string.Join(", ", servers);
+        App.Settings.Save();
+        VpnDnsBox.Text = App.Settings.VpnDns;
+        VpnDnsStatus.Text = servers.Count == 0 ? "DNS: как в системе" : $"DNS сохранён: {servers.Count} серв.";
+        if (App.Vpn.IsConnected)
+        {
+            VpnDnsStatus.Text += " — переподключаю VPN…";
+            await App.Vpn.ReconnectIfConnectedAsync();
+            VpnDnsStatus.Text = $"DNS применён ({(servers.Count == 0 ? "системный" : string.Join(", ", servers))})";
+        }
     }
 }

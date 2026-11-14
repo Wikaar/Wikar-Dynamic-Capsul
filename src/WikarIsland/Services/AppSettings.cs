@@ -63,6 +63,9 @@ public sealed class AppSettings
     // ---------- VPN (VLESS через Xray) ----------
     public List<VpnServer> VpnServers { get; set; } = new();
     public int VpnActive { get; set; }
+
+    /// <summary>DNS для VPN: адреса через запятую или пробел (1.1.1.1, https://dns.google/dns-query …). Пусто — системный.</summary>
+    public string VpnDns { get; set; } = "";
     public bool VpnProxyWasSet { get; set; }
     public int VpnPrevProxyEnable { get; set; }
     public string? VpnPrevProxyServer { get; set; }

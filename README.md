@@ -82,6 +82,7 @@ dotnet publish src/WikarIsland -c Release -r win-x64 --self-contained true -o pu
 - [x] Встроенное ядро Xray (как у v2rayN): вставляешь ссылки vless:// в настройках, включаешь щитом в пилюле
 - [x] Reality / TLS, транспорты tcp, ws, grpc, xhttp, httpupgrade, flow xtls-rprx-vision
 - [x] Системный прокси Windows включается и возвращается обратно; страна и IP после подключения; ссылки хранятся зашифрованными
+- [x] Ручная настройка DNS (обычные и DoH), готовые пресеты Cloudflare / Google / AdGuard / Quad9
 
 ### Центр управления
 - [x] Wi-Fi и Bluetooth вкл/выкл, значки рабочего стола

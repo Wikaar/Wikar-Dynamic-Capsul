@@ -172,6 +172,27 @@ public sealed class ZapretService
         }
     }
 
+    /// <summary>Полностью убрать zapret: остановить, удалить службы и все скачанные файлы.</summary>
+    public string Uninstall()
+    {
+        if (ZapretTools.InstalledServiceStrategy() != null && !SystemMonitorService.IsAdmin)
+            return "zapret установлен службой — для удаления нужны права администратора";
+        Stop();
+        if (SystemMonitorService.IsAdmin) ZapretTools.RemoveServices();
+        App.Settings.ZapretDir = null;
+        App.Settings.ZapretVersion = null;
+        App.Settings.ZapretAutoStart = false;
+        App.Settings.Save();
+        int left = 0;
+        if (Directory.Exists(Root))
+        {
+            try { Directory.Delete(Root, true); }
+            catch { left = Directory.Exists(Root) ? Directory.GetFiles(Root, "*", SearchOption.AllDirectories).Length : 0; }
+        }
+        SetStatus("", false);
+        return left == 0 ? "zapret удалён" : $"zapret удалён, но {left} файлов заняты — они удалятся после перезагрузки при следующем запуске острова";
+    }
+
     /// <summary>Удаляем старые версии; занятые драйвером пропускаем до следующего раза.</summary>
     private static void CleanupOldVersions()
     {

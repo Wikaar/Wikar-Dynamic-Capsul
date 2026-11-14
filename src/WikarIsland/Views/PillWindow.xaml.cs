@@ -196,8 +196,10 @@ public partial class PillWindow : Window
         SteamPart.Visibility = steam ? Visibility.Visible : Visibility.Collapsed;
         IdlePart.Visibility = !timer && !recording && !card && !volume && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
         VpnChip.Visibility = !timer && !recording && !card && !volume && App.Settings.VpnServers.Count > 0
+                             && (App.Settings.VpnShowInPill || App.Vpn?.IsConnected == true)
             ? Visibility.Visible : Visibility.Collapsed;
         ZapretChip.Visibility = !timer && !recording && !card && !volume && App.Zapret?.Installed == true
+                                && (App.Settings.ZapretShowInPill || App.Zapret.IsRunning)
             ? Visibility.Visible : Visibility.Collapsed;
 
         if (timer)

@@ -2042,6 +2042,9 @@ public partial class PanelWindow : Window
             : z.Installed ? (SystemMonitorService.IsAdmin ? "Готов к работе" : "Скачан. Для запуска нужны права администратора")
             : "Ещё не скачан — нажми «Скачать zapret» (или просто включи кнопкой в пилюле)";
         ZapretAutoBox.IsChecked = App.Settings.ZapretAutoStart;
+        ZapretPillBox.IsChecked = App.Settings.ZapretShowInPill;
+        VpnPillBox.IsChecked = App.Settings.VpnShowInPill;
+        ZapretRemoveButton.Visibility = z.Installed ? Visibility.Visible : Visibility.Collapsed;
 
         ZapretStrategies.Children.Clear();
         foreach (string strategy in z.Strategies())
@@ -2094,7 +2097,9 @@ public partial class PanelWindow : Window
     private void ZapretOptions_Click(object sender, RoutedEventArgs e)
     {
         App.Settings.ZapretAutoStart = ZapretAutoBox.IsChecked == true;
+        App.Settings.ZapretShowInPill = ZapretPillBox.IsChecked == true;
         App.Settings.Save();
+        App.Pill.UpdateZapret();
     }
 
     private async void ZapretTile_Click(object sender, RoutedEventArgs e)
@@ -2105,6 +2110,23 @@ public partial class PanelWindow : Window
     }
 
     // ---------- zapret: дополнительно (опции service.bat) ----------
+
+    private void VpnPill_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.VpnShowInPill = VpnPillBox.IsChecked == true;
+        App.Settings.Save();
+        App.Pill.UpdateVpn();
+    }
+
+    private async void ZapretRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Остановить zapret, удалить его службы и все скачанные файлы?\nПотом его можно скачать заново.",
+                "Удалить zapret", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        string result = await Task.Run(App.Zapret.Uninstall);
+        UpdateZapret();
+        App.Pill.UpdateZapret();
+        ZapretStatusText.Text = result;
+    }
 
     private void ZapretAdvanced_Click(object sender, RoutedEventArgs e)
     {

@@ -69,6 +69,9 @@ public sealed class AppSettings
     public bool ZapretGameFilter { get; set; }  // старая галочка, переносится в ZapretGameMode
 
     /// <summary>Игровой фильтр: disabled, all (TCP и UDP), tcp, udp.</summary>
+    public bool ZapretShowInPill { get; set; } = true;
+    public bool VpnShowInPill { get; set; } = true;
+
     public string ZapretGameMode { get; set; } = "disabled";
     public string ZapretGameTcp { get; set; } = "1024-65535";
     public string ZapretGameUdp { get; set; } = "1024-65535";

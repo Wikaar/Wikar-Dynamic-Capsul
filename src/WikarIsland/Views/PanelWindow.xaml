@@ -671,9 +671,11 @@
                         <Button Style="{StaticResource FlatButton}" Content="Подобрать стратегию" Click="ZapretFind_Click"/>
                         <Button Style="{StaticResource FlatButton}" Content="Папка" Click="ZapretFolder_Click"/>
                         <Button Style="{StaticResource FlatButton}" Content="Дополнительно…" Click="ZapretAdvanced_Click"/>
+                        <Button x:Name="ZapretRemoveButton" Style="{StaticResource FlatButton}" Content="Удалить" Click="ZapretRemove_Click"/>
                     </StackPanel>
                     <TextBlock x:Name="ZapretStatusText" Style="{StaticResource Hint}" Margin="0,6,0,0"/>
                     <CheckBox x:Name="ZapretAutoBox" Content="Включать zapret при запуске острова" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
+                    <CheckBox x:Name="ZapretPillBox" Content="Показывать кнопку zapret в капсуле (пока он работает — видна всегда)" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
                     <TextBlock Text="Стратегия" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
                                FontFamily="{StaticResource UiFont}" Margin="0,6,0,4"/>
                     <WrapPanel x:Name="ZapretStrategies"/>
@@ -689,6 +691,7 @@
                         <TextBlock x:Name="VpnAddStatus" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel x:Name="VpnServersList" Margin="0,10,0,0"/>
+                    <CheckBox x:Name="VpnPillBox" Content="Показывать кнопку VPN в капсуле (пока он подключён — видна всегда)" Style="{StaticResource SettingsCheck}" Click="VpnPill_Click"/>
                     <TextBlock Text="DNS для VPN" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
                                FontFamily="{StaticResource UiFont}" Margin="0,10,0,4"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"

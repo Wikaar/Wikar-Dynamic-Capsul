@@ -194,6 +194,8 @@ public partial class PanelWindow : Window
             Rect from = PillRectLocal();
             ApplyRegion(from, 17);
             UpdateCapsule();
+            _shownAt = DateTime.Now;
+            _capsulePressed = false;
             Show();
             StartMorph(from, FullRect(), 17, 22, ClearRegion);
         }
@@ -331,7 +333,22 @@ public partial class PanelWindow : Window
         CapsuleEyes.Visibility = App.Settings.EyesEnabled ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void Capsule_Click(object sender, MouseButtonEventArgs e) => HideIsland();
+    private bool _capsulePressed;
+    private DateTime _shownAt;
+
+    /// <summary>
+    /// Капсула стоит ровно там, где была пилюля. Нажатие на пилюлю открывает панель, а отпускание
+    /// той же кнопки попадает уже на капсулу — поэтому сворачиваем только по клику, который начался на капсуле.
+    /// </summary>
+    private void Capsule_Down(object sender, MouseButtonEventArgs e) =>
+        _capsulePressed = (DateTime.Now - _shownAt).TotalMilliseconds > 300;
+
+    private void Capsule_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (!_capsulePressed) return;
+        _capsulePressed = false;
+        HideIsland();
+    }
 
     /// <summary>Открыт наведением и не активирован: прячем, когда курсор ушёл с острова.</summary>
     private void CloseTick()

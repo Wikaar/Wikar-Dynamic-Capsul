@@ -161,7 +161,7 @@
         <!-- Мини-капсула: в неё «свернулась» пилюля. Клик — свернуть остров обратно -->
         <Border x:Name="Capsule" HorizontalAlignment="Center" Margin="0,8,0,4" Padding="14,5"
                 CornerRadius="14" Background="#16161C" Cursor="Hand" ToolTip="Свернуть остров"
-                MouseLeftButtonUp="Capsule_Click">
+                MouseLeftButtonDown="Capsule_Down" MouseLeftButtonUp="Capsule_Click">
             <StackPanel Orientation="Horizontal">
                 <controls:EyesControl x:Name="CapsuleEyes" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBlock x:Name="CapsuleTime" Text="00:00" VerticalAlignment="Center"

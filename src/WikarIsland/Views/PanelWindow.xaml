@@ -187,6 +187,8 @@
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,6">
+                                    <Button x:Name="ClearNotificationsButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}"
+                                            Content="Очистить всё" Padding="10,4" Click="ClearNotifications_Click"/>
                                     <TextBlock Text="Уведомления" Foreground="{StaticResource TextMain}" FontSize="15"
                                                FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
                                 </DockPanel>

@@ -231,7 +231,7 @@ public partial class PillWindow : Window
         NotifyIcon.Source = _card.AppIcon;
         NotifyTitle.Text = _card.Title;
         NotifyBody.Text = string.IsNullOrEmpty(_card.Body) ? _card.AppName : _card.Body;
-        NotifyPart.ToolTip = $"{_card.AppName}: нажми, чтобы открыть";
+        NotifyPart.ToolTip = $"{_card.AppName}: нажми, чтобы открыть, или ✕, чтобы закрыть";
         _cardUntil = DateTime.Now.AddSeconds(6);
 
         _hoverTimer.Stop();
@@ -247,6 +247,15 @@ public partial class PillWindow : Window
             return;
         }
         UpdateContent();
+    }
+
+    /// <summary>Крестик на карточке: закрыть, ничего не открывая. Остальные уведомления в очереди тоже убираем.</summary>
+    private void NotifyClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (_card != null) App.Notifications.Dismiss(_card);
+        _cards.Clear();
+        CloseCard();
+        e.Handled = true;
     }
 
     private void CardTick()

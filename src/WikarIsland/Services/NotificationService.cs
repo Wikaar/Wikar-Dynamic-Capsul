@@ -22,12 +22,18 @@ public sealed class NotificationItem
     public string Body { get; init; } = "";
     public DateTime Time { get; init; }
 
+    /// <summary>Ссылка из самого уведомления (activationType="protocol"), если программа её указала.</summary>
+    public string? LaunchUri { get; init; }
+
     /// <summary>Своё действие по клику (например, «запустить игру»); если нет — открываем программу.</summary>
     public Action? Click { get; init; }
 
     public bool IsDiscord => AppId.Contains("Discord", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Открыть программу, приславшую уведомление.</summary>
+    /// <summary>
+    /// Открыть программу, приславшую уведомление: сначала вывести вперёд уже запущенное окно
+    /// (в том числе свёрнутое в трей), иначе — ссылка из уведомления, discord://, или запуск из меню «Пуск».
+    /// </summary>
     public void OpenApp()
     {
         if (Click != null)
@@ -35,14 +41,62 @@ public sealed class NotificationItem
             Click();
             return;
         }
+
+        // клик по пилюле — последний ввод был у нас, поэтому можем передать право вывести окно вперёд
+        NativeMethods.AllowSetForegroundWindow(-1);
+
         try
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{AppId}") { UseShellExecute = true });
+            if (TryFocusRunningWindow()) return;
+
+            if (LaunchUri != null)
+                Start(LaunchUri);
+            else if (IsDiscord)
+                Start("discord://");
+            else
+                Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{AppId}") { UseShellExecute = true });
         }
         catch (Exception ex)
         {
             App.LogError(ex);
+            try { Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{AppId}") { UseShellExecute = true }); }
+            catch { /* ничего не вышло */ }
         }
+    }
+
+    private static void Start(string uri) => Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
+
+    /// <summary>Имя процесса программы по её AppUserModelId (Discord → Discord, Telegram → Telegram и т. п.).</summary>
+    private string GuessProcessName()
+    {
+        if (IsDiscord) return "Discord";
+        string first = AppId.Split('!')[0];
+        if (first.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return System.IO.Path.GetFileNameWithoutExtension(first);
+        return first.Split('.', '_').Last(part => part.Length > 2);
+    }
+
+    private bool TryFocusRunningWindow()
+    {
+        string name = GuessProcessName();
+        HashSet<uint> pids = Process.GetProcessesByName(name).Select(p => (uint)p.Id).ToHashSet();
+        if (pids.Count == 0) return false;
+
+        IntPtr best = IntPtr.Zero;
+        NativeMethods.EnumWindows((hwnd, _) =>
+        {
+            NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+            if (!pids.Contains(pid)) return true;
+            if (NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) != IntPtr.Zero) return true; // не главное окно
+            if (NativeMethods.GetWindowTextLength(hwnd) == 0) return true;
+            best = hwnd;
+            return !NativeMethods.IsWindowVisible(hwnd); // видимое окно — сразу берём, скрытое — ищем дальше
+        }, IntPtr.Zero);
+
+        if (best == IntPtr.Zero) return false;
+        if (NativeMethods.IsIconic(best)) NativeMethods.ShowWindow(best, NativeMethods.SW_RESTORE);
+        else if (!NativeMethods.IsWindowVisible(best)) NativeMethods.ShowWindow(best, NativeMethods.SW_SHOW);
+        NativeMethods.SetForegroundWindow(best);
+        return true;
     }
 }
 
@@ -75,6 +129,21 @@ public sealed class NotificationService
         _timer.Tick += async (_, _) => await PollAsync();
         _timer.Start();
         _ = PollAsync();
+    }
+
+    /// <summary>Убрать уведомление с острова (из истории). В центре уведомлений Windows оно останется.</summary>
+    public void Dismiss(NotificationItem item)
+    {
+        if (!History.Remove(item)) return;
+        if (item.IsDiscord && DiscordUnread > 0) DiscordUnread--;
+        HistoryChanged?.Invoke();
+    }
+
+    public void ClearHistory()
+    {
+        History.Clear();
+        DiscordUnread = 0;
+        HistoryChanged?.Invoke();
     }
 
     public void ResetDiscord()
@@ -195,6 +264,11 @@ public sealed class NotificationService
                 .ToList();
             if (texts.Count == 0) return null;
 
+            XElement? toast = doc.Root;
+            string? launch = toast?.Attribute("launch")?.Value;
+            string? activation = toast?.Attribute("activationType")?.Value;
+            string? launchUri = activation == "protocol" && launch != null && launch.Contains("://") ? launch : null;
+
             DateTime time;
             try { time = arrival > 0 ? DateTime.FromFileTimeUtc(arrival).ToLocalTime() : DateTime.Now; }
             catch { time = DateTime.Now; }
@@ -206,6 +280,7 @@ public sealed class NotificationService
                 Title = texts[0],
                 Body = string.Join(" ", texts.Skip(1)),
                 Time = time,
+                LaunchUri = launchUri,
             };
         }
         catch

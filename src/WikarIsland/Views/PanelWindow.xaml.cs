@@ -663,11 +663,21 @@ public partial class PanelWindow : Window
                 });
             Grid.SetColumn(texts, 1);
             row.Children.Add(texts);
+            var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
             var time = Text(n.Time.ToString("HH:mm"), 12, dim: true);
-            time.VerticalAlignment = VerticalAlignment.Top;
-            time.Margin = new Thickness(10, 1, 0, 0);
-            Grid.SetColumn(time, 2);
-            row.Children.Add(time);
+            time.Margin = new Thickness(10, 1, 4, 0);
+            right.Children.Add(time);
+            var close = IconButton("\uE711", "Закрыть уведомление");
+            close.FontSize = 10;
+            close.Padding = new Thickness(6, 3, 6, 3);
+            close.Click += (_, e) =>
+            {
+                App.Notifications.Dismiss(n);
+                e.Handled = true;
+            };
+            right.Children.Add(close);
+            Grid.SetColumn(right, 2);
+            row.Children.Add(right);
 
             row.ToolTip = $"{n.AppName}: нажми, чтобы открыть";
             row.MouseLeftButtonUp += (_, _) =>
@@ -679,9 +689,12 @@ public partial class PanelWindow : Window
             NotificationsList.Children.Add(row);
         }
 
+        ClearNotificationsButton.Visibility = shown > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (shown == 0)
             NotificationsList.Children.Add(Text("Пока пусто. Новые уведомления (Discord, мессенджеры, почта) появятся здесь и карточкой на пилюле.", 13, dim: true));
     }
+
+    private void ClearNotifications_Click(object sender, RoutedEventArgs e) => App.Notifications.ClearHistory();
 
     private void BuildNotificationApps()
     {

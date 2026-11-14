@@ -1,0 +1,93 @@
+using System;
+using System.IO;
+using System.Threading;
+using System.Windows;
+using WikarIsland.Services;
+using WikarIsland.Views;
+using WF = System.Windows.Forms;
+
+namespace WikarIsland;
+
+public partial class App : Application
+{
+    public static AppSettings Settings { get; private set; } = null!;
+    public static PillWindow Pill { get; private set; } = null!;
+    public static PanelWindow Panel { get; private set; } = null!;
+
+    private static Mutex? _instanceMutex;
+    private static WF.NotifyIcon? _tray;
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        // второй экземпляр не запускаем
+        _instanceMutex = new Mutex(true, "WikarIsland.SingleInstance", out bool isFirst);
+        if (!isFirst)
+        {
+            Shutdown();
+            return;
+        }
+
+        base.OnStartup(e);
+        DispatcherUnhandledException += (_, args) =>
+        {
+            LogError(args.Exception);
+            args.Handled = true;
+        };
+
+        Settings = AppSettings.Load();
+        if (Settings.AutoStart) AutoStart.Set(true); // обновить путь, если exe переехал
+
+        Panel = new PanelWindow();
+        Pill = new PillWindow();
+        Pill.Show();
+
+        CreateTray();
+    }
+
+    private static void CreateTray()
+    {
+        var menu = new WF.ContextMenuStrip();
+        menu.Items.Add("Открыть остров", null, (_, _) => Panel.Toggle(activate: true));
+        menu.Items.Add("Настройки", null, (_, _) => Panel.ShowTab("settings", activate: true));
+        menu.Items.Add("Вернуть пилюлю по центру", null, (_, _) => Pill.ResetPosition());
+        menu.Items.Add(new WF.ToolStripSeparator());
+        menu.Items.Add("Выход", null, (_, _) => Quit());
+
+        _tray = new WF.NotifyIcon
+        {
+            Icon = TrayIcon.Create(),
+            Text = "Wikar Island",
+            Visible = true,
+            ContextMenuStrip = menu,
+        };
+        _tray.MouseClick += (_, a) =>
+        {
+            if (a.Button == WF.MouseButtons.Left) Panel.Toggle(activate: true);
+        };
+    }
+
+    public static void Quit()
+    {
+        if (_tray != null)
+        {
+            _tray.Visible = false;
+            _tray.Dispose();
+        }
+        Settings.Save();
+        Current.Shutdown();
+    }
+
+    public static void LogError(Exception ex)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppSettings.DataDir);
+            File.AppendAllText(Path.Combine(AppSettings.DataDir, "error.log"),
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}\n\n");
+        }
+        catch
+        {
+            // лог не записался — ничего не поделать
+        }
+    }
+}

@@ -25,6 +25,7 @@ public partial class App : Application
     public static AudioRecorderService AudioRecorder { get; private set; } = null!;
     public static SystemMonitorService SystemMonitor { get; private set; } = null!;
     public static VpnService Vpn { get; private set; } = null!;
+    public static ZapretService Zapret { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -140,6 +141,7 @@ public partial class App : Application
         AudioRecorder = new AudioRecorderService();
         SystemMonitor = new SystemMonitorService();
         Vpn = new VpnService();
+        Zapret = new ZapretService();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
         Panel = new PanelWindow();
@@ -263,6 +265,15 @@ public partial class App : Application
         Safe("уведомления", Notifications.Start);
 
         Safe("трей", CreateTray);
+
+        Zapret.StateChanged += () =>
+        {
+            Pill.UpdateZapret();
+            Panel.UpdateZapret();
+        };
+        if (Settings.ZapretAutoStart && Zapret.Installed && SystemMonitorService.IsAdmin)
+            Safe("zapret", () => Zapret.Start());
+        Pill.UpdateZapret();
     }
 
     private static void CreateTray()
@@ -300,6 +311,7 @@ public partial class App : Application
         AudioRecorder?.Stop();
         SystemMonitor?.Dispose();
         Vpn?.Disconnect();
+        Zapret?.Stop();
         Current.Shutdown();
     }
 

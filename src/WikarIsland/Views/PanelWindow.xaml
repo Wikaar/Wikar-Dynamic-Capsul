@@ -523,6 +523,13 @@
                                 <TextBlock x:Name="VpnState" FontSize="11.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                         </Button>
+                        <Button x:Name="ZapretTile" Style="{StaticResource Tile}" Click="ZapretTile_Click">
+                            <StackPanel>
+                                <TextBlock Text="&#xE945;" FontFamily="{StaticResource Icons}" FontSize="20"/>
+                                <TextBlock Text="zapret" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="ZapretTileState" FontSize="11.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Button>
                         <Button x:Name="IconsTile" Style="{StaticResource Tile}" Click="DesktopIcons_Click">
                             <StackPanel>
                                 <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource Icons}" FontSize="20"/>
@@ -641,6 +648,21 @@
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                         <Button Style="{StaticResource FlatButton}" Margin="0" Content="Вернуть пилюлю по центру" Click="ResetPill_Click"/>
                     </StackPanel>
+
+                    <TextBlock Text="zapret (Discord и YouTube без VPN)" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Обход замедления и блокировок через DPI (Flowseal/zapret-discord-youtube). Остров сам скачивает свежий релиз с GitHub. Нужны права администратора (драйвер WinDivert); антивирус может ругаться на WinDivert — добавь папку в исключения."/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="ZapretInstallButton" Style="{StaticResource FlatButton}" Margin="0" Click="ZapretInstall_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Подобрать стратегию" Click="ZapretFind_Click"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Папка" Click="ZapretFolder_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ZapretStatusText" Style="{StaticResource Hint}" Margin="0,6,0,0"/>
+                    <CheckBox x:Name="ZapretGamesBox" Content="Обход и для игр (порты выше 1023)" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
+                    <CheckBox x:Name="ZapretAutoBox" Content="Включать zapret при запуске острова" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
+                    <TextBlock Text="Стратегия" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
+                               FontFamily="{StaticResource UiFont}" Margin="0,6,0,4"/>
+                    <WrapPanel x:Name="ZapretStrategies"/>
 
                     <TextBlock Text="VPN (VLESS)" Style="{StaticResource SectionTitle}"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"

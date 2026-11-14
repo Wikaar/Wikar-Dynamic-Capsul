@@ -78,6 +78,11 @@ dotnet publish src/WikarIsland -c Release -r win-x64 --self-contained true -o pu
 ### 6. Погода
 - [x] Цветные значки погоды, температура в пилюле, прогноз по часам и на неделю (MET Norway), поиск города
 
+### zapret (Discord и YouTube без VPN)
+- [x] Остров сам скачивает свежий релиз Flowseal/zapret-discord-youtube (MIT) и обновляет его
+- [x] Включение кнопкой в пилюле, выбор стратегии, автоподбор рабочей стратегии, обход для игр
+- [x] Нужны права администратора (WinDivert); антивирус может потребовать исключение для папки
+
 ### VPN (VLESS)
 - [x] Встроенное ядро Xray (как у v2rayN): вставляешь ссылки vless:// в настройках, включаешь щитом в пилюле
 - [x] Reality / TLS, транспорты tcp, ws, grpc, xhttp, httpupgrade, flow xtls-rprx-vision

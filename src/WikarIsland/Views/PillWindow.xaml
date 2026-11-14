@@ -39,6 +39,17 @@
                                    VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="VPN"/>
                     </StackPanel>
                 </Border>
+                <!-- zapret: один клик — включить / выключить обход -->
+                <Border x:Name="ZapretChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="7,3"
+                        Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonDown="ZapretChip_MouseLeftButtonDown">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ZapretIcon" Text="&#xE945;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                                   Foreground="#8A8A94" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ZapretText" Margin="5,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="#8A8A94"
+                                   VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="zapret"/>
+                    </StackPanel>
+                </Border>
                 <Grid VerticalAlignment="Center">
 
                 <!-- Обычное состояние: глаза, погода, часы -->

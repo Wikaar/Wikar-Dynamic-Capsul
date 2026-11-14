@@ -197,6 +197,8 @@ public partial class PillWindow : Window
         IdlePart.Visibility = !timer && !recording && !card && !volume && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
         VpnChip.Visibility = !timer && !recording && !card && !volume && App.Settings.VpnServers.Count > 0
             ? Visibility.Visible : Visibility.Collapsed;
+        ZapretChip.Visibility = !timer && !recording && !card && !volume && App.Zapret?.Installed == true
+            ? Visibility.Visible : Visibility.Collapsed;
 
         if (timer)
             TimerTitle.Text = $"{PowerTimerService.ActionName(App.PowerTimer!.Action)} через {Math.Ceiling(App.PowerTimer.Remaining.TotalSeconds):0} с";
@@ -348,6 +350,41 @@ public partial class PillWindow : Window
             : $"VPN выключен{(vpn.ActiveServer != null ? $" · {vpn.ActiveServer.Name}" : "")}\nНажми, чтобы подключить";
         UpdateContent();
     }
+
+    public void UpdateZapret()
+    {
+        ZapretService z = App.Zapret;
+        Color color = z.IsBusy ? Color.FromRgb(0xF5, 0xC8, 0x5A)
+            : z.IsRunning ? Color.FromRgb(0x7C, 0x9C, 0xFF)
+            : Color.FromRgb(0x8A, 0x8A, 0x94);
+        var brush = new SolidColorBrush(color);
+        ZapretIcon.Foreground = brush;
+        ZapretText.Foreground = brush;
+        ZapretText.Text = z.IsBusy ? "…" : "zapret";
+        ZapretChip.Background = new SolidColorBrush(z.IsRunning ? Color.FromArgb(0x30, 0x7C, 0x9C, 0xFF) : Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF));
+        ZapretChip.ToolTip = (z.IsRunning ? "zapret работает" : "zapret выключен") +
+                             (z.Status.Length > 0 ? $"\n{z.Status}" : "") + "\nНажми, чтобы " + (z.IsRunning ? "выключить" : "включить");
+        UpdateContent();
+    }
+
+    private async void ZapretChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        bool wanted = !App.Zapret.IsRunning;
+        await App.Zapret.ToggleAsync();
+        if (wanted && !App.Zapret.IsRunning) ShowZapretProblem();
+    }
+
+    /// <summary>Не включился — показываем причину карточкой (нет прав, антивирус и т. п.).</summary>
+    public void ShowZapretProblem() => ShowNotification(new NotificationItem
+    {
+        AppId = "zapret",
+        AppName = "zapret",
+        Title = "zapret не включился",
+        Body = App.Zapret.Status,
+        Time = DateTime.Now,
+        Click = () => App.Panel.ShowTab("settings", activate: true),
+    });
 
     private void VpnChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

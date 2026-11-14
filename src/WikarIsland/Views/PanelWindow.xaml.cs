@@ -451,7 +451,7 @@ public partial class PanelWindow : Window
         if (key == "weather") BuildWeatherView();
         if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
-        if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); }
+        if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); UpdateZapret(); }
         if (key == "home") { BuildLauncher(); UpdateWeather(); UpdateNotesTile(); }
 
         if (IsVisible && !_closing)
@@ -1117,6 +1117,7 @@ public partial class PanelWindow : Window
         NotificationsBox.IsChecked = s.NotificationsEnabled;
         BuildVpnServers();
         VpnDnsBox.Text = s.VpnDns;
+        UpdateZapret();
         BuildEyeStyles();
         BuildNotificationApps();
         WeatherCityText.Text = s.WeatherCity != null ? $"Сейчас: {s.WeatherCity}" : "Город не выбран";
@@ -2020,5 +2021,93 @@ public partial class PanelWindow : Window
             await App.Vpn.ReconnectIfConnectedAsync();
             VpnDnsStatus.Text = $"DNS применён ({(servers.Count == 0 ? "системный" : string.Join(", ", servers))})";
         }
+    }
+
+    // ---------- zapret ----------
+
+    public void UpdateZapret()
+    {
+        ZapretService z = App.Zapret;
+        ZapretTile.Background = z.IsRunning ? TileOn : TileOff;
+        ZapretTileState.Text = z.IsBusy ? z.Status
+            : z.IsRunning ? ZapretService.ShortName(App.Settings.ZapretStrategy ?? "general")
+            : z.Installed ? "Выключен" : "Не скачан";
+        ZapretTile.ToolTip = z.Status;
+
+        if (_current != "settings") return;
+        ZapretInstallButton.Content = z.Installed ? $"Обновить ({App.Settings.ZapretVersion ?? "?"})" : "Скачать zapret";
+        ZapretInstallButton.IsEnabled = !z.IsBusy;
+        ZapretStatusText.Text = z.Status.Length > 0 ? z.Status
+            : z.Installed ? (SystemMonitorService.IsAdmin ? "Готов к работе" : "Скачан. Для запуска нужны права администратора")
+            : "Ещё не скачан — нажми «Скачать zapret» (или просто включи кнопкой в пилюле)";
+        ZapretGamesBox.IsChecked = App.Settings.ZapretGameFilter;
+        ZapretAutoBox.IsChecked = App.Settings.ZapretAutoStart;
+
+        ZapretStrategies.Children.Clear();
+        foreach (string strategy in z.Strategies())
+        {
+            bool selected = strategy == (App.Settings.ZapretStrategy ?? "general");
+            var b = new Button
+            {
+                Content = ZapretService.ShortName(strategy),
+                ToolTip = strategy + ".bat",
+                Style = (Style)FindResource("FlatButton"),
+                Margin = new Thickness(0, 0, 6, 6),
+                Padding = new Thickness(9, 4, 9, 4),
+                FontSize = 12,
+                Background = selected ? new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80)) : new SolidColorBrush(Color.FromRgb(0x24, 0x24, 0x2A)),
+            };
+            b.Click += (_, _) =>
+            {
+                App.Settings.ZapretStrategy = strategy;
+                App.Settings.Save();
+                if (z.IsRunning)
+                {
+                    z.Stop();
+                    z.Start();
+                }
+                UpdateZapret();
+            };
+            ZapretStrategies.Children.Add(b);
+        }
+    }
+
+    private async void ZapretInstall_Click(object sender, RoutedEventArgs e)
+    {
+        await App.Zapret.InstallOrUpdateAsync();
+        UpdateZapret();
+        App.Pill.UpdateZapret();
+    }
+
+    private async void ZapretFind_Click(object sender, RoutedEventArgs e)
+    {
+        await App.Zapret.FindWorkingStrategyAsync();
+        UpdateZapret();
+    }
+
+    private void ZapretFolder_Click(object sender, RoutedEventArgs e)
+    {
+        System.IO.Directory.CreateDirectory(ZapretService.Folder);
+        ShellHelper.Open(ZapretService.Folder);
+    }
+
+    private void ZapretOptions_Click(object sender, RoutedEventArgs e)
+    {
+        bool gamesChanged = App.Settings.ZapretGameFilter != (ZapretGamesBox.IsChecked == true);
+        App.Settings.ZapretGameFilter = ZapretGamesBox.IsChecked == true;
+        App.Settings.ZapretAutoStart = ZapretAutoBox.IsChecked == true;
+        App.Settings.Save();
+        if (gamesChanged && App.Zapret.IsRunning)
+        {
+            App.Zapret.Stop();
+            App.Zapret.Start();
+        }
+    }
+
+    private async void ZapretTile_Click(object sender, RoutedEventArgs e)
+    {
+        bool wanted = !App.Zapret.IsRunning;
+        await App.Zapret.ToggleAsync();
+        if (wanted && !App.Zapret.IsRunning) App.Pill.ShowZapretProblem();
     }
 }

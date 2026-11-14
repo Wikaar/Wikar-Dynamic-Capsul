@@ -60,6 +60,12 @@ public sealed class AppSettings
 
     public bool NotificationsEnabled { get; set; } = true;
 
+    // ---------- zapret ----------
+    public string? ZapretVersion { get; set; }
+    public string? ZapretStrategy { get; set; }
+    public bool ZapretGameFilter { get; set; }
+    public bool ZapretAutoStart { get; set; }
+
     // ---------- VPN (VLESS через Xray) ----------
     public List<VpnServer> VpnServers { get; set; } = new();
     public int VpnActive { get; set; }

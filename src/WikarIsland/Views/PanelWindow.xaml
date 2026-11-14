@@ -135,6 +135,17 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Уведомления -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Уведомления" Foreground="{StaticResource TextMain}" FontSize="15"
+                                               FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                                </DockPanel>
+                                <StackPanel x:Name="NotificationsList"/>
+                            </StackPanel>
+                        </Border>
+
                         <TextBlock x:Name="HomeHint" Style="{StaticResource Hint}" LineHeight="19" Margin="2,2,0,0"/>
                     </StackPanel>
                 </ScrollViewer>
@@ -185,6 +196,13 @@
                             <Button Style="{StaticResource FlatButton}" Content="Найти город" Click="CitySearch_Click"/>
                         </StackPanel>
                         <StackPanel x:Name="CityResults" Margin="0,8,0,0"/>
+
+                        <TextBlock Text="Уведомления" Style="{StaticResource SectionTitle}"/>
+                        <CheckBox x:Name="NotificationsBox" Content="Показывать уведомления программ на острове"
+                                  Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
+                        <TextBlock x:Name="NotificationsInfo" Style="{StaticResource Hint}" Margin="0,0,0,8"
+                                   Text="Нажатие на карточку открывает программу. Ниже — программы, от которых уже приходили уведомления: сними галочку, чтобы их не показывать."/>
+                        <StackPanel x:Name="NotificationApps"/>
 
                         <TextBlock Text="Горячая клавиша" Style="{StaticResource SectionTitle}"/>
                         <StackPanel Orientation="Horizontal">

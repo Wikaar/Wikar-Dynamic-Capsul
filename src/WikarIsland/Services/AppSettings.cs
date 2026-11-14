@@ -39,6 +39,14 @@ public sealed class AppSettings
     public string? WeatherCity { get; set; }
     public double? WeatherLat { get; set; }
     public double? WeatherLon { get; set; }
+
+    public bool NotificationsEnabled { get; set; } = true;
+
+    /// <summary>Программы, уведомления которых не показываем (AppUserModelId).</summary>
+    public List<string> MutedNotificationApps { get; set; } = new();
+
+    /// <summary>Программы, от которых уже приходили уведомления: AppUserModelId → имя.</summary>
+    public Dictionary<string, string> KnownNotificationApps { get; set; } = new();
     public string LastTab { get; set; } = "home";
 
     public static string DataDir =>

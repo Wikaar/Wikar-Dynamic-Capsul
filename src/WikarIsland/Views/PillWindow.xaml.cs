@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -29,6 +31,9 @@ public partial class PillWindow : Window
     private DateTime? _awaySince;
     private DateTime _volumeUntil;
     private DateTime _lastPlaying;
+    private readonly Queue<NotificationItem> _cards = new();
+    private NotificationItem? _card;
+    private DateTime _cardUntil;
 
     public PillWindow()
     {
@@ -39,6 +44,7 @@ public partial class PillWindow : Window
         {
             UpdateTime();
             UpdateContent();
+            CheckDiscordFocused();
         };
 
         _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
@@ -49,7 +55,11 @@ public partial class PillWindow : Window
         };
 
         _autoHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
-        _autoHideTimer.Tick += (_, _) => AutoHideTick();
+        _autoHideTimer.Tick += (_, _) =>
+        {
+            CardTick();
+            AutoHideTick();
+        };
 
         BuildContextMenu();
     }
@@ -146,13 +156,16 @@ public partial class PillWindow : Window
     private void UpdateContent()
     {
         MediaInfo? m = App.Media?.Current;
-        bool volume = DateTime.Now < _volumeUntil;
+        bool card = _card != null;
+        bool volume = !card && DateTime.Now < _volumeUntil;
         bool music = !volume && App.Settings.MusicInPill && m != null
                      && (m.IsPlaying || (DateTime.Now - _lastPlaying).TotalSeconds < 15);
 
+        bool musicOk = !card && music;
+        NotifyPart.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
         VolumePart.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
-        MusicPart.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
-        IdlePart.Visibility = !volume && !music ? Visibility.Visible : Visibility.Collapsed;
+        MusicPart.Visibility = musicOk ? Visibility.Visible : Visibility.Collapsed;
+        IdlePart.Visibility = !card && !volume && !musicOk ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowVolume()
@@ -185,7 +198,100 @@ public partial class PillWindow : Window
         e.Handled = true;
     }
 
+    // ---------- уведомления ----------
+
+    public void ShowNotification(NotificationItem item)
+    {
+        _cards.Enqueue(item);
+        while (_cards.Count > 5) _cards.Dequeue();
+        if (_card == null) ShowNextCard();
+        UpdateDiscordBadge();
+    }
+
+    private void ShowNextCard()
+    {
+        if (_cards.Count == 0) return;
+        _card = _cards.Dequeue();
+        NotifyIcon.Source = _card.AppIcon;
+        NotifyTitle.Text = _card.Title;
+        NotifyBody.Text = string.IsNullOrEmpty(_card.Body) ? _card.AppName : _card.Body;
+        NotifyPart.ToolTip = $"{_card.AppName}: нажми, чтобы открыть";
+        _cardUntil = DateTime.Now.AddSeconds(6);
+
+        _hoverTimer.Stop();
+        if (_hidden) SlideIn();
+        AnimatePillHeight(58, 22);
+        UpdateContent();
+    }
+
+    private void CloseCard()
+    {
+        _card = null;
+        if (_cards.Count > 0)
+        {
+            ShowNextCard();
+            return;
+        }
+        AnimatePillHeight(34, 17);
+        UpdateContent();
+    }
+
+    private void CardTick()
+    {
+        if (_card == null) return;
+        if (Pill.IsMouseOver) _cardUntil = DateTime.Now.AddSeconds(2); // читают — не убираем
+        if (DateTime.Now > _cardUntil) CloseCard();
+    }
+
+    private void AnimatePillHeight(double height, double radius)
+    {
+        Pill.CornerRadius = new CornerRadius(radius);
+        Pill.BeginAnimation(HeightProperty, new DoubleAnimation(height, TimeSpan.FromMilliseconds(220))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        });
+    }
+
+    public void UpdateDiscordBadge()
+    {
+        int count = App.Notifications.DiscordUnread;
+        DiscordBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DiscordCount.Text = count > 99 ? "99+" : count.ToString();
+        foreach (NotificationItem n in App.Notifications.History)
+        {
+            if (!n.IsDiscord) continue;
+            DiscordIcon.Source = n.AppIcon;
+            break;
+        }
+    }
+
+    /// <summary>Открыли Discord сами — счётчик сбрасываем.</summary>
+    private void CheckDiscordFocused()
+    {
+        if (App.Notifications == null || App.Notifications.DiscordUnread == 0) return;
+        try
+        {
+            NativeMethods.GetWindowThreadProcessId(NativeMethods.GetForegroundWindow(), out uint pid);
+            using Process p = Process.GetProcessById((int)pid);
+            if (p.ProcessName.Equals("Discord", StringComparison.OrdinalIgnoreCase))
+                App.Notifications.ResetDiscord();
+        }
+        catch
+        {
+            // процесс уже закрылся
+        }
+    }
+
     // ---------- позиция ----------
+
+    /// <summary>Пилюля у нижнего края растёт вверх, у верхнего — вниз.</summary>
+    private void UpdateVerticalAlign()
+    {
+        Rect b = ScreenBounds();
+        Pill.VerticalAlignment = Top + Height / 2 > b.Top + b.Height / 2
+            ? VerticalAlignment.Bottom
+            : VerticalAlignment.Top;
+    }
 
     /// <summary>Прямоугольник самой пилюли на экране (DIP), без прозрачных полей окна.</summary>
     public Rect PillRect()
@@ -225,6 +331,7 @@ public partial class PillWindow : Window
                     Left = pos.Left;
                     Top = pos.Top;
                     SetAlign(pos.Align);
+                    UpdateVerticalAlign();
                     return;
                 }
             }
@@ -241,6 +348,7 @@ public partial class PillWindow : Window
         Left = b.Left + (b.Width - Width) / 2;
         Top = b.Top - 4;
         _hidden = false;
+        UpdateVerticalAlign();
 
         if (save)
         {
@@ -285,6 +393,7 @@ public partial class PillWindow : Window
 
         if (pill.Top - b.Top < SnapDistance) Top = DockedTop();
         else if (wa.Bottom - pill.Bottom < SnapDistance) Top = wa.Bottom - Height + 4;
+        UpdateVerticalAlign();
 
         App.Settings.Positions[screen.DeviceName] = new PillPosition { Left = Left, Top = Top, Align = CurrentAlign() };
         App.Settings.LastScreen = screen.DeviceName;
@@ -301,6 +410,13 @@ public partial class PillWindow : Window
             try { DragMove(); } catch (InvalidOperationException) { }
             SnapAndSave();
         }
+        else if (_card != null)
+        {
+            NotificationItem item = _card;
+            if (item.IsDiscord) App.Notifications.ResetDiscord();
+            item.OpenApp();
+            CloseCard();
+        }
         else
         {
             _hoverTimer.Stop();
@@ -311,7 +427,7 @@ public partial class PillWindow : Window
     private void Pill_MouseEnter(object sender, MouseEventArgs e)
     {
         AnimateScale(1.06);
-        if (!App.Settings.Unlocked) _hoverTimer.Start();
+        if (!App.Settings.Unlocked && _card == null) _hoverTimer.Start();
     }
 
     private void Pill_MouseLeave(object sender, MouseEventArgs e)
@@ -384,7 +500,7 @@ public partial class PillWindow : Window
         }
 
         var near = new Rect(pill.Left - 30, b.Top - 2, pill.Width + 60, pill.Bottom - b.Top + 30);
-        if (near.Contains(c) || App.Panel.IsVisible || Pill.ContextMenu?.IsOpen == true)
+        if (near.Contains(c) || App.Panel.IsVisible || _card != null || Pill.ContextMenu?.IsOpen == true)
         {
             _awaySince = null;
             return;

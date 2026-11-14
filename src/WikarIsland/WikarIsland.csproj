@@ -15,11 +15,12 @@
     <AssemblyName>WikarIsland</AssemblyName>
     <RootNamespace>WikarIsland</RootNamespace>
     <Product>Wikar Island</Product>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.*" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.*" />
   </ItemGroup>
 
 </Project>

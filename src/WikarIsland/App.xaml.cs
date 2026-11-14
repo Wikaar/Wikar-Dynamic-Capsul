@@ -16,6 +16,7 @@ public partial class App : Application
     public static MediaService Media { get; private set; } = null!;
     public static WeatherService Weather { get; private set; } = null!;
     public static AudioService Audio { get; private set; } = null!;
+    public static NotificationService Notifications { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -43,6 +44,7 @@ public partial class App : Application
         Media = new MediaService();
         Weather = new WeatherService();
         Audio = new AudioService();
+        Notifications = new NotificationService();
 
         Panel = new PanelWindow();
         Pill = new PillWindow();
@@ -58,8 +60,16 @@ public partial class App : Application
             Pill.UpdateWeather();
             Panel.UpdateWeather();
         };
+        Notifications.Arrived += item => Pill.ShowNotification(item);
+        Notifications.HistoryChanged += () =>
+        {
+            Pill.UpdateDiscordBadge();
+            Panel.UpdateNotifications();
+        };
+
         _ = Media.StartAsync();
         Weather.Start();
+        Notifications.Start();
 
         CreateTray();
     }

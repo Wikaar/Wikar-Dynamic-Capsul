@@ -252,7 +252,7 @@ public partial class PanelWindow : Window
         if (isAi && !_views.ContainsKey(key)) _ = CreateAiViewAsync(key);
         if (key == "settings") LoadSettings();
         if (key == "weather") BuildWeatherView();
-        if (key == "home") { UpdateHomeClock(); RefreshSound(); }
+        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); }
 
         App.Settings.LastTab = key;
     }
@@ -420,6 +420,88 @@ public partial class PanelWindow : Window
         RefreshSound();
     }
 
+    // ---------- уведомления ----------
+
+    public void UpdateNotifications()
+    {
+        NotificationsList.Children.Clear();
+        if (!App.Notifications.Available)
+        {
+            NotificationsList.Children.Add(Text("Не нашёл базу уведомлений Windows — эта функция здесь не работает.", 13, dim: true));
+            return;
+        }
+
+        int shown = 0;
+        foreach (NotificationItem n in App.Notifications.History)
+        {
+            if (shown++ >= 6) break;
+
+            var row = new Grid { Margin = new Thickness(0, 4, 0, 4), Cursor = Cursors.Hand, Background = Brushes.Transparent };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            row.Children.Add(new Image { Source = n.AppIcon, Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Top });
+            var texts = new StackPanel();
+            texts.Children.Add(new TextBlock
+            {
+                Text = n.Title, FontSize = 13.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
+                Foreground = (Brush)FindResource("TextMain"), FontFamily = (FontFamily)FindResource("UiFont"),
+            });
+            if (!string.IsNullOrEmpty(n.Body))
+                texts.Children.Add(new TextBlock
+                {
+                    Text = n.Body, FontSize = 12.5, TextTrimming = TextTrimming.CharacterEllipsis,
+                    Foreground = (Brush)FindResource("TextDim"), FontFamily = (FontFamily)FindResource("UiFont"),
+                });
+            Grid.SetColumn(texts, 1);
+            row.Children.Add(texts);
+            var time = Text(n.Time.ToString("HH:mm"), 12, dim: true);
+            time.VerticalAlignment = VerticalAlignment.Top;
+            time.Margin = new Thickness(10, 1, 0, 0);
+            Grid.SetColumn(time, 2);
+            row.Children.Add(time);
+
+            row.ToolTip = $"{n.AppName}: нажми, чтобы открыть";
+            row.MouseLeftButtonUp += (_, _) =>
+            {
+                if (n.IsDiscord) App.Notifications.ResetDiscord();
+                n.OpenApp();
+                HideIsland();
+            };
+            NotificationsList.Children.Add(row);
+        }
+
+        if (shown == 0)
+            NotificationsList.Children.Add(Text("Пока пусто. Новые уведомления (Discord, мессенджеры, почта) появятся здесь и карточкой на пилюле.", 13, dim: true));
+    }
+
+    private void BuildNotificationApps()
+    {
+        NotificationApps.Children.Clear();
+        AppSettings s = App.Settings;
+        foreach (KeyValuePair<string, string> app in s.KnownNotificationApps)
+        {
+            var box = new CheckBox
+            {
+                Content = app.Value,
+                ToolTip = app.Key,
+                IsChecked = !s.MutedNotificationApps.Contains(app.Key),
+                Style = (Style)FindResource("SettingsCheck"),
+                Margin = new Thickness(0, 3, 0, 3),
+            };
+            box.Click += (_, _) =>
+            {
+                if (box.IsChecked == true) s.MutedNotificationApps.Remove(app.Key);
+                else if (!s.MutedNotificationApps.Contains(app.Key)) s.MutedNotificationApps.Add(app.Key);
+                s.Save();
+            };
+            NotificationApps.Children.Add(box);
+        }
+        if (s.KnownNotificationApps.Count == 0)
+            NotificationApps.Children.Add(Text("Список появится, когда придут первые уведомления.", 13, dim: true));
+    }
+
     // ---------- погода ----------
 
     public void UpdateWeather()
@@ -545,6 +627,8 @@ public partial class PanelWindow : Window
         MusicPillBox.IsChecked = s.MusicInPill;
         WeatherPillBox.IsChecked = s.WeatherInPill;
         HotkeyBox.Text = s.Hotkey;
+        NotificationsBox.IsChecked = s.NotificationsEnabled;
+        BuildNotificationApps();
         WeatherCityText.Text = s.WeatherCity != null ? $"Сейчас: {s.WeatherCity}" : "Город не выбран";
         _loadingSettings = false;
     }
@@ -562,6 +646,7 @@ public partial class PanelWindow : Window
         s.PillMode = ModeEyes.IsChecked == true ? "eyes" : ModeClock.IsChecked == true ? "clock" : "both";
         s.MusicInPill = MusicPillBox.IsChecked == true;
         s.WeatherInPill = WeatherPillBox.IsChecked == true;
+        s.NotificationsEnabled = NotificationsBox.IsChecked == true;
 
         s.Save();
         App.Pill.ApplySettings();

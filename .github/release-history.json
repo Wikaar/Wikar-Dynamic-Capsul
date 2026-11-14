@@ -108,5 +108,15 @@
   "version": "0.11.0",
   "sha": "da209cfcc650d45c9cc19dee3c7789039892931b",
   "title": "zapret"
+ },
+ {
+  "version": "0.11.1",
+  "sha": "4fb407827d05bae47fd6cd79b33c096746bc43ae",
+  "title": "zapret: исправлена установка"
+ },
+ {
+  "version": "0.12.0",
+  "sha": "9404cde205c2ac50547113d7b35f3f3ee8b470f0",
+  "title": "zapret: все опции service.bat"
  }
 ]

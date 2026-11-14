@@ -1,0 +1,86 @@
+name: Release history
+
+# Одноразово собирает все прошлые версии из их коммитов и публикует релизы.
+# Уже существующие релизы пропускает, поэтому повторный запуск безопасен.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-history.yml', '.github/release-history.json']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      items: ${{ steps.m.outputs.items }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "items=$(jq -c . .github/release-history.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: list
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        item: ${{ fromJson(needs.list.outputs.items) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.item.sha }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish
+        run: dotnet publish src/WikarIsland/WikarIsland.csproj -c Release -r win-x64 --self-contained true -o publish
+
+      - name: Add Xray-core (versions with VPN)
+        if: hashFiles('src/WikarIsland/Services/VpnService.cs') != ''
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-windows-64.zip" -OutFile xray.zip
+          Expand-Archive xray.zip -DestinationPath publish/xray -Force
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath "WikarIsland-v${{ matrix.item.version }}-win-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v${{ matrix.item.version }}
+          path: WikarIsland-v${{ matrix.item.version }}-win-x64.zip
+
+  release:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create releases (oldest first, newest marked Latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(jq -r '.[-1].version' .github/release-history.json)
+          jq -r '.[] | [.version, .sha, .title] | @tsv' .github/release-history.json |
+          while IFS=$'\t' read -r v sha title; do
+            zip="dist/v$v/WikarIsland-v$v-win-x64.zip"
+            if gh release view "v$v" >/dev/null 2>&1; then echo "v$v already exists"; continue; fi
+            if [ ! -f "$zip" ]; then echo "::warning::v$v was not built, skipping"; continue; fi
+            latest="--latest=false"; [ "$v" = "$last" ] && latest="--latest"
+            gh release create "v$v" "$zip" --target "$sha" \
+              --title "Wikar Island $v — $title" \
+              --notes-file ".github/release-notes/v$v.md" $latest
+            sleep 2
+          done

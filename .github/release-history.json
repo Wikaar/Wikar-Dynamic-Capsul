@@ -1,0 +1,112 @@
+[
+ {
+  "version": "0.1.0",
+  "sha": "c739bf1257b647eb42af0b1adc8dd5fa104e62a7",
+  "title": "Первая версия"
+ },
+ {
+  "version": "0.2.0",
+  "sha": "76ba9b718f91de4d6f19d6602c14f1bfb3c5d9b6",
+  "title": "Музыка, звук и погода"
+ },
+ {
+  "version": "0.3.0",
+  "sha": "497f932d6a6f058eced62b05f28c4a75cbd35bd8",
+  "title": "Уведомления Windows"
+ },
+ {
+  "version": "0.4.0",
+  "sha": "3787eb4a6f561de29989094527f7449c17fe1468",
+  "title": "Буфер обмена, Steam, таймер"
+ },
+ {
+  "version": "0.4.1",
+  "sha": "7e328f1df2a01879808ae425d272598023d11d82",
+  "title": "Открытие и закрытие уведомлений"
+ },
+ {
+  "version": "0.4.2",
+  "sha": "ec14a885008a909dd1399ab1b7e28d84e4bec0c1",
+  "title": "Компактная панель"
+ },
+ {
+  "version": "0.5.0",
+  "sha": "a9e8f45a947789e3721c4a3c8cc260ec392f48f9",
+  "title": "Живая пилюля"
+ },
+ {
+  "version": "0.6.0",
+  "sha": "6c5f70e1d0f7f6ab883762a80cb0b88e5de8ffbf",
+  "title": "Перевоплощение, ярлыки, центр управления"
+ },
+ {
+  "version": "0.6.1",
+  "sha": "82a88ea0c2be4342af4d7af5a22aded3b20cec37",
+  "title": "Исправление погоды"
+ },
+ {
+  "version": "0.7.0",
+  "sha": "850d003f589823a91ea5d0be4f53f51a9c72b6f6",
+  "title": "Быстрые действия"
+ },
+ {
+  "version": "0.7.1",
+  "sha": "538080a84e8990496e8b559749b4f7d73289367b",
+  "title": "Исправления"
+ },
+ {
+  "version": "0.8.1",
+  "sha": "ddfa96ff501f8d35c76b803532d2119b280968e4",
+  "title": "Запись экрана и звука"
+ },
+ {
+  "version": "0.8.2",
+  "sha": "8e88529ab0ab05f752fad58128049337d445f72e",
+  "title": "Звук в записи, новая «Главная»"
+ },
+ {
+  "version": "0.9.0",
+  "sha": "ff54bf0c38f60fbcb761bf5c8006b8d115dcc844",
+  "title": "Показатели ПК"
+ },
+ {
+  "version": "0.9.1",
+  "sha": "54f3f87cea4f2d5dde76da46d07ec0caa48c91a8",
+  "title": "Автозапуск от администратора"
+ },
+ {
+  "version": "0.10.0",
+  "sha": "2a98cf6035eb7aa0a292de7b3a73dac7af2e0c90",
+  "title": "Встроенный VPN (VLESS)"
+ },
+ {
+  "version": "0.10.1",
+  "sha": "c1f947495f2351a72c270ae36ced57885b8d48ac",
+  "title": "DNS для VPN"
+ },
+ {
+  "version": "0.10.2",
+  "sha": "27953b7a6006f010d310f0295dcbef49517f7b69",
+  "title": "Понятные ошибки запуска"
+ },
+ {
+  "version": "0.10.3",
+  "sha": "1288595fd8755f10c7928db597e34fc1dd824762",
+  "title": "Поддержка Windows 10 1809+"
+ },
+ {
+  "version": "0.10.4",
+  "sha": "485c2d2417d58e1fee0ab2ab87389e0db3471a3c",
+  "title": "Программная отрисовка"
+ },
+ {
+  "version": "0.10.5",
+  "sha": "08074698ac640a0f8e16fea1b3b634ca227b5983",
+  "title": "Урезанные сборки Windows"
+ },
+ {
+  "version": "0.11.0",
+  "sha": "da209cfcc650d45c9cc19dee3c7789039892931b",
+  "title": "zapret"
+ }
+]

@@ -124,19 +124,20 @@ public sealed class SpeechService
 
     public static async Task<byte[]> SynthesizeAsync(string text, string voice, int rate, CancellationToken token)
     {
-        for (int attempt = 0; attempt < 2; attempt++)
+        for (int attempt = 0; ; attempt++)
         {
             try
             {
-                return await SynthesizeOnceAsync(text, voice, rate, token);
+                byte[] mp3 = await SynthesizeOnceAsync(text, voice, rate, token);
+                if (mp3.Length > 0 || attempt >= 2) return mp3;
             }
-            catch (WebSocketException) when (attempt == 0)
+            catch (Exception ex) when (attempt < 2 && ex is WebSocketException or IOException or HttpRequestException)
             {
-                // часто это 403 из-за расхождения часов — берём время у сервера и пробуем ещё раз
-                await AdjustClockAsync(token);
+                // сервер иногда рвёт первое соединение; при 403 виноваты часы — сверяемся с сервером
+                if (attempt == 0) await AdjustClockAsync(token);
             }
+            await Task.Delay(300 * (attempt + 1), token);
         }
-        throw new InvalidOperationException("Сервис голоса не ответил");
     }
 
     private static async Task AdjustClockAsync(CancellationToken token)
@@ -158,7 +159,7 @@ public sealed class SpeechService
     public static string LastStage { get; private set; } = "";
 
     /// <summary>Как подключаться: сжатие permessage-deflate и заголовок Accept-Encoding, как у браузера.</summary>
-    public static bool UseDeflate { get; set; } = true;
+    public static bool UseDeflate { get; set; }
     public static bool SendAcceptEncoding { get; set; } = true;
 
     private static async Task<byte[]> SynthesizeOnceAsync(string text, string voice, int rate, CancellationToken token)

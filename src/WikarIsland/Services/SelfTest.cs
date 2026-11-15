@@ -32,7 +32,8 @@ public static class SelfTest
         {
             // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен; пробуем варианты подключения
             bool any = false;
-            foreach ((bool deflate, bool enc) in new[] { (true, true), (false, true), (true, false), (false, false) })
+            // основная настройка пять раз подряд (как в программе), затем со сжатием для сравнения
+            foreach ((bool deflate, bool enc) in new[] { (false, true), (false, true), (false, true), (false, true), (false, true), (true, true) })
             {
                 SpeechService.UseDeflate = deflate;
                 SpeechService.SendAcceptEncoding = enc;

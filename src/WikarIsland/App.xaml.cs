@@ -518,7 +518,7 @@ public partial class App : Application
             if (info.Exists && info.Length > 300_000)
             {
                 string[] lines = File.ReadAllLines(path);
-                File.WriteAllLines(path, lines.Skip(lines.Length / 2));
+                File.WriteAllLines(path, lines[(lines.Length / 2)..]);
             }
             File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {line}\n");
         }

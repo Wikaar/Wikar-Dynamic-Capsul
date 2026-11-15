@@ -23,7 +23,14 @@ public static class CloudStt
 
     /// <summary>Есть ключ Groq — распознаём онлайн.</summary>
     public static bool Available =>
-        App.Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase) && App.Settings.AiKey.Length > 0;
+        Key.Length > 0;
+
+    /// <summary>Свой ключ Groq для слуха; если его нет, а «мозг» — Groq, то ключ ИИ.</summary>
+    private static string Key =>
+        App.Settings.GroqKey.Length > 0 ? App.Settings.GroqKey
+        : App.Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase) ? App.Settings.AiKey : "";
+
+    private const string GroqUrl = "https://api.groq.com/openai/v1/audio/transcriptions";
 
     // Whisper на тишине и шуме иногда «дописывает» титры из обучающих видео
     private static readonly string[] Hallucinations =
@@ -47,8 +54,8 @@ public static class CloudStt
             form.Add(new StringContent("json"), "response_format");
             form.Add(new StringContent(Prompt()), "prompt");
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, App.Settings.AiBaseUrl.TrimEnd('/') + "/audio/transcriptions") { Content = form };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", App.Settings.AiKey);
+            using var request = new HttpRequestMessage(HttpMethod.Post, GroqUrl) { Content = form };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Key);
             using HttpResponseMessage response = await Http.SendAsync(request, token);
             string json = await response.Content.ReadAsStringAsync(token);
             if (!response.IsSuccessStatusCode)

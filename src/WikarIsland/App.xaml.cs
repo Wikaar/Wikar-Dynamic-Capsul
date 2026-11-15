@@ -151,6 +151,12 @@ public partial class App : Application
 
         Settings = AppSettings.Load();
         MigrateAiModel();
+        // ключ Groq переносим в отдельное поле слуха — чтобы смена «мозга» (Ollama, Gemini) не выключала Whisper
+        if (Settings.GroqKey.Length == 0 && Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase) && Settings.AiKey.Length > 0)
+        {
+            Settings.GroqKey = Settings.AiKey;
+            Settings.Save();
+        }
         System.Threading.Tasks.Task.Run(UpdateService.CleanupAfterUpdate);
         // обновить путь, если exe переехал, и починить задачу автозапуска (в фоне: schtasks/COM — до пары секунд)
         if (Settings.AutoStart)

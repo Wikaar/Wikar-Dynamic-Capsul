@@ -2645,6 +2645,7 @@ public partial class PanelWindow : Window
         AiUrlBox.Text = s.AiBaseUrl;
         AiModelBox.Text = s.AiModel;
         AiKeyBox.Password = s.AiKey;
+        GroqKeyBox.Password = s.GroqKey;
         AiPreset current = AssistantService.Preset;
         AiGetKeyButton.Visibility = current.KeyUrl.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         AiGetKeyButton.Content = current.Key == "ollama" ? "Скачать Ollama" : "Получить бесплатный ключ";
@@ -2705,12 +2706,30 @@ public partial class PanelWindow : Window
             : "Это нейронный голос Microsoft.";
     }
 
+    private void GroqSave_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.GroqKey = GroqKeyBox.Password;
+        App.Settings.Save();
+        GroqStatus.Text = App.Settings.GroqKey.Length > 0
+            ? "Ключ сохранён (зашифрован). Команды распознаёт Whisper на Groq."
+            : "Ключ удалён — команды распознаются офлайн.";
+        UpdateVoiceStatus();
+    }
+
+    private void GroqGetKey_Click(object sender, RoutedEventArgs e) => ShellHelper.Open("https://console.groq.com/keys");
+
     private async void AiTest_Click(object sender, RoutedEventArgs e)
     {
         AppSettings s = App.Settings;
         s.AiBaseUrl = AiUrlBox.Text.Trim();
         s.AiModel = AiModelBox.Text.Trim();
         s.AiKey = AiKeyBox.Password;
+        // ключ Groq от «мозга» годится и для слуха
+        if (s.GroqKey.Length == 0 && s.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase) && s.AiKey.Length > 0)
+        {
+            s.GroqKey = s.AiKey;
+            GroqKeyBox.Password = s.GroqKey;
+        }
         s.Save();
         AiStatus.Text = "Проверяю…";
         AiStatus.Text = await AssistantService.TestAsync();

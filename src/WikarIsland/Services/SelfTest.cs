@@ -33,7 +33,9 @@ public static class SelfTest
             // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен
             try
             {
-                byte[] mp3 = SpeechService.SynthesizeAsync("Проверка связи.", "ru-RU-DmitryNeural", 0, System.Threading.CancellationToken.None)
+                // Task.Run — без контекста WPF, иначе синхронное ожидание на потоке окна взаимно блокируется
+                byte[] mp3 = System.Threading.Tasks.Task.Run(() =>
+                        SpeechService.SynthesizeAsync("Проверка связи.", "ru-RU-DmitryNeural", 0, System.Threading.CancellationToken.None))
                     .GetAwaiter().GetResult();
                 bool voiceOk = mp3.Length > 1000;
                 report.AppendLine($"Edge TTS online: {(voiceOk ? "OK" : "FAIL")} {mp3.Length} bytes");

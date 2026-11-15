@@ -154,8 +154,16 @@ public sealed class SpeechService
         }
     }
 
+    /// <summary>На каком шаге остановился последний запрос (для диагностики).</summary>
+    public static string LastStage { get; private set; } = "";
+
+    /// <summary>Как подключаться: сжатие permessage-deflate и заголовок Accept-Encoding, как у браузера.</summary>
+    public static bool UseDeflate { get; set; } = true;
+    public static bool SendAcceptEncoding { get; set; } = true;
+
     private static async Task<byte[]> SynthesizeOnceAsync(string text, string voice, int rate, CancellationToken token)
     {
+        LastStage = "подключение";
         string connectionId = Guid.NewGuid().ToString("N");
         string url = $"{WssUrl}?TrustedClientToken={EdgeTtsDrm.TrustedClientToken}&ConnectionId={connectionId}" +
                      $"&Sec-MS-GEC={EdgeTtsDrm.Generate()}&Sec-MS-GEC-Version={EdgeTtsDrm.SecMsGecVersion}";
@@ -168,6 +176,8 @@ public sealed class SpeechService
         ws.Options.SetRequestHeader("User-Agent",
             $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36 Edg/{major}.0.0.0");
         ws.Options.SetRequestHeader("Accept-Language", "en-US,en;q=0.9");
+        if (SendAcceptEncoding) ws.Options.SetRequestHeader("Accept-Encoding", "gzip, deflate, br, zstd");
+        if (UseDeflate) ws.Options.DangerousDeflateOptions = new WebSocketDeflateOptions { ClientMaxWindowBits = 15, ServerMaxWindowBits = 15 };
         ws.Options.SetRequestHeader("Cookie", $"muid={Guid.NewGuid().ToString("N").ToUpperInvariant()};");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -175,6 +185,7 @@ public sealed class SpeechService
         CancellationToken ct = timeout.Token;
 
         await ws.ConnectAsync(new Uri(url), ct);
+        LastStage = "отправка";
 
         string date = DateTime.UtcNow.ToString("ddd MMM dd yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
                       + " GMT+0000 (Coordinated Universal Time)";
@@ -192,6 +203,7 @@ public sealed class SpeechService
         string request =
             $"X-RequestId:{Guid.NewGuid():N}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{date}Z\r\nPath:ssml\r\n\r\n{ssml}";
         await SendText(ws, request, ct);
+        LastStage = "приём";
 
         using var audio = new MemoryStream();
         var buffer = new byte[64 * 1024];
@@ -211,6 +223,7 @@ public sealed class SpeechService
             if (r.MessageType == WebSocketMessageType.Text)
             {
                 string s = Encoding.UTF8.GetString(data);
+                LastStage = "приём: " + (s.Contains("Path:") ? s[(s.IndexOf("Path:", StringComparison.Ordinal) + 5)..].Split('\r')[0] : "текст");
                 if (s.Contains("Path:turn.end", StringComparison.Ordinal)) break;
             }
             else if (data.Length >= 2)

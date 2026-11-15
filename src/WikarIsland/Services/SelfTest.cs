@@ -30,22 +30,29 @@ public static class SelfTest
 
         if (online)
         {
-            // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен
-            try
+            // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен; пробуем варианты подключения
+            bool any = false;
+            foreach ((bool deflate, bool enc) in new[] { (true, true), (false, true), (true, false), (false, false) })
             {
-                // Task.Run — без контекста WPF, иначе синхронное ожидание на потоке окна взаимно блокируется
-                byte[] mp3 = System.Threading.Tasks.Task.Run(() =>
-                        SpeechService.SynthesizeAsync("Проверка связи.", "ru-RU-DmitryNeural", 0, System.Threading.CancellationToken.None))
-                    .GetAwaiter().GetResult();
-                bool voiceOk = mp3.Length > 1000;
-                report.AppendLine($"Edge TTS online: {(voiceOk ? "OK" : "FAIL")} {mp3.Length} bytes");
-                ok &= voiceOk;
+                SpeechService.UseDeflate = deflate;
+                SpeechService.SendAcceptEncoding = enc;
+                string label = $"deflate={deflate} accept-encoding={enc}";
+                try
+                {
+                    // Task.Run — без контекста WPF, иначе синхронное ожидание на потоке окна взаимно блокируется
+                    byte[] mp3 = System.Threading.Tasks.Task.Run(() =>
+                            SpeechService.SynthesizeAsync("Проверка связи.", "ru-RU-DmitryNeural", 0, System.Threading.CancellationToken.None))
+                        .GetAwaiter().GetResult();
+                    bool voiceOk = mp3.Length > 1000;
+                    any |= voiceOk;
+                    report.AppendLine($"Edge TTS online [{label}]: {(voiceOk ? "OK" : "FAIL")} {mp3.Length} bytes, шаг: {SpeechService.LastStage}");
+                }
+                catch (Exception ex)
+                {
+                    report.AppendLine($"Edge TTS online [{label}]: FAIL на шаге «{SpeechService.LastStage}» {ex.GetType().Name}: {ex.Message} | {ex.InnerException?.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                ok = false;
-                report.AppendLine("Edge TTS online: FAIL " + ex.GetType().Name + ": " + ex.Message + " " + ex.InnerException?.Message);
-            }
+            ok &= any;
         }
 
         report.AppendLine(ok ? "RESULT: OK" : "RESULT: FAIL");

@@ -56,12 +56,12 @@ jobs:
 
       - name: Online check (Microsoft neural voice)
         continue-on-error: true
-        timeout-minutes: 3
+        timeout-minutes: 5
         shell: pwsh
         working-directory: publish
         run: |
           $p = Start-Process -FilePath .\WikarIsland.exe -ArgumentList "--selftest","--online" -PassThru
-          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "Online voice check timed out" }
+          if (-not $p.WaitForExit(200000)) { $p.Kill(); throw "Online voice check timed out" }
           Get-Content selftest.txt
           Remove-Item selftest.txt
           if ($p.ExitCode -ne 0) { throw "Online voice check failed" }

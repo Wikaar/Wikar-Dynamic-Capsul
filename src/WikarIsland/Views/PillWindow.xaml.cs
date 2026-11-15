@@ -29,6 +29,7 @@ public partial class PillWindow : Window
     private readonly DispatcherTimer _autoHideTimer;
     private HotkeyService? _hotkey;
     private HotkeyService? _commandHotkey;
+    private HotkeyService? _voiceHotkey;
     private CommandWindow? _commandBar;
     private bool _hidden;
     private DateTime? _awaySince;
@@ -74,7 +75,8 @@ public partial class PillWindow : Window
         BuildContextMenu();
 
         Liquid.Glow = PillGlow;
-        Liquid.AudioLevel = () => App.Audio.Peak;
+        // пока Капсулка слушает — капсула дышит в такт голосу, иначе — в такт музыке
+        Liquid.AudioLevel = () => App.Voice?.State == VoiceState.Listening ? App.Voice.MicLevel : App.Audio.Peak;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -90,6 +92,9 @@ public partial class PillWindow : Window
         _commandHotkey = new HotkeyService(this, 0xB002);
         _commandHotkey.Pressed += OpenCommandBar;
         _commandHotkey.Register(App.Settings.CommandHotkey, out _);
+        _voiceHotkey = new HotkeyService(this, 0xB003);
+        _voiceHotkey.Pressed += () => App.Voice.ListenNow();
+        if (App.Settings.VoiceEnabled) _voiceHotkey.Register(App.Settings.VoiceHotkey, out _);
 
         RestorePosition();
         ApplySettings();
@@ -102,6 +107,7 @@ public partial class PillWindow : Window
     {
         _hotkey?.Dispose();
         _commandHotkey?.Dispose();
+        _voiceHotkey?.Dispose();
         base.OnClosed(e);
     }
 
@@ -131,6 +137,26 @@ public partial class PillWindow : Window
         _commandBar = new CommandWindow();
         _commandBar.Closed += (_, _) => _commandBar = null;
         _commandBar.ShowUnder(PillRect());
+    }
+
+    /// <summary>Клавиша «говорить без слова». Пустая строка — снять.</summary>
+    public bool SetVoiceHotkey(string text, out string error)
+    {
+        error = "";
+        if (_voiceHotkey == null) return false;
+        if (string.IsNullOrWhiteSpace(text) || !App.Settings.VoiceEnabled)
+        {
+            _voiceHotkey.Unregister();
+            return true;
+        }
+        if (!_voiceHotkey.Register(text, out error))
+        {
+            _voiceHotkey.Register(App.Settings.VoiceHotkey, out _);
+            return false;
+        }
+        App.Settings.VoiceHotkey = text;
+        App.Settings.Save();
+        return true;
     }
 
     public bool SetHotkey(string text, out string error)
@@ -266,12 +292,19 @@ public partial class PillWindow : Window
         bool card = !timer && _card != null;
         bool volume = !timer && !card && DateTime.Now < _volumeUntil;
         if (card || volume) recording = false;
-        bool game = !timer && !recording && !card && !volume && App.Settings.GameHud && App.Game?.Active == true;
-        bool music = !timer && !recording && !card && !volume && !game && App.Settings.MusicInPill && m != null
+        bool voice = !timer && App.Voice?.State is VoiceState.Listening or VoiceState.Thinking or VoiceState.Speaking;
+        if (voice)
+        {
+            card = false;
+            volume = false;
+            recording = false;
+        }
+        bool game = !timer && !voice && !recording && !card && !volume && App.Settings.GameHud && App.Game?.Active == true;
+        bool music = !timer && !voice && !recording && !card && !volume && !game && App.Settings.MusicInPill && m != null
                      && (m.IsPlaying || (DateTime.Now - _lastPlaying).TotalSeconds < 15);
-        bool steam = !timer && !recording && !card && !volume && !game && !music
+        bool steam = !timer && !voice && !recording && !card && !volume && !game && !music
                      && App.Settings.DownloadsInPill && App.Downloads?.Items.Count > 0;
-        bool chips = !timer && !recording && !card && !volume && !game; // в игре — только самое нужное
+        bool chips = !timer && !voice && !recording && !card && !volume && !game; // в игре — только самое нужное
 
         TimerPart.Visibility = timer ? Visibility.Visible : Visibility.Collapsed;
         RecordPart.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
@@ -283,17 +316,18 @@ public partial class PillWindow : Window
             RecordLabel.Text = video ? "Запись экрана" : "Запись звука";
         }
         NotifyPart.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
+        VoicePart.Visibility = voice ? Visibility.Visible : Visibility.Collapsed;
         VolumePart.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
         MusicPart.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
         DownloadPart.Visibility = steam ? Visibility.Visible : Visibility.Collapsed;
         GamePart.Visibility = game ? Visibility.Visible : Visibility.Collapsed;
-        IdlePart.Visibility = !timer && !recording && !card && !volume && !game && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
+        IdlePart.Visibility = !timer && !voice && !recording && !card && !volume && !game && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
         VpnChip.Visibility = chips && App.Settings.VpnServers.Count > 0
                              && (App.Settings.VpnShowInPill || App.Vpn?.IsConnected == true)
             ? Visibility.Visible : Visibility.Collapsed;
         FocusChip.Visibility = chips && App.FocusTimer?.Active == true
             ? Visibility.Visible : Visibility.Collapsed;
-        DndIcon.Visibility = !timer && !recording && !card && !volume && FocusService.Active
+        DndIcon.Visibility = !timer && !voice && !recording && !card && !volume && FocusService.Active
             ? Visibility.Visible : Visibility.Collapsed;
         ZapretChip.Visibility = chips && App.Zapret?.Installed == true
                                 && (App.Settings.ZapretShowInPill || App.Zapret.IsRunning)
@@ -573,6 +607,61 @@ public partial class PillWindow : Window
         }
     }
 
+    private VoiceState _voiceShown = VoiceState.Off;
+
+    /// <summary>Строка Капсулки: что услышала, что делает, что отвечает.</summary>
+    public void UpdateVoice()
+    {
+        VoiceService v = App.Voice;
+        switch (v.State)
+        {
+            case VoiceState.Listening:
+                VoiceIcon.Text = "\uE720"; // микрофон
+                VoiceHalo.Fill = new SolidColorBrush(Color.FromRgb(0x5E, 0x5C, 0xE6));
+                VoiceText.Text = v.Text.Length > 0 ? v.Text : "Слушаю…";
+                VoiceText.Foreground = new SolidColorBrush(v.Text.Length > 0 ? Color.FromRgb(0xF2, 0xF2, 0xF5) : Color.FromRgb(0x9C, 0x9C, 0xA8));
+                break;
+            case VoiceState.Thinking:
+                VoiceIcon.Text = "\uE9F5"; // обработка
+                VoiceHalo.Fill = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
+                VoiceText.Text = v.Text;
+                VoiceText.Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0x9C, 0xA8));
+                break;
+            case VoiceState.Speaking:
+                VoiceIcon.Text = "\uE767"; // динамик
+                VoiceHalo.Fill = new SolidColorBrush(Color.FromRgb(0x30, 0xD1, 0x58));
+                VoiceText.Text = v.Text;
+                VoiceText.Foreground = new SolidColorBrush(Color.FromRgb(0xF2, 0xF2, 0xF5));
+                break;
+        }
+        VoicePart.ToolTip = v.Text.Length > 0 ? v.Text + "\n\nНажми, чтобы остановить" : "Нажми, чтобы остановить";
+
+        // ореол дышит, пока слушаем и говорим; при «думаю» — ровный
+        if (v.State != _voiceShown)
+        {
+            _voiceShown = v.State;
+            if (v.State is VoiceState.Listening or VoiceState.Speaking)
+            {
+                var pulse = new DoubleAnimation(0.55, 1.0, TimeSpan.FromMilliseconds(v.State == VoiceState.Speaking ? 420 : 700))
+                {
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+                };
+                VoiceHaloScale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+                VoiceHaloScale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+            }
+            else
+            {
+                VoiceHaloScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                VoiceHaloScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+                VoiceHaloScale.ScaleX = VoiceHaloScale.ScaleY = 0.85;
+            }
+            if (_hidden && v.State is not (VoiceState.Waiting or VoiceState.Off)) SlideIn();
+        }
+        UpdateContent();
+    }
+
     /// <summary>FPS и нагрузка, пока идёт игра.</summary>
     public void UpdateGame()
     {
@@ -846,6 +935,12 @@ public partial class PillWindow : Window
 
     private void Pill_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (App.Voice?.State is VoiceState.Listening or VoiceState.Thinking or VoiceState.Speaking)
+        {
+            App.Voice.Cancel();
+            e.Handled = true;
+            return;
+        }
         if (App.Settings.Unlocked)
         {
             App.Panel.HideIsland();

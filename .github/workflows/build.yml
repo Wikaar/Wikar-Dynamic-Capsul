@@ -36,6 +36,24 @@ jobs:
           if (-not (Test-Path publish/presentmon/PresentMon.exe)) { throw "PresentMon not downloaded" }
           Get-ChildItem publish/presentmon
 
+      - name: Add Vosk model (voice assistant)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip" -OutFile vosk.zip
+          Expand-Archive vosk.zip -DestinationPath vosk-tmp -Force
+          New-Item -ItemType Directory -Force -Path publish/vosk | Out-Null
+          Move-Item vosk-tmp/vosk-model-small-ru-0.22 publish/vosk/model
+          Get-ChildItem publish/vosk/model
+
+      - name: Self-test (voice token and speech model)
+        shell: pwsh
+        working-directory: publish
+        run: |
+          $p = Start-Process -FilePath .\WikarIsland.exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content selftest.txt
+          Remove-Item selftest.txt
+          if ($p.ExitCode -ne 0) { throw "Self-test failed" }
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:

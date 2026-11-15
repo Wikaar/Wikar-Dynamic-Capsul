@@ -148,6 +148,37 @@ public sealed partial class SteamService
         return null;
     }
 
+    /// <summary>Установленные игры из всех библиотек (для запуска голосом).</summary>
+    public IEnumerable<(int id, string name)> InstalledGames()
+    {
+        if (_steamPath == null) yield break;
+        foreach (string lib in _libraries)
+        {
+            string dir = Path.Combine(lib, "steamapps");
+            if (!Directory.Exists(dir)) continue;
+            foreach (string file in Directory.EnumerateFiles(dir, "appmanifest_*.acf"))
+            {
+                string? name = null;
+                int id = 0;
+                try
+                {
+                    foreach (Match m in KeyValue().Matches(File.ReadAllText(file)))
+                    {
+                        if (m.Groups[1].Value.Equals("appid", StringComparison.OrdinalIgnoreCase)) int.TryParse(m.Groups[2].Value, out id);
+                        else if (m.Groups[1].Value.Equals("name", StringComparison.OrdinalIgnoreCase)) name ??= m.Groups[2].Value;
+                    }
+                }
+                catch
+                {
+                    continue;
+                }
+                // служебное: Steamworks, редистрибутивы, Proton
+                if (id == 0 || name == null || id == 228980 || name.Contains("Redistributable", StringComparison.OrdinalIgnoreCase)) continue;
+                yield return (id, name);
+            }
+        }
+    }
+
     private static bool IsSteamRunning()
     {
         Process[] list = Process.GetProcessesByName("steam");

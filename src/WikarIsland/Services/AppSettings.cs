@@ -104,6 +104,44 @@ public sealed class AppSettings
     public bool GameHud { get; set; } = true;
     public bool DownloadsInPill { get; set; } = true;
     public bool DownloadFinishedCard { get; set; } = true;
+
+    // голосовой помощник «Капсулка»
+    public bool VoiceEnabled { get; set; }
+    public string VoiceName { get; set; } = "ru-RU-DmitryNeural";
+    public int VoiceRate { get; set; } = 5;
+    public double VoiceVolume { get; set; } = 0.9;
+    public bool VoiceFollowUp { get; set; } = true;
+    public string VoiceHotkey { get; set; } = "Ctrl+Alt+K";
+
+    // мозг: любой OpenAI-совместимый API
+    public string AiPreset { get; set; } = "groq";
+    public string AiBaseUrl { get; set; } = "https://api.groq.com/openai/v1";
+    public string AiModel { get; set; } = "llama-3.3-70b-versatile";
+
+    /// <summary>Ключ API, зашифрованный DPAPI текущего пользователя.</summary>
+    public string AiKeyProtected { get; set; } = "";
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string AiKey
+    {
+        get
+        {
+            if (AiKeyProtected.Length == 0) return "";
+            try
+            {
+                byte[] data = System.Security.Cryptography.ProtectedData.Unprotect(
+                    Convert.FromBase64String(AiKeyProtected), null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                return System.Text.Encoding.UTF8.GetString(data);
+            }
+            catch
+            {
+                return "";
+            }
+        }
+        set => AiKeyProtected = string.IsNullOrWhiteSpace(value) ? "" : Convert.ToBase64String(
+            System.Security.Cryptography.ProtectedData.Protect(System.Text.Encoding.UTF8.GetBytes(value.Trim()), null,
+                System.Security.Cryptography.DataProtectionScope.CurrentUser));
+    }
     public bool VpnShowInPill { get; set; } = true;
 
     public string ZapretGameMode { get; set; } = "disabled";

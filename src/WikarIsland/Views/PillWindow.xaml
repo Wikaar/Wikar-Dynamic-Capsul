@@ -227,6 +227,22 @@
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
                 </StackPanel>
 
+                <!-- Голосовой помощник: слушаю / думаю / отвечаю -->
+                <StackPanel x:Name="VoicePart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                    <Grid Width="22" Height="22" VerticalAlignment="Center">
+                        <Ellipse x:Name="VoiceHalo" Fill="#5E5CE6" Opacity="0.35" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <ScaleTransform x:Name="VoiceHaloScale" ScaleX="0.6" ScaleY="0.6"/>
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+                        <TextBlock x:Name="VoiceIcon" Text="&#xE720;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                    <TextBlock x:Name="VoiceText" MaxWidth="330" Margin="10,0,4,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Foreground="#F2F2F5" FontSize="13"
+                               FontFamily="Segoe UI Variable Text, Segoe UI"/>
+                </StackPanel>
+
                 <!-- Громкость (колёсико мыши над пилюлей) -->
                 <StackPanel x:Name="VolumePart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock x:Name="VolumeIcon" Text="&#xE767;" VerticalAlignment="Center"

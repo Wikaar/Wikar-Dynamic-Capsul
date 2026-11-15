@@ -1033,6 +1033,56 @@
                     <CheckBox x:Name="DownloadCardBox" Content="Карточка, когда файл из браузера докачался"
                               Style="{StaticResource SettingsCheck}" Margin="24,0,0,6" Click="Setting_Changed"/>
 
+                    <TextBlock Text="Голосовой помощник «Капсулка»" Style="{StaticResource SectionTitle}"/>
+                    <CheckBox x:Name="VoiceEnabledBox" Content="Слушать слово «Капсулка»" Style="{StaticResource SettingsCheck}" Click="Voice_Changed"/>
+                    <TextBlock x:Name="VoiceStatus" Style="{StaticResource Hint}" Margin="24,0,0,6"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Скажи «Капсулка, …»: открой браузер, найди на ютубе…, запусти Valheim, громкость 30, следующий трек, включи VPN, таймер на 10 минут, напомни через час…, какая погода, температура видеокарты, выключи компьютер. Всё остальное — разговор с ИИ. Клик по капсуле — замолчать."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock Text="Говорить без слова:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox x:Name="VoiceHotkeyBox" Width="150" Padding="8,5" FontSize="13" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Применить" Click="VoiceHotkey_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Голос:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <WrapPanel x:Name="VoicesPanel" VerticalAlignment="Center"/>
+                        <Button Style="{StaticResource FlatButton}" Content="Прослушать" Click="VoiceTest_Click"/>
+                    </StackPanel>
+                    <CheckBox x:Name="VoiceFollowUpBox" Content="После ответа ещё 6 секунд слушать продолжение без слова «Капсулка»"
+                              Style="{StaticResource SettingsCheck}" Click="Voice_Changed"/>
+
+                    <TextBlock Text="Мозг для разговора (ИИ)" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
+                               FontFamily="{StaticResource UiFont}" Margin="0,10,0,4"/>
+                    <WrapPanel x:Name="AiPresetsPanel" Margin="0,0,0,4"/>
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Адрес" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AiUrlBox" Grid.Column="1" Margin="0,0,0,6" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
+                                 Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                        <TextBlock Grid.Row="1" Text="Модель" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AiModelBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
+                                 Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                        <TextBlock Grid.Row="2" Text="Ключ" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        <PasswordBox x:Name="AiKeyBox" Grid.Row="2" Grid.Column="1" Padding="8,5" FontSize="12.5"
+                                     Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Style="{StaticResource FlatButton}" Margin="0" Content="Сохранить и проверить" Click="AiTest_Click"/>
+                        <Button x:Name="AiGetKeyButton" Style="{StaticResource FlatButton}" Content="Получить бесплатный ключ" Click="AiGetKey_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="AiStatus" Style="{StaticResource Hint}" Margin="0,6,0,0"
+                               Text="Без ключа Капсулка выполняет команды, а вопросы открывает в ChatGPT. Ключ хранится зашифрованным."/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" FontSize="11.5"
+                               Text="Слово «Капсулка» и речь распознаются прямо на компьютере. В интернет уходит только текст вопроса (в выбранный ИИ) и текст ответа (в голосовой сервис Microsoft)."/>
+
                     <TextBlock Text="Погода" Style="{StaticResource SectionTitle}"/>
                     <TextBlock x:Name="WeatherCityText" Style="{StaticResource Hint}" FontSize="14" Margin="0,0,0,8"/>
                     <StackPanel Orientation="Horizontal">

@@ -31,6 +31,9 @@ public partial class App : Application
     public static ReminderService Reminders { get; private set; } = null!;
     public static GameService Game { get; private set; } = null!;
     public static DownloadService Downloads { get; private set; } = null!;
+    public static SpeechService Speech { get; private set; } = null!;
+    public static VoiceService Voice { get; private set; } = null!;
+    public static AssistantService Assistant { get; private set; } = null!;
     public static SpectrumService Spectrum { get; } = new();
 
     private static Mutex? _instanceMutex;
@@ -38,6 +41,13 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // проверка сборки в CI: WikarIsland.exe --selftest → selftest.txt и код выхода
+        if (Array.IndexOf(e.Args, "--selftest") >= 0)
+        {
+            Environment.Exit(SelfTest.Run());
+            return;
+        }
+
         // распакованная новая версия: заменить файлы острова и запустить его
         if (UpdateService.TryApplyUpdate(e.Args))
         {
@@ -161,6 +171,9 @@ public partial class App : Application
         Reminders = new ReminderService();
         Game = new GameService();
         Downloads = new DownloadService();
+        Speech = new SpeechService();
+        Voice = new VoiceService();
+        Assistant = new AssistantService();
         ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
@@ -336,6 +349,12 @@ public partial class App : Application
             else Pill.ShowNotification(item);
         };
         Safe("загрузки", Downloads.Start);
+        Voice.Changed += () =>
+        {
+            Pill.UpdateVoice();
+            Panel.UpdateVoiceStatus();
+        };
+        if (Settings.VoiceEnabled) Safe("голосовой помощник", Voice.Start);
         Safe("погода", Weather.Start);
         Safe("уведомления", Notifications.Start);
 
@@ -448,6 +467,8 @@ public partial class App : Application
         AudioRecorder?.Stop();
         Spectrum.Dispose();
         Game?.Dispose();
+        Speech?.Stop();
+        Voice?.Dispose();
         SystemMonitor?.Dispose();
         Vpn?.Disconnect();
         Zapret?.Stop();

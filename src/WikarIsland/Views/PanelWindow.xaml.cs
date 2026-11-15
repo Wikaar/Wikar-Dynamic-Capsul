@@ -1156,6 +1156,7 @@ public partial class PanelWindow : Window
         GameHudBox.IsChecked = s.GameHud;
         DownloadsBox.IsChecked = s.DownloadsInPill;
         DownloadCardBox.IsChecked = s.DownloadFinishedCard;
+        LoadVoiceSettings();
         GameHudStatus.Text = !GameService.PresentMonAvailable
             ? "Нет папки presentmon рядом с программой — FPS не будет, только нагрузка. Скачай свежую сборку целиком."
             : SystemMonitorService.IsAdmin
@@ -2592,6 +2593,131 @@ public partial class PanelWindow : Window
         {
             ZapretToolMessage.Text = message;
         }
+    }
+
+    // ---------- голосовой помощник ----------
+
+    private void LoadVoiceSettings()
+    {
+        AppSettings s = App.Settings;
+        VoiceEnabledBox.IsChecked = s.VoiceEnabled;
+        VoiceFollowUpBox.IsChecked = s.VoiceFollowUp;
+        VoiceHotkeyBox.Text = s.VoiceHotkey;
+
+        VoicesPanel.Children.Clear();
+        foreach ((string id, string name) in SpeechService.Voices)
+        {
+            var radio = new RadioButton
+            {
+                Content = name, GroupName = "VoiceName", IsChecked = s.VoiceName == id,
+                Style = (Style)FindResource("SettingsRadio"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center,
+            };
+            radio.GroupName = "VoiceName";
+            radio.Checked += (_, _) =>
+            {
+                App.Settings.VoiceName = id;
+                App.Settings.Save();
+            };
+            VoicesPanel.Children.Add(radio);
+        }
+
+        AiPresetsPanel.Children.Clear();
+        foreach (AiPreset preset in AssistantService.Presets)
+        {
+            var radio = new RadioButton
+            {
+                Content = preset.Name, GroupName = "AiPreset", IsChecked = s.AiPreset == preset.Key,
+                Style = (Style)FindResource("SettingsRadio"), FontSize = 13,
+            };
+            radio.GroupName = "AiPreset";
+            radio.Checked += (_, _) =>
+            {
+                App.Settings.AiPreset = preset.Key;
+                if (preset.BaseUrl.Length > 0)
+                {
+                    AiUrlBox.Text = preset.BaseUrl;
+                    AiModelBox.Text = preset.Model;
+                }
+                AiGetKeyButton.Visibility = preset.KeyUrl.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+                AiGetKeyButton.Content = preset.Key == "ollama" ? "Скачать Ollama" : "Получить бесплатный ключ";
+            };
+            AiPresetsPanel.Children.Add(radio);
+        }
+        AiUrlBox.Text = s.AiBaseUrl;
+        AiModelBox.Text = s.AiModel;
+        AiKeyBox.Password = s.AiKey;
+        AiPreset current = AssistantService.Preset;
+        AiGetKeyButton.Visibility = current.KeyUrl.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        AiGetKeyButton.Content = current.Key == "ollama" ? "Скачать Ollama" : "Получить бесплатный ключ";
+        UpdateVoiceStatus();
+    }
+
+    public void UpdateVoiceStatus()
+    {
+        if (_current != "settings") return;
+        VoiceService v = App.Voice;
+        VoiceStatus.Text = v.Problem ?? (v.State switch
+        {
+            VoiceState.Off when App.Settings.VoiceEnabled => "Запускаю распознавание…",
+            VoiceState.Off => "Выключено. Микрофон не используется.",
+            _ => $"Слушаю микрофон. Скажи «Капсулка» или нажми {App.Settings.VoiceHotkey}.",
+        });
+    }
+
+    private void Voice_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        AppSettings s = App.Settings;
+        bool enable = VoiceEnabledBox.IsChecked == true;
+        s.VoiceFollowUp = VoiceFollowUpBox.IsChecked == true;
+        if (enable != s.VoiceEnabled)
+        {
+            s.VoiceEnabled = enable;
+            if (enable) App.Voice.Start();
+            else App.Voice.Stop();
+            App.Pill.SetVoiceHotkey(s.VoiceHotkey, out _);
+        }
+        s.Save();
+        UpdateVoiceStatus();
+    }
+
+    private void VoiceHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        string text = VoiceHotkeyBox.Text.Trim();
+        if (!App.Settings.VoiceEnabled)
+        {
+            App.Settings.VoiceHotkey = text;
+            App.Settings.Save();
+            VoiceStatus.Text = "Клавиша сохранена — заработает, когда включишь помощника.";
+            return;
+        }
+        VoiceStatus.Text = App.Pill.SetVoiceHotkey(text, out string error) ? $"Готово: {text} — говорить без слова." : error;
+    }
+
+    private async void VoiceTest_Click(object sender, RoutedEventArgs e)
+    {
+        VoiceStatus.Text = "Говорю…";
+        await App.Speech.SpeakAsync("Добрый день, сэр. Капсулка на связи и готова помочь.");
+        VoiceStatus.Text = App.Speech.LastError != null
+            ? "Нейронный голос не ответил, звучал голос Windows: " + App.Speech.LastError
+            : "Это нейронный голос Microsoft.";
+    }
+
+    private async void AiTest_Click(object sender, RoutedEventArgs e)
+    {
+        AppSettings s = App.Settings;
+        s.AiBaseUrl = AiUrlBox.Text.Trim();
+        s.AiModel = AiModelBox.Text.Trim();
+        s.AiKey = AiKeyBox.Password;
+        s.Save();
+        AiStatus.Text = "Проверяю…";
+        AiStatus.Text = await AssistantService.TestAsync();
+    }
+
+    private void AiGetKey_Click(object sender, RoutedEventArgs e)
+    {
+        string url = AssistantService.Preset.KeyUrl;
+        if (url.Length > 0) ShellHelper.Open(url);
     }
 
     // ---------- «Не беспокоить» ----------

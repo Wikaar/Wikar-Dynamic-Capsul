@@ -59,6 +59,16 @@ jobs:
           if (-not (Test-Path publish/presentmon/PresentMon.exe)) { throw "PresentMon not downloaded" }
           Get-ChildItem publish/presentmon
 
+      - name: Add Vosk model (voice assistant)
+        if: hashFiles('src/WikarIsland/Services/VoiceService.cs') != ''
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip" -OutFile vosk.zip
+          Expand-Archive vosk.zip -DestinationPath vosk-tmp -Force
+          New-Item -ItemType Directory -Force -Path publish/vosk | Out-Null
+          Move-Item vosk-tmp/vosk-model-small-ru-0.22 publish/vosk/model
+          Get-ChildItem publish/vosk/model
+
       - name: Zip
         shell: pwsh
         run: Compress-Archive -Path publish/* -DestinationPath "WikarIsland-v${{ matrix.item.version }}-win-x64.zip"

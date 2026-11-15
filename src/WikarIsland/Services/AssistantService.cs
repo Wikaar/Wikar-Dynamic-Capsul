@@ -323,6 +323,20 @@ public sealed class AssistantService
             return new AssistantReply("", Silent: true);
         }
 
+        // --- кнопки внутри программ: «нажми Играть в Battle.net», «включи Мою волну в Яндекс Музыке» ---
+        if ((m = Regex.Match(t, @"^(?:нажми|кликни|щелкни|выбери|включи|поставь|запусти)\s+(?:кнопку\s+|пункт\s+)?(.+?)\s+(?:в|во|на)\s+(?:программе\s+|приложении\s+)?(.+)$")).Success)
+        {
+            string target = m.Groups[1].Value.Trim(), app = m.Groups[2].Value.Trim();
+            if (WindowControl.Find(NameVariants(app), out _).Count > 0)
+            {
+                string done = AppAutomation.Click(app, target);
+                bool ok = Regex.IsMatch(done, "^(Нажато|Переключено|Выбрано|Открыто|Щёлкнул)");
+                if (ok) return new AssistantReply("", Silent: true);
+                if (!AiConfigured) return new AssistantReply($"Не нашёл «{target}», сэр.", Silent: true);
+                // не нашли сами — пусть ИИ посмотрит список кнопок и попробует иначе
+            }
+        }
+
         // --- окна: свернуть, развернуть, закрыть программы и игры ---
         if (Regex.IsMatch(t, @"^((сверни|спрячь|убери) все( окна| программы| игры| приложения)?|покажи рабочий стол|рабочий стол)$"))
         {
@@ -426,7 +440,7 @@ public sealed class AssistantService
     }
 
     /// <summary>Как ещё может называться программа: русское сокращение и название из списка игр и программ.</summary>
-    private static List<string> NameVariants(string name)
+    internal static List<string> NameVariants(string name)
     {
         var list = new List<string> { name };
         string query = name;
@@ -561,6 +575,9 @@ public sealed class AssistantService
             "Без markdown, списков, ссылок, кавычек, скобок и эмодзи; числа и единицы пиши так, как их произносят. " +
             "Речь пользователя распознаётся автоматически и может быть искажена — угадывай смысл, особенно названия игр и программ. " +
             "Если просят что-то сделать на компьютере — вызывай подходящий инструмент, а потом коротко подтверди. " +
+            "Действия внутри программ (включить музыку в Яндекс Музыке, нажать Играть в Battle.net, найти трек) делай так: " +
+            "если программа не открыта — open_app; затем app_click по надписи кнопки; не нашлось — возьми точное название из списка в ответе; " +
+            "для поиска — app_keys ctrl+f (или клик по полю поиска), app_type с текстом и enter. Музыку на паузу и следующий трек — media-команды. " +
             "Выключение и перезагрузку без задержки делай только через инструмент power — он сам спросит подтверждение. " +
             $"Сейчас {DateTime.Now:dddd, d MMMM yyyy, HH:mm}. " +
             (games.Length > 0 ? $"Установленные игры: {games}. " : "") +
@@ -597,6 +614,15 @@ public sealed class AssistantService
         {
             Fn("open_app", "Запустить игру, программу или ярлык по названию (точное название из списка игр, если подходит).",
                 new JsonObject { ["name"] = Str("Название игры или программы") }, "name"),
+            Fn("app_click", "Нажать кнопку, пункт меню, вкладку или ссылку внутри открытой программы по её названию " +
+                    "(например «Играть» в Battle.net, «Моя волна» в Яндекс Музыке). Если не найдено — в ответе список видимых элементов, выбери из него и вызови снова.",
+                new JsonObject { ["app"] = Str("Программа (как называется окно или программа)"), ["target"] = Str("Надпись на кнопке или пункте") }, "app", "target"),
+            Fn("app_buttons", "Посмотреть, какие кнопки и пункты сейчас видны в окне программы.",
+                new JsonObject { ["app"] = Str("Программа") }, "app"),
+            Fn("app_keys", "Нажать клавиши в программе: space, enter, esc, tab, ctrl+f, ctrl+l, alt+f4, f5, стрелки up/down/left/right, playpause, next, prev. Несколько — через пробел.",
+                new JsonObject { ["app"] = Str("Программа"), ["keys"] = Str("Клавиши, например «ctrl+f» или «down down enter»") }, "app", "keys"),
+            Fn("app_type", "Напечатать текст в активное поле программы (например в поиск после ctrl+f) и при необходимости нажать Enter.",
+                new JsonObject { ["app"] = Str("Программа"), ["text"] = Str("Текст"), ["enter"] = Bool("Нажать Enter после текста") }, "app", "text"),
             Fn("close_app", "Закрыть открытую программу или игру по названию.",
                 new JsonObject { ["name"] = Str("Название программы или игры"), ["force"] = Bool("Завершить принудительно, если не закрывается") }, "name"),
             Fn("window", "Свернуть или развернуть окна программ и игр.",
@@ -653,6 +679,14 @@ public sealed class AssistantService
                 e.Launch();
                 return $"Запущено: {e.Name}";
             }
+            case "app_click":
+                return AppAutomation.Click(S("app"), S("target"));
+            case "app_buttons":
+                return AppAutomation.ListButtons(S("app"));
+            case "app_keys":
+                return AppAutomation.Keys(S("app"), S("keys"));
+            case "app_type":
+                return AppAutomation.Type(S("app"), S("text"), B("enter"));
             case "close_app":
             {
                 List<OpenWindow> found = WindowControl.Find(NameVariants(S("name")), out string shown);
@@ -801,7 +835,7 @@ public sealed class AssistantService
         string answer = "";
         try
         {
-            for (int step = 0; step < 4; step++)
+            for (int step = 0; step < 6; step++) // действия в программах бывают в несколько шагов: открыть → найти → нажать
             {
                 JsonObject message = await CompleteAsync(messages, tools: true, onContent: splitter == null ? null : splitter.Push);
                 var calls = message["tool_calls"] as JsonArray;

@@ -156,7 +156,7 @@
  },
  {
   "version": "0.17.1",
-  "sha": "777a64499226bebbdbd14c8075becbe8d59a1c9f",
-  "title": "Ложная загрузка Steam при закрытом Steam"
+  "sha": "71bea2621e2f9bca6bb647dbd668f15c0e6f1001",
+  "title": "Исправления: Steam и обновление без скрипта"
  }
 ]

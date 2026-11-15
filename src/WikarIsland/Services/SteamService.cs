@@ -148,6 +148,21 @@ public sealed partial class SteamService
         return null;
     }
 
+    private static bool IsSteamRunning()
+    {
+        Process[] list = Process.GetProcessesByName("steam");
+        foreach (Process p in list) p.Dispose();
+        return list.Length > 0;
+    }
+
+    // StateFlags: 2 — нужно обновление, 256 — идёт обновление, 512 — на паузе, 1024 — обновление начато
+    private static bool IsDownloading(Dictionary<string, string> manifest)
+    {
+        if (!int.TryParse(manifest.GetValueOrDefault("StateFlags"), out int flags)) return false;
+        if ((flags & 512) != 0) return false;
+        return (flags & (256 | 1024)) != 0;
+    }
+
     private string NameOf(int appId)
     {
         if (_names.TryGetValue(appId, out string? name)) return name;
@@ -163,8 +178,11 @@ public sealed partial class SteamService
             using RegistryKey? steam = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
             if (steam == null) return;
 
+            // Steam закрыт — отметки «Updating» и «RunningAppID» в реестре могли остаться с прошлого раза
+            bool steamRunning = IsSteamRunning();
+
             // запущенная игра
-            int running = steam.GetValue("RunningAppID") is int r ? r : 0;
+            int running = steamRunning && steam.GetValue("RunningAppID") is int r ? r : 0;
             if (running != RunningAppId)
             {
                 RunningAppId = running;
@@ -175,7 +193,7 @@ public sealed partial class SteamService
             // загрузки и обновления
             var updating = new HashSet<int>();
             var downloads = new List<SteamDownload>();
-            using (RegistryKey? apps = steam.OpenSubKey("Apps"))
+            using (RegistryKey? apps = steamRunning ? steam.OpenSubKey("Apps") : null)
             {
                 if (apps != null)
                 {
@@ -185,8 +203,11 @@ public sealed partial class SteamService
                         using RegistryKey? app = apps.OpenSubKey(sub);
                         if (app?.GetValue("Updating") is not int u || u == 0) continue;
 
-                        updating.Add(id);
+                        // настоящая загрузка: есть appmanifest и в StateFlags стоит «нужно обновить» или «качается»,
+                        // а не «на паузе»; иначе это хвост от прошлых сессий
                         Dictionary<string, string>? manifest = ReadManifest(id);
+                        if (manifest == null || !IsDownloading(manifest)) continue;
+                        updating.Add(id);
                         long.TryParse(manifest?.GetValueOrDefault("BytesDownloaded"), out long done);
                         long.TryParse(manifest?.GetValueOrDefault("BytesToDownload"), out long total);
                         downloads.Add(new SteamDownload { AppId = id, Name = NameOf(id), Done = done, Total = total });

@@ -148,5 +148,10 @@
   "version": "0.16.0",
   "sha": "4658c7b8093b784ac84eda80ef78eec7bac7759e",
   "title": "Центр управления в стиле Atoll, вкладки VPN и zapret"
+ },
+ {
+  "version": "0.17.0",
+  "sha": "cbcd42f6aed6092dfdf6099e7dd5385c3d9647d6",
+  "title": "FPS в играх и загрузки из всех источников"
  }
 ]

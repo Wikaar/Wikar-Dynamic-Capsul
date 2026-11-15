@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using NAudio.CoreAudioApi;
@@ -43,6 +44,10 @@ public sealed partial class VoiceService : IDisposable
     private bool _heardSomething;    // в режиме команды уже что-то сказали
     private bool _deaf;              // пока думаем и говорим — не слушаем себя
     private bool _starting;
+    private string? _deviceId;       // какой микрофон открыт
+    private volatile bool _lost;     // Windows отключила микрофон (0x88890004 и т. п.)
+    private int _reconnecting;
+    private System.Threading.Timer? _watch;
 
     public VoiceState State { get; private set; } = VoiceState.Off;
 
@@ -90,6 +95,8 @@ public sealed partial class VoiceService : IDisposable
                 }
                 OpenMicrophone();
                 Set(VoiceState.Waiting, "");
+                _watch?.Dispose();
+                _watch = new System.Threading.Timer(_ => WatchMicrophone(), null, 3000, 3000);
             }
             catch (Exception ex)
             {
@@ -109,6 +116,8 @@ public sealed partial class VoiceService : IDisposable
 
     public void Stop()
     {
+        _watch?.Dispose();
+        _watch = null;
         CloseMicrophone();
         lock (_lock)
         {
@@ -149,7 +158,8 @@ public sealed partial class VoiceService : IDisposable
     private void OpenMicrophone()
     {
         CloseMicrophone();
-        var capture = new WasapiCapture(); // микрофон по умолчанию
+        MMDevice device = WasapiCapture.GetDefaultCaptureDevice(); // микрофон по умолчанию
+        var capture = new WasapiCapture(device);
         var buffer = new BufferedWaveProvider(capture.WaveFormat)
         {
             DiscardOnBufferOverflow = true,
@@ -170,16 +180,69 @@ public sealed partial class VoiceService : IDisposable
         capture.DataAvailable += (_, e) => OnAudio(e.Buffer, e.BytesRecorded);
         capture.RecordingStopped += (_, e) =>
         {
-            if (e.Exception == null || State == VoiceState.Off) return;
+            if (e.Exception == null || State == VoiceState.Off || !ReferenceEquals(_capture, capture)) return;
             App.LogError(e.Exception);
-            Problem = "Микрофон отключился: " + e.Exception.Message;
+            _lost = true; // переподключит WatchMicrophone через пару секунд
+            Problem = "Микрофон отключился, переподключаюсь…";
             _ui.BeginInvoke(() => Changed?.Invoke());
         };
 
         _capture = capture;
         _buffer = buffer;
         _pipeline = sp;
+        _deviceId = device.ID;
+        _lost = false;
         capture.StartRecording();
+    }
+
+    /// <summary>
+    /// Раз в 3 секунды: если Windows отключила микрофон (беспроводная гарнитура уснула, другая программа
+    /// забрала его) или сменился микрофон по умолчанию — открываем заново. Раньше после такого остров глох навсегда.
+    /// </summary>
+    private void WatchMicrophone()
+    {
+        if (State == VoiceState.Off || _starting) return;
+        if (Interlocked.Exchange(ref _reconnecting, 1) == 1) return;
+        try
+        {
+            string? current = null;
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                current = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console).ID;
+            }
+            catch
+            {
+                // микрофонов нет совсем — ждём, пока появится
+            }
+            if (current == null)
+            {
+                if (_lost && Problem == null)
+                {
+                    Problem = "Микрофон не найден — жду, пока подключится.";
+                    _ui.BeginInvoke(() => Changed?.Invoke());
+                }
+                return;
+            }
+            if (!_lost && _capture != null && current == _deviceId) return;
+
+            try
+            {
+                OpenMicrophone();
+                ResetRecognizer();
+                Problem = null;
+            }
+            catch (Exception ex)
+            {
+                _lost = true;
+                Problem = "Микрофон недоступен, пробую снова: " + ex.Message;
+            }
+            _ui.BeginInvoke(() => Changed?.Invoke());
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _reconnecting, 0);
+        }
     }
 
     private void CloseMicrophone()
@@ -195,7 +258,14 @@ public sealed partial class VoiceService : IDisposable
         {
             // уже остановлен
         }
-        c.Dispose();
+        try
+        {
+            c.Dispose();
+        }
+        catch
+        {
+            // устройство уже исчезло
+        }
     }
 
     private void OnAudio(byte[] data, int count)

@@ -47,7 +47,10 @@ public sealed class SpeechService
         };
     }
 
-    /// <summary>Сказать фразу. Предыдущая обрывается. Возвращается, когда договорили.</summary>
+    /// <summary>
+    /// Сказать фразу. Предыдущая обрывается. Возвращается, когда договорили.
+    /// Текст режется на предложения: первое озвучивается сразу, следующее синтезируется, пока играет текущее.
+    /// </summary>
     public async Task SpeakAsync(string text)
     {
         text = Clean(text);
@@ -55,34 +58,84 @@ public sealed class SpeechService
         Stop();
         var cts = new CancellationTokenSource();
         _cts = cts;
+        CancellationToken token = cts.Token;
 
         SetSpeaking(true);
         try
         {
-            byte[]? mp3 = null;
-            try
+            List<string> parts = SplitForSpeech(text);
+            // Edge недавно не отвечал — не ждём его таймаутов, сразу говорим голосом Windows
+            Task<byte[]?>? next = DateTime.Now >= _edgeDownUntil ? TrySynthesizeAsync(parts[0], token) : null;
+            for (int i = 0; i < parts.Count; i++)
             {
-                mp3 = await SynthesizeAsync(text, App.Settings.VoiceName, App.Settings.VoiceRate, cts.Token);
-                LastError = null;
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                LastError = ex.Message;
-                App.LogError(new InvalidOperationException("Голос Edge не ответил, говорю голосом Windows", ex));
-            }
+                byte[]? mp3 = next != null ? await next : null;
+                next = null;
+                if (token.IsCancellationRequested) return;
 
-            if (cts.IsCancellationRequested) return;
-            if (mp3 is { Length: > 0 }) await PlayAsync(mp3, cts.Token);
-            else await SpeakWindowsAsync(text, cts.Token);
+                if (mp3 is not { Length: > 0 })
+                {
+                    await SpeakWindowsAsync(string.Join(" ", parts.Skip(i)), token);
+                    return;
+                }
+                if (i + 1 < parts.Count) next = TrySynthesizeAsync(parts[i + 1], token);
+                await PlayAsync(mp3, token);
+                if (token.IsCancellationRequested) return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // перебили
         }
         finally
         {
             if (_cts == cts) SetSpeaking(false);
         }
+    }
+
+    private DateTime _edgeDownUntil = DateTime.MinValue;
+
+    private async Task<byte[]?> TrySynthesizeAsync(string text, CancellationToken token)
+    {
+        try
+        {
+            byte[] mp3 = await SynthesizeAsync(text, App.Settings.VoiceName, App.Settings.VoiceRate, token);
+            LastError = null;
+            return mp3;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _edgeDownUntil = DateTime.Now.AddMinutes(2);
+            App.LogError(new InvalidOperationException("Голос Edge не ответил, говорю голосом Windows", ex));
+            return null;
+        }
+    }
+
+    /// <summary>Первое предложение отдельно (чтобы заговорить как можно раньше), остальное кусками до ~250 символов.</summary>
+    private static List<string> SplitForSpeech(string text)
+    {
+        string[] sentences = System.Text.RegularExpressions.Regex.Split(text, @"(?<=[.!?…;])\s+")
+            .Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        foreach (string sentence in sentences)
+        {
+            int limit = parts.Count == 0 ? 40 : 250; // первый кусок короткий
+            if (current.Length > 0 && current.Length + sentence.Length + 1 > limit)
+            {
+                parts.Add(current.ToString());
+                current.Clear();
+            }
+            if (current.Length > 0) current.Append(' ');
+            current.Append(sentence);
+        }
+        if (current.Length > 0) parts.Add(current.ToString());
+        if (parts.Count == 0) parts.Add(text);
+        return parts;
     }
 
     public void Stop()
@@ -129,14 +182,15 @@ public sealed class SpeechService
             try
             {
                 byte[] mp3 = await SynthesizeOnceAsync(text, voice, rate, token);
-                if (mp3.Length > 0 || attempt >= 2) return mp3;
+                if (mp3.Length > 0 || attempt >= 1) return mp3;
             }
-            catch (Exception ex) when (attempt < 2 && ex is WebSocketException or IOException or HttpRequestException)
+            catch (Exception ex) when (attempt < 1 && !token.IsCancellationRequested
+                                       && ex is WebSocketException or IOException or HttpRequestException or OperationCanceledException)
             {
                 // сервер иногда рвёт первое соединение; при 403 виноваты часы — сверяемся с сервером
                 if (attempt == 0) await AdjustClockAsync(token);
             }
-            await Task.Delay(300 * (attempt + 1), token);
+            await Task.Delay(150, token);
         }
     }
 
@@ -144,7 +198,7 @@ public sealed class SpeechService
     {
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
             using HttpResponseMessage r = await http.SendAsync(new HttpRequestMessage(HttpMethod.Head, "https://speech.platform.bing.com/"), token);
             if (r.Headers.Date is DateTimeOffset server)
                 EdgeTtsDrm.ClockSkewSeconds += (server - DateTimeOffset.UtcNow).TotalSeconds;
@@ -181,11 +235,13 @@ public sealed class SpeechService
         if (UseDeflate) ws.Options.DangerousDeflateOptions = new WebSocketDeflateOptions { ClientMaxWindowBits = 15, ServerMaxWindowBits = 15 };
         ws.Options.SetRequestHeader("Cookie", $"muid={Guid.NewGuid().ToString("N").ToUpperInvariant()};");
 
+        // короткие таймауты: если Microsoft тупит, быстрее перейти на голос Windows, чем ждать
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        timeout.CancelAfter(TimeSpan.FromSeconds(4));
         CancellationToken ct = timeout.Token;
 
         await ws.ConnectAsync(new Uri(url), ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(3 + text.Length / 40, 5, 15)));
         LastStage = "отправка";
 
         string date = DateTime.UtcNow.ToString("ddd MMM dd yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)

@@ -30,8 +30,8 @@ public sealed class AssistantService
 {
     public static readonly AiPreset[] Presets =
     {
-        new("groq", "Groq (бесплатно, быстро)", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", "https://console.groq.com/keys"),
-        new("gemini", "Google Gemini (бесплатный ключ)", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash", "https://aistudio.google.com/apikey"),
+        new("groq", "Groq (бесплатно, быстро)", "https://api.groq.com/openai/v1", "openai/gpt-oss-120b", "https://console.groq.com/keys"),
+        new("gemini", "Google Gemini (бесплатный ключ)", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.8-flash", "https://aistudio.google.com/apikey"),
         new("openrouter", "OpenRouter (бесплатные модели)", "https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct:free", "https://openrouter.ai/keys"),
         new("ollama", "Ollama (на этом ПК, без ключа)", "http://localhost:11434/v1", "qwen2.5:7b", "https://ollama.com/download"),
         new("custom", "Свой адрес (OpenAI-совместимый)", "", "", ""),
@@ -62,6 +62,18 @@ public sealed class AssistantService
         ["ведьмак"] = "Witcher", ["ведьмака"] = "Witcher", ["гта"] = "Grand Theft Auto", ["кс"] = "Counter-Strike",
         ["контру"] = "Counter-Strike", ["контра"] = "Counter-Strike", ["варфейс"] = "Warface", ["танки"] = "World of Tanks",
         ["хром"] = "Chrome", ["браузер"] = "", // браузер открываем отдельно
+        ["ножницы"] = "SnippingTool.exe", ["редактор реестра"] = "regedit.exe", ["реестр"] = "regedit.exe",
+        ["диспетчер устройств"] = "devmgmt.msc", ["управление дисками"] = "diskmgmt.msc", ["службы"] = "services.msc",
+        ["настройки звука"] = "ms-settings:sound", ["звук"] = "ms-settings:sound", ["блютуз"] = "ms-settings:bluetooth",
+        ["bluetooth"] = "ms-settings:bluetooth", ["настройки экрана"] = "ms-settings:display", ["центр обновления"] = "ms-settings:windowsupdate",
+        ["обновления windows"] = "ms-settings:windowsupdate", ["магазин"] = "ms-windows-store:", ["microsoft store"] = "ms-windows-store:",
+        ["корзину"] = "shell:RecycleBinFolder", ["корзина"] = "shell:RecycleBinFolder", ["загрузки"] = "shell:Downloads",
+        ["папку загрузки"] = "shell:Downloads", ["документы"] = "shell:Personal", ["мои документы"] = "shell:Personal",
+        ["стим"] = "Steam", ["эпик"] = "Epic Games Launcher", ["эпик геймс"] = "Epic Games Launcher", ["телегу"] = "Telegram",
+        ["телеграм"] = "Telegram", ["телеграмм"] = "Telegram", ["ворд"] = "Word", ["эксель"] = "Excel", ["повер поинт"] = "PowerPoint",
+        ["фотошоп"] = "Photoshop", ["обс"] = "OBS Studio", ["вс код"] = "Visual Studio Code", ["вскод"] = "Visual Studio Code",
+        ["яндекс музыку"] = "Яндекс Музыка", ["музыку яндекс"] = "Яндекс Музыка", ["ватсап"] = "WhatsApp", ["вотсап"] = "WhatsApp",
+        ["спотифай"] = "Spotify", ["дискорд"] = "Discord", ["вайбер"] = "Viber", ["зум"] = "Zoom", ["тимс"] = "Microsoft Teams",
     };
 
     private Func<string>? _pending;      // действие, ждущее «да»
@@ -313,7 +325,8 @@ public sealed class AssistantService
             }
             if (Aliases.TryGetValue(name, out string? alias) && alias.Length > 0)
             {
-                if (alias.EndsWith(".exe", StringComparison.Ordinal) || alias.EndsWith(":", StringComparison.Ordinal))
+                if (alias.EndsWith(".exe", StringComparison.Ordinal) || alias.EndsWith(".msc", StringComparison.Ordinal)
+                    || alias.Contains(':', StringComparison.Ordinal))
                 {
                     AppIndex.OpenUri(alias);
                     return new AssistantReply("", Silent: true);
@@ -663,13 +676,25 @@ public sealed class AssistantService
 
     private static async Task<JsonObject> CompleteAsync(JsonArray messages, bool tools)
     {
+        string model = App.Settings.AiModel;
+        bool groq = App.Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase);
+        // рассуждающие модели тратят токены на размышления: просим думать по минимуму, иначе голосовой ответ ждёт секундами
+        string? effort = model.Contains("gpt-oss", StringComparison.OrdinalIgnoreCase) ? "low"
+            : groq && model.Contains("qwen3", StringComparison.OrdinalIgnoreCase) ? "none"
+            : model.Contains("gemini", StringComparison.OrdinalIgnoreCase) ? "low"
+            : null;
         var body = new JsonObject
         {
-            ["model"] = App.Settings.AiModel,
+            ["model"] = model,
             ["messages"] = messages.DeepClone(),
             ["temperature"] = 0.6,
-            ["max_tokens"] = 400,
+            ["max_tokens"] = effort != null ? 1200 : 400,
         };
+        if (effort != null)
+        {
+            body["reasoning_effort"] = effort;
+            if (groq) body["include_reasoning"] = false;
+        }
         if (tools)
         {
             body["tools"] = Tools();

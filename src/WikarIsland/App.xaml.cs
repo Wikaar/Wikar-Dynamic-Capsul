@@ -150,8 +150,14 @@ public partial class App : Application
                 $"Нужна Windows 10 версии 1809 (сборка 17763) или новее, а здесь сборка {Environment.OSVersion.Version.Build}. Обнови Windows.");
 
         Settings = AppSettings.Load();
+        MigrateAiModel();
         System.Threading.Tasks.Task.Run(UpdateService.CleanupAfterUpdate);
-        if (Settings.AutoStart && !Settings.AutoStartElevated) AutoStart.Apply(true, false); // обновить путь, если exe переехал
+        // обновить путь, если exe переехал, и починить задачу автозапуска (в фоне: schtasks/COM — до пары секунд)
+        if (Settings.AutoStart)
+        {
+            bool elevated = Settings.AutoStartElevated;
+            System.Threading.Tasks.Task.Run(() => AutoStart.Ensure(elevated));
+        }
 
         Media = new MediaService();
         Weather = new WeatherService();
@@ -354,6 +360,7 @@ public partial class App : Application
             Pill.UpdateVoice();
             Panel.UpdateVoiceStatus();
         };
+        if (Settings.VoiceEnabled) AppIndex.BuildInBackground(); // чтобы первая «запусти …» не ждала сканирования
         if (Settings.VoiceEnabled) Safe("голосовой помощник", Voice.Start);
         Safe("погода", Weather.Start);
         Safe("уведомления", Notifications.Start);
@@ -473,6 +480,22 @@ public partial class App : Application
         Vpn?.Disconnect();
         Zapret?.Stop();
         Current.Shutdown();
+    }
+
+    /// <summary>Сервисы убирают старые модели: меняем их на актуальные, чтобы ИИ не отвечал 404.</summary>
+    private static void MigrateAiModel()
+    {
+        string model = Settings.AiModel;
+        string url = Settings.AiBaseUrl;
+        string? replacement =
+            url.Contains("groq.com", StringComparison.OrdinalIgnoreCase) && model is "llama-3.3-70b-versatile" or "llama-3.1-8b-instant" or "llama3-70b-8192"
+                ? "openai/gpt-oss-120b"
+            : url.Contains("generativelanguage", StringComparison.OrdinalIgnoreCase) && model.StartsWith("gemini-2", StringComparison.OrdinalIgnoreCase)
+                ? "gemini-3.8-flash"
+            : null;
+        if (replacement == null) return;
+        Settings.AiModel = replacement;
+        Settings.Save();
     }
 
     public static void LogError(Exception ex)

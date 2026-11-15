@@ -11,7 +11,8 @@ namespace WikarIsland.Services;
 public sealed record AppEntry(string Name, string Kind, Action Launch);
 
 /// <summary>
-/// Что можно запустить голосом: ярлыки острова, игры Steam и Epic, программы из меню «Пуск».
+/// Что можно запустить голосом: ярлыки острова, игры Steam и Epic, программы из меню «Пуск»,
+/// приложения из Microsoft Store и ярлыки рабочего стола.
 /// Распознавание пишет названия кириллицей («вальхейм», «майнкрафт»), поэтому сравниваем
 /// транслитом с поправками на типичные расхождения.
 /// </summary>
@@ -25,13 +26,41 @@ public static class AppIndex
         "uninstall", "удал", "readme", "help", "справк", "documentation", "release notes", "website", "сайт", "license", "лиценз",
     };
 
+    private static int _building;
+
+    /// <summary>
+    /// Список для поиска. Устаревший обновляется в фоне — голосовая команда не ждёт пересканирования
+    /// Steam, «Пуска» и Store (это секунды). Синхронно строим только самый первый раз.
+    /// </summary>
     public static List<AppEntry> Entries
     {
         get
         {
-            if ((DateTime.Now - _builtAt).TotalMinutes > 10 || _entries.Count == 0) Build();
+            if (_entries.Count == 0) Build();
+            else if ((DateTime.Now - _builtAt).TotalMinutes > 10) BuildInBackground();
             return _entries;
         }
+    }
+
+    /// <summary>Пересобрать список в фоне (при старте острова и когда он устарел).</summary>
+    public static void BuildInBackground()
+    {
+        if (System.Threading.Interlocked.Exchange(ref _building, 1) == 1) return;
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            try
+            {
+                Build();
+            }
+            catch (Exception ex)
+            {
+                App.LogError(ex);
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _building, 0);
+            }
+        });
     }
 
     /// <summary>Названия игр для подсказки ИИ (чтобы он угадывал искажённые распознаванием).</summary>
@@ -65,6 +94,21 @@ public static class AppIndex
             string name = Path.GetFileNameWithoutExtension(lnk);
             if (Junk.Any(j => name.Contains(j, StringComparison.OrdinalIgnoreCase))) continue;
             Add(name, "Пуск", () => ShellHelper.Open(lnk));
+        }
+
+        // приложения из Microsoft Store (Spotify, WhatsApp, Telegram, Xbox…): ярлыков .lnk у них нет
+        foreach ((string name, Windows.ApplicationModel.Core.AppListEntry entry) in StoreApps())
+        {
+            if (Junk.Any(j => name.Contains(j, StringComparison.OrdinalIgnoreCase))) continue;
+            Windows.ApplicationModel.Core.AppListEntry app = entry;
+            Add(name, "Store", () => _ = app.LaunchAsync());
+        }
+
+        foreach (string lnk in DesktopShortcuts())
+        {
+            string name = Path.GetFileNameWithoutExtension(lnk);
+            if (Junk.Any(j => name.Contains(j, StringComparison.OrdinalIgnoreCase))) continue;
+            Add(name, "Рабочий стол", () => ShellHelper.Open(lnk));
         }
 
         _entries = list;
@@ -180,6 +224,63 @@ public static class AppIndex
                 // битый манифест
             }
             if (name != null && uri != null) yield return (name, uri);
+        }
+    }
+
+    private static List<(string name, Windows.ApplicationModel.Core.AppListEntry entry)> StoreApps()
+    {
+        var result = new List<(string, Windows.ApplicationModel.Core.AppListEntry)>();
+        try
+        {
+            var manager = new Windows.Management.Deployment.PackageManager();
+            foreach (Windows.ApplicationModel.Package package in manager.FindPackagesForUser(string.Empty))
+            {
+                try
+                {
+                    if (package.IsFramework || package.IsResourcePackage || package.IsBundle) continue;
+                    foreach (Windows.ApplicationModel.Core.AppListEntry entry in package.GetAppListEntriesAsync().AsTask().GetAwaiter().GetResult())
+                    {
+                        string name = entry.DisplayInfo?.DisplayName ?? "";
+                        // у системных пакетов бывают служебные имена вида «ms-resource:…» или «@{…}»
+                        if (name.Length == 0 || name.StartsWith("ms-resource", StringComparison.OrdinalIgnoreCase) || name.StartsWith("@", StringComparison.Ordinal)) continue;
+                        result.Add((name, entry));
+                    }
+                }
+                catch
+                {
+                    // повреждённый или недоступный пакет — пропускаем
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
+        return result;
+    }
+
+    private static IEnumerable<string> DesktopShortcuts()
+    {
+        string[] roots =
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+        };
+        foreach (string root in roots)
+        {
+            if (root.Length == 0 || !Directory.Exists(root)) continue;
+            List<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(root, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(f => f.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            catch
+            {
+                continue;
+            }
+            foreach (string f in files) yield return f;
         }
     }
 

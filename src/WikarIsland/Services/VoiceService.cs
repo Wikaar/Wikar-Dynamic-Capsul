@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -51,6 +52,16 @@ public sealed partial class VoiceService : IDisposable
     private readonly MemoryStream _utterance = new(); // звук текущей фразы (16 кГц моно) — для онлайн-распознавания
     private const int MaxUtteranceBytes = SampleRate * 2 * 20;
     private const int FollowUpSeconds = 10;
+
+    // Gemini Live: после слова «Капсулка» звук идёт в Gemini потоком, ответ звучит сразу
+    private GeminiLiveService? _live;
+    private volatile bool _liveMode;
+    private volatile bool _liveEnding;
+    private bool _liveWasSpeaking;
+    private DateTime _liveSpokeAt, _liveUserAt;
+    private DateTime _liveOffUntil = DateTime.MinValue; // после сбоя — обычный режим на 10 минут
+    private string _liveModelText = "";
+    private const int LiveIdleSeconds = 12;
 
     public VoiceState State { get; private set; } = VoiceState.Off;
 
@@ -119,6 +130,7 @@ public sealed partial class VoiceService : IDisposable
 
     public void Stop()
     {
+        EndLive(silent: true);
         _watch?.Dispose();
         _watch = null;
         CloseMicrophone();
@@ -142,6 +154,13 @@ public sealed partial class VoiceService : IDisposable
     public void ListenNow()
     {
         if (State == VoiceState.Off) return;
+        if (_liveMode)
+        {
+            _live?.StopSpeaking();
+            return;
+        }
+        if (State is VoiceState.Speaking or VoiceState.Thinking) App.Speech.Stop();
+        if (TryStartLive()) return;
         if (State is VoiceState.Speaking or VoiceState.Thinking) App.Speech.Stop();
         BeginCommand(chime: true, seconds: 7);
     }
@@ -149,6 +168,12 @@ public sealed partial class VoiceService : IDisposable
     /// <summary>Клик по капсуле во время разговора — замолчать и перестать слушать.</summary>
     public void Cancel()
     {
+        if (_liveMode)
+        {
+            _live?.StopSpeaking();
+            EndLive();
+            return;
+        }
         App.Speech.Stop();
         _command = false;
         _deaf = false;
@@ -291,8 +316,19 @@ public sealed partial class VoiceService : IDisposable
                 _pcm[2 * i + 1] = (byte)(s >> 8);
             }
             MicLevel = MicLevel * 0.6f + Math.Min(1f, peak * 2.5f) * 0.4f;
+            if (_liveMode)
+            {
+                LiveAudio(read * 2);
+                continue;
+            }
             if (_deaf) continue; // своё же озвучивание не слушаем
             Recognize(read * 2);
+        }
+
+        if (_liveMode)
+        {
+            LiveTick();
+            return;
         }
 
         // команду так и не сказали — возвращаемся к ожиданию слова
@@ -352,6 +388,7 @@ public sealed partial class VoiceService : IDisposable
         if (!_command)
         {
             if (!WakeWord().IsMatch(text)) return;
+            if (TryStartLive()) return;
             BeginCommand(chime: true, seconds: 8);
         }
         string shown = AfterWake(text);
@@ -364,6 +401,7 @@ public sealed partial class VoiceService : IDisposable
         if (!_command)
         {
             if (!WakeWord().IsMatch(text)) return;
+            if (TryStartLive(audio)) return;
             string rest = AfterWake(text);
             if (rest.Length > 0) DispatchHeard(rest, audio);
             else BeginCommand(chime: true, seconds: 8);
@@ -411,6 +449,124 @@ public sealed partial class VoiceService : IDisposable
         string rest = m.Success ? text[(m.Index + m.Length)..] : text;
         rest = Regex.Replace(rest, @"^\s*ка\b", ""); // «капсул ка»
         return rest.Trim().Trim(',', '.', '!', '?', ':', ';', '—', '-', '…', ' ');
+    }
+
+    // ---------- Gemini Live ----------
+
+    /// <summary>Начать живой разговор, если он включён. prefill — уже записанная фраза («Капсулка, открой…»).</summary>
+    private bool TryStartLive(byte[]? prefill = null)
+    {
+        if (!GeminiLiveService.Available || DateTime.Now < _liveOffUntil) return false;
+        byte[] head;
+        lock (_lock)
+        {
+            head = prefill ?? _utterance.ToArray();
+            _recognizer?.Reset();
+            _utterance.SetLength(0);
+        }
+        _command = false;
+        _liveEnding = false;
+        if (Problem?.StartsWith("Gemini Live", StringComparison.Ordinal) == true) Problem = null;
+        _liveWasSpeaking = false;
+        _liveModelText = "";
+        _liveSpokeAt = _liveUserAt = DateTime.Now;
+
+        var live = new GeminiLiveService();
+        live.UserSaid += text =>
+        {
+            _liveUserAt = DateTime.Now;
+            if (!live.IsSpeaking) Set(VoiceState.Listening, text);
+        };
+        live.ModelSaid += text =>
+        {
+            _liveModelText = text;
+            Set(VoiceState.Speaking, text);
+        };
+        live.EndRequested += () => _liveEnding = true;
+        live.Failed += message => _ui.BeginInvoke(() => OnLiveFailed(live, message));
+        try
+        {
+            live.Open();
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            live.Dispose();
+            _liveOffUntil = DateTime.Now.AddMinutes(10);
+            return false;
+        }
+        _live = live;
+        _liveMode = true;
+        if (head.Length > 0) live.SendAudio(head, head.Length);
+        Chime.Play();
+        Set(VoiceState.Listening, "");
+        return true;
+    }
+
+    /// <summary>Звук микрофона в живом режиме. Пока Gemini говорит — без перебивания не отправляем (иначе он услышит себя из колонок).</summary>
+    private void LiveAudio(int bytes)
+    {
+        GeminiLiveService? live = _live;
+        if (live == null) return;
+        bool speaking = live.IsSpeaking;
+        if (speaking) _liveSpokeAt = DateTime.Now;
+        if (App.Settings.LiveBargeIn || (!speaking && (DateTime.Now - _liveSpokeAt).TotalMilliseconds > 300))
+            live.SendAudio(_pcm, bytes);
+    }
+
+    /// <summary>Состояние капсулы и конец разговора: прощание, молчание 12 секунд или режим «одна команда».</summary>
+    private void LiveTick()
+    {
+        GeminiLiveService? live = _live;
+        if (live == null) return;
+        bool speaking = live.IsSpeaking;
+        if (speaking && !_liveWasSpeaking) Set(VoiceState.Speaking, _liveModelText);
+        if (!speaking && _liveWasSpeaking)
+        {
+            _liveModelText = "";
+            if (!App.Settings.VoiceFollowUp) _liveEnding = true;
+            else Set(VoiceState.Listening, "");
+        }
+        _liveWasSpeaking = speaking;
+        if (speaking) return;
+
+        DateTime now = DateTime.Now;
+        if (_liveEnding && (now - _liveSpokeAt).TotalMilliseconds > 400)
+        {
+            EndLive();
+            return;
+        }
+        DateTime last = new[] { live.LastActivity, _liveSpokeAt, _liveUserAt }.Max();
+        if ((now - last).TotalSeconds > LiveIdleSeconds) EndLive();
+    }
+
+    private void EndLive(bool silent = false)
+    {
+        GeminiLiveService? live = Interlocked.Exchange(ref _live, null);
+        if (live == null) return;
+        _liveMode = false;
+        _liveEnding = false;
+        live.Close();
+        ResetRecognizer();
+        if (!silent && State != VoiceState.Off) Set(VoiceState.Waiting, "");
+    }
+
+    /// <summary>Gemini Live не открылся или оборвался: 10 минут работаем по-старому, команду можно повторить сразу.</summary>
+    private async void OnLiveFailed(GeminiLiveService live, string message)
+    {
+        if (!ReferenceEquals(_live, live)) return;
+        EndLive(silent: true);
+        _liveOffUntil = DateTime.Now.AddMinutes(10);
+        Problem = "Gemini Live недоступен (" + message + "). 10 минут работаю в обычном режиме.";
+        Changed?.Invoke();
+        if (State == VoiceState.Off) return;
+        _deaf = true;
+        Set(VoiceState.Speaking, "Gemini Live недоступен");
+        await App.Speech.SpeakAsync("Живой режим недоступен, сэр. Повторите команду, я выполню её по-старому.");
+        await Task.Delay(250);
+        ResetRecognizer();
+        _deaf = false;
+        if (State != VoiceState.Off) BeginCommand(chime: true, seconds: 8);
     }
 
     private void BeginCommand(bool chime, int seconds)

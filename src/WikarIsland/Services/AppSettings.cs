@@ -112,6 +112,38 @@ public sealed class AppSettings
     public double VoiceVolume { get; set; } = 0.9;
     public bool VoiceFollowUp { get; set; } = true;
     public bool VoiceAcknowledge { get; set; } = true; // короткое «Есть, сэр» после команд без ответа
+
+    // Gemini Live — живой голосовой разговор вместо «распознать → ИИ → озвучить»
+    public bool LiveEnabled { get; set; }
+    public string LiveModel { get; set; } = "gemini-3.8-live";
+    public string LiveVoice { get; set; } = "Charon";
+    public bool LiveBargeIn { get; set; } // перебивать голосом (с колонками модель услышит сама себя)
+    public string GeminiKeyProtected { get; set; } = "";
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string GeminiKey
+    {
+        get => Unprotect(GeminiKeyProtected);
+        set => GeminiKeyProtected = Protect(value);
+    }
+
+    private static string Protect(string value) => string.IsNullOrWhiteSpace(value) ? "" : Convert.ToBase64String(
+        System.Security.Cryptography.ProtectedData.Protect(System.Text.Encoding.UTF8.GetBytes(value.Trim()), null,
+            System.Security.Cryptography.DataProtectionScope.CurrentUser));
+
+    private static string Unprotect(string value)
+    {
+        if (value.Length == 0) return "";
+        try
+        {
+            return System.Text.Encoding.UTF8.GetString(System.Security.Cryptography.ProtectedData.Unprotect(
+                Convert.FromBase64String(value), null, System.Security.Cryptography.DataProtectionScope.CurrentUser));
+        }
+        catch
+        {
+            return "";
+        }
+    }
     public string VoiceHotkey { get; set; } = "Ctrl+Alt+K";
 
     // мозг: любой OpenAI-совместимый API

@@ -2622,6 +2622,26 @@ public partial class PanelWindow : Window
             VoicesPanel.Children.Add(radio);
         }
 
+        LiveEnabledBox.IsChecked = s.LiveEnabled;
+        LiveBargeInBox.IsChecked = s.LiveBargeIn;
+        LiveKeyBox.Password = s.GeminiKey;
+        LiveVoicesPanel.Children.Clear();
+        foreach ((string id, string name) in GeminiLiveService.Voices)
+        {
+            var radio = new RadioButton
+            {
+                Content = name, GroupName = "LiveVoice", IsChecked = s.LiveVoice == id,
+                Style = (Style)FindResource("SettingsRadio"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center,
+            };
+            radio.GroupName = "LiveVoice";
+            radio.Checked += (_, _) =>
+            {
+                App.Settings.LiveVoice = id;
+                App.Settings.Save(); // голос применится со следующего разговора
+            };
+            LiveVoicesPanel.Children.Add(radio);
+        }
+
         AiPresetsPanel.Children.Clear();
         foreach (AiPreset preset in AssistantService.Presets)
         {
@@ -2662,7 +2682,8 @@ public partial class PanelWindow : Window
             VoiceState.Off when App.Settings.VoiceEnabled => "Запускаю распознавание…",
             VoiceState.Off => "Выключено. Микрофон не используется.",
             _ => $"Слушаю микрофон. Скажи «Капсулка» или нажми {App.Settings.VoiceHotkey}."
-                 + (CloudStt.Available ? " Команды распознаёт Whisper (Groq)." : " Команды распознаются офлайн — с ключом Groq будет точнее."),
+                 + (GeminiLiveService.Available ? " Разговор — Gemini Live."
+                    : CloudStt.Available ? " Команды распознаёт Whisper (Groq)." : " Команды распознаются офлайн — с ключом Groq будет точнее."),
         });
     }
 
@@ -2716,6 +2737,31 @@ public partial class PanelWindow : Window
         AiStatus.Text = "Проверяю…";
         AiStatus.Text = await AssistantService.TestAsync();
     }
+
+    private void Live_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        AppSettings s = App.Settings;
+        s.LiveEnabled = LiveEnabledBox.IsChecked == true;
+        s.LiveBargeIn = LiveBargeInBox.IsChecked == true;
+        if (LiveKeyBox.Password.Length > 0) s.GeminiKey = LiveKeyBox.Password;
+        s.Save();
+        LiveStatus.Text = !s.LiveEnabled ? "Выключено: Капсулка работает в обычном режиме."
+            : GeminiLiveService.Key.Length == 0 ? "Нужен ключ Gemini — вставь его выше и нажми «Сохранить ключ»."
+            : !s.VoiceEnabled ? "Включено. Ещё включи «Слушать слово «Капсулка»» выше."
+            : "Включено. Скажи «Капсулка» — и разговаривай.";
+    }
+
+    private void LiveSave_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.GeminiKey = LiveKeyBox.Password;
+        App.Settings.Save();
+        Live_Changed(sender, e);
+        if (App.Settings.GeminiKey.Length > 0 && !App.Settings.LiveEnabled)
+            LiveStatus.Text = "Ключ сохранён (зашифрован). Включи галочку Gemini Live выше.";
+    }
+
+    private void LiveGetKey_Click(object sender, RoutedEventArgs e) => ShellHelper.Open("https://aistudio.google.com/apikey");
 
     private void AiGetKey_Click(object sender, RoutedEventArgs e)
     {

@@ -508,6 +508,43 @@ public sealed class AssistantService
 
     // ---------- ИИ ----------
 
+    // ---------- для Gemini Live ----------
+
+    /// <summary>Те же инструменты, что у ИИ-разговора (формат OpenAI) — GeminiLiveService переводит их в свой.</summary>
+    public static JsonArray ToolDeclarations() => Tools();
+
+    public static string LiveSystemPrompt() =>
+        SystemPrompt() + " " +
+        "Это живой голосовой разговор: слушаешь и отвечаешь голосом в реальном времени. Всегда говори по-русски, " +
+        "английские названия произноси по-английски. Голос — спокойный, низкий, неторопливый, с британской сдержанностью Джарвиса. " +
+        "К тебе обращаются по имени «Капсулка» — это ты; само имя не повторяй. " +
+        "Команды на компьютере выполняй инструментами сразу и докладывай одной короткой фразой. " +
+        "Если инструмент просит подтверждение — спроси, и только после «да» вызови confirm_pending. " +
+        "Когда пользователь благодарит, прощается или говорит «хватит», «отбой» — коротко попрощайся и вызови end_conversation. " +
+        "Для свежих новостей, курсов и фактов пользуйся поиском Google.";
+
+    /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса).</summary>
+    public string RunLiveTool(string name, JsonObject args)
+    {
+        if (name == "confirm_pending")
+        {
+            if (_pending == null || DateTime.Now > _pendingUntil) return "Нечего подтверждать";
+            Func<string> action = _pending;
+            _pending = null;
+            string done = action();
+            return done.Length > 0 ? done : "Выполнено";
+        }
+        try
+        {
+            return RunTool(name, args);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            return "Ошибка: " + ex.Message;
+        }
+    }
+
     private static string SystemPrompt()
     {
         string games = string.Join(", ", AppIndex.GameNames.Take(150));

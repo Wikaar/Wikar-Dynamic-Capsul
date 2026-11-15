@@ -9,7 +9,9 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace WikarIsland.Services;
 
@@ -48,7 +50,7 @@ public sealed class GeminiLiveService : IDisposable
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private ClientWebSocket? _ws;
-    private WaveOutEvent? _out;
+    private WasapiOut? _out;
     private BufferedWaveProvider? _play;
     private readonly StringBuilder _userText = new();
     private readonly StringBuilder _modelText = new();
@@ -70,14 +72,40 @@ public sealed class GeminiLiveService : IDisposable
 
     public void Open()
     {
-        _out = new WaveOutEvent { DesiredLatency = 120 };
         _play = new BufferedWaveProvider(new WaveFormat(24000, 16, 1))
         {
             BufferDuration = TimeSpan.FromMinutes(2),
             DiscardOnBufferOverflow = true,
         };
-        _out.Init(_play);
-        _out.Volume = (float)Math.Clamp(App.Settings.VoiceVolume, 0.1, 1.0);
+        // 24 кГц моно → формат устройства вывода (обычно 48 кГц стерео float)
+        int rate = 48000, channels = 2;
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            WaveFormat mix = device.AudioClient.MixFormat;
+            rate = mix.SampleRate;
+            channels = mix.Channels;
+        }
+        catch
+        {
+            // по умолчанию 48 кГц стерео
+        }
+        ISampleProvider sp = new VolumeSampleProvider(_play.ToSampleProvider())
+        {
+            Volume = (float)Math.Clamp(App.Settings.VoiceVolume, 0.1, 1.0),
+        };
+        if (rate != 24000) sp = new WdlResamplingSampleProvider(sp, rate);
+        if (channels == 2) sp = new MonoToStereoSampleProvider(sp);
+        else if (channels > 2)
+        {
+            var multi = new MultiplexingSampleProvider(new[] { sp }, channels);
+            multi.ConnectInputToOutput(0, 0);
+            multi.ConnectInputToOutput(0, 1);
+            sp = multi;
+        }
+        _out = new WasapiOut(AudioClientShareMode.Shared, 100);
+        _out.Init(sp);
         _out.Play();
         _ = Task.Run(RunAsync);
     }

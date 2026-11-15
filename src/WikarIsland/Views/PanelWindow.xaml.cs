@@ -78,6 +78,7 @@ public partial class PanelWindow : Window
         {
             UpdateHomeClock();
             UpdateProgress();
+            UpdateMusicProgress();
         };
         _morphTimer.Tick += (_, _) => MorphTick();
 
@@ -120,7 +121,9 @@ public partial class PanelWindow : Window
         _environment ??= CoreWebView2Environment.CreateAsync(
             browserExecutableFolder: null,
             userDataFolder: Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WikarIsland", "WebView2"));
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WikarIsland", "WebView2"),
+            // YouTube Music во встроенном плеере играет в невидимой странице — без «клика» пользователя
+            options: new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required" });
 
     /// <summary>
     /// Всплывающие окна (например, вход через Google) открываем в своём окне поверх острова,
@@ -299,7 +302,7 @@ public partial class PanelWindow : Window
         bool wide = AiUrls.ContainsKey(key);
         Rect wa = ScreenHelper.ToDip(ScreenHelper.ScreenOf(App.Pill).WorkingArea, App.Pill);
         // «Главная» как на картинке: плеер слева, кнопки справа
-        Width = Math.Min(wide ? 940 : key == "home" ? 780 : 620, wa.Width - 20);
+        Width = Math.Min(wide ? 940 : key == "home" ? 780 : key == "music" ? 680 : 620, wa.Width - 20);
         Height = Math.Min(wide ? 700 : 620, wa.Height - 10);
     }
 
@@ -405,7 +408,7 @@ public partial class PanelWindow : Window
 
     private void SelectTab(string key)
     {
-        if (key is not ("home" or "control" or "system" or "weather" or "clipboard" or "settings" or "vpn" or "zapret") && !AiUrls.ContainsKey(key)) key = "home";
+        if (key is not ("home" or "control" or "system" or "weather" or "clipboard" or "music" or "settings" or "vpn" or "zapret") && !AiUrls.ContainsKey(key)) key = "home";
         _current = key;
 
         RadioButton tab = key switch
@@ -414,6 +417,7 @@ public partial class PanelWindow : Window
             "system" => TabSystem,
             "weather" => TabWeather,
             "clipboard" => TabClipboard,
+            "music" => TabMusic,
             "chatgpt" => TabChatGpt,
             "claude" => TabClaude,
             "gemini" => TabGemini,
@@ -430,6 +434,7 @@ public partial class PanelWindow : Window
         HomeView.Visibility = key == "home" ? Visibility.Visible : Visibility.Collapsed;
         WeatherView.Visibility = key == "weather" ? Visibility.Visible : Visibility.Collapsed;
         ClipboardView.Visibility = key == "clipboard" ? Visibility.Visible : Visibility.Collapsed;
+        MusicView.Visibility = key == "music" ? Visibility.Visible : Visibility.Collapsed;
         ControlView.Visibility = key == "control" ? Visibility.Visible : Visibility.Collapsed;
         SystemView.Visibility = key == "system" ? Visibility.Visible : Visibility.Collapsed;
         VpnView.Visibility = key == "vpn" ? Visibility.Visible : Visibility.Collapsed;
@@ -458,6 +463,7 @@ public partial class PanelWindow : Window
         if (key == "weather") BuildWeatherView();
         if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
+        if (key == "music") UpdateMusicView();
         if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); UpdateZapret(); UpdateDnd(); UpdateTimer(); UpdateNotifications(); }
         if (key == "vpn") { VpnDnsBox.Text = App.Settings.VpnDns; VpnAddStatus.Text = ""; UpdateVpn(); }
         if (key == "zapret") UpdateZapret();

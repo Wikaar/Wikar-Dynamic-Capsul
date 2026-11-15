@@ -14,6 +14,7 @@ public partial class App : Application
     public static PillWindow Pill { get; private set; } = null!;
     public static PanelWindow Panel { get; private set; } = null!;
     public static MediaService Media { get; private set; } = null!;
+    public static MusicHub Music { get; private set; } = null!;
     public static WeatherService Weather { get; private set; } = null!;
     public static AudioService Audio { get; private set; } = null!;
     public static NotificationService Notifications { get; private set; } = null!;
@@ -166,6 +167,7 @@ public partial class App : Application
         }
 
         Media = new MediaService();
+        Music = new MusicHub();
         Weather = new WeatherService();
         Audio = new AudioService();
         Notifications = new NotificationService();
@@ -341,6 +343,8 @@ public partial class App : Application
         });
 
         Safe("музыка", () => _ = Media.StartAsync());
+        Safe("встроенная музыка", Music.Start);
+        Music.Changed += () => Panel.UpdateMusic();
         Safe("Steam", Steam.Start);
         Game.Changed += () => Pill.UpdateGame();
         Downloads.Changed += () => Pill.UpdateDownloads();
@@ -482,6 +486,7 @@ public partial class App : Application
         Game?.Dispose();
         Speech?.Stop();
         Voice?.Dispose();
+        Music?.Dispose();
         SystemMonitor?.Dispose();
         Vpn?.Disconnect();
         Zapret?.Stop();

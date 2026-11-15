@@ -122,6 +122,28 @@ public sealed class AppSettings
     public string GeminiKeyProtected { get; set; } = "";
     public string GroqKeyProtected { get; set; } = ""; // ключ Groq для распознавания речи (Whisper) — не зависит от выбранного «мозга»
 
+    // встроенная музыка: Яндекс Музыка, YouTube Music, Spotify
+    public string MusicProvider { get; set; } = "yandex";
+    public bool MusicVoiceBuiltIn { get; set; } = true; // Капсулка включает музыку во встроенном плеере, если в сервис вошли
+    public bool MusicYoutubeUsed { get; set; }
+    public string YandexTokenProtected { get; set; } = "";
+    public string SpotifyClientId { get; set; } = "";
+    public string SpotifyRefreshProtected { get; set; } = "";
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string YandexToken
+    {
+        get => Unprotect(YandexTokenProtected);
+        set => YandexTokenProtected = Protect(value);
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string SpotifyRefresh
+    {
+        get => Unprotect(SpotifyRefreshProtected);
+        set => SpotifyRefreshProtected = Protect(value);
+    }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public string GroqKey
     {

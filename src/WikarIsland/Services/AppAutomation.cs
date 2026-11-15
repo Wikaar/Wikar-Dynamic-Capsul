@@ -134,10 +134,32 @@ public static class AppAutomation
     /// Включить музыку: открыть сервис (программу или сайт), дождаться окна и нажать «Моя волна» / «Воспроизвести»;
     /// с запросом — найти и включить исполнителя или трек. Долго (до ~25 секунд), поэтому выполняется в фоне.
     /// </summary>
-    public static Task<MusicResult> PlayMusicAsync(string spokenService, string? query) => Task.Run(() =>
+    public static async Task<MusicResult> PlayMusicAsync(string spokenService, string? query)
+    {
+        query = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
+
+        // сервис подключён к острову — играем во встроенном плеере: быстрее и без кликов по чужому окну
+        MusicResult? builtIn = null;
+        try
+        {
+            builtIn = await System.Windows.Application.Current.Dispatcher
+                .InvokeAsync(() => App.Music.PlayVoiceAsync(spokenService, query)).Task.Unwrap();
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
+        if (builtIn != null)
+        {
+            App.LogVoice($"  музыка [встроенный плеер, {spokenService}] «{query}» → {(builtIn.Playing ? "ИГРАЕТ" : "не играет")}: {builtIn.Message}");
+            return builtIn;
+        }
+        return await PlayMusicInAppAsync(spokenService, query);
+    }
+
+    private static Task<MusicResult> PlayMusicInAppAsync(string spokenService, string? query) => Task.Run(() =>
     {
         MusicService svc = ServiceOf(spokenService);
-        query = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
         MediaInfo? before = App.Media.Current;
         string steps = PlayMusic(svc, query);
         MusicResult result = Verify(before, query, steps);

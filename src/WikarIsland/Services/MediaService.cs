@@ -136,6 +136,16 @@ public sealed class MediaService
         try
         {
             GlobalSystemMediaTransportControlsSession? s = _session;
+
+            // встроенный плеер острова (Яндекс Музыка, YouTube Music, Spotify) важнее, пока играет
+            // или пока никто другой не играет — тогда пилюля и Капсулка видят его как любой другой плеер
+            if (App.Music?.Snapshot() is { } own &&
+                (own.IsPlaying || s?.GetPlaybackInfo()?.PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing))
+            {
+                Publish(own);
+                return;
+            }
+
             if (s == null)
             {
                 Publish(null);
@@ -228,25 +238,35 @@ public sealed class MediaService
         return img;
     }
 
+    /// <summary>Перечитать «что играет» (встроенный плеер сообщает о своих изменениях сам).</summary>
+    public void Refresh() => _ui.BeginInvoke(() => _ = RefreshAsync());
+
     // ---------- управление ----------
+
+    /// <summary>Сейчас показан встроенный плеер острова — команды идут ему, а не системному медиапульту.</summary>
+    private static bool Own => App.Music != null && App.Media.Current?.AppId.StartsWith(MusicHub.AppIdPrefix, StringComparison.Ordinal) == true;
 
     public async void PlayPause()
     {
+        if (Own) { App.Music.PlayPause(); return; }
         try { if (_session != null) await _session.TryTogglePlayPauseAsync(); } catch { }
     }
 
     public async void Next()
     {
+        if (Own) { App.Music.Next(); return; }
         try { if (_session != null) await _session.TrySkipNextAsync(); } catch { }
     }
 
     public async void Previous()
     {
+        if (Own) { App.Music.Previous(); return; }
         try { if (_session != null) await _session.TrySkipPreviousAsync(); } catch { }
     }
 
     public async void Seek(TimeSpan position)
     {
+        if (Own) { App.Music.Seek(position); return; }
         try { if (_session != null) await _session.TryChangePlaybackPositionAsync(position.Ticks); } catch { }
     }
 }

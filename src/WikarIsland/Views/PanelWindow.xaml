@@ -335,6 +335,13 @@
                                    Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </RadioButton>
+                <RadioButton x:Name="TabMusic" Tag="music" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Музыка: Яндекс Музыка, YouTube Music, Spotify">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Музыка" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
                 <RadioButton x:Name="TabChatGpt" Tag="chatgpt" Content="GPT" ToolTip="ChatGPT" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
                 <RadioButton x:Name="TabClaude" Tag="claude" Content="Claude" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
                 <RadioButton x:Name="TabGemini" Tag="gemini" Content="Gemini" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
@@ -975,6 +982,103 @@
                 <ScrollViewer Grid.Row="1" Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="ClipList"/>
                 </ScrollViewer>
+            </Grid>
+
+            <!-- ===== Музыка: встроенный плеер Яндекс Музыки, YouTube Music и Spotify ===== -->
+            <Grid x:Name="MusicView" Visibility="Collapsed" Margin="14,2,14,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- сервисы и аккаунт -->
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock x:Name="MusicAccountText" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center"
+                                   Margin="0,0,8,0" MaxWidth="230" TextTrimming="CharacterEllipsis"/>
+                        <Button x:Name="MusicLoginButton" Style="{StaticResource FlatButton}" Margin="0" Content="Войти" Click="MusicLogin_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="MusicYandexChip" Style="{StaticResource Chip}" Content="Яндекс Музыка" Tag="yandex" Click="MusicProvider_Click"/>
+                        <Button x:Name="MusicYoutubeChip" Style="{StaticResource Chip}" Content="YouTube Music" Tag="youtube" Click="MusicProvider_Click"/>
+                        <Button x:Name="MusicSpotifyChip" Style="{StaticResource Chip}" Content="Spotify" Tag="spotify" Click="MusicProvider_Click"/>
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Spotify: свой Client ID -->
+                <Border x:Name="MusicSpotifySetup" Grid.Row="1" Style="{StaticResource CcCard}" Margin="0,10,0,0" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap"
+                                   Text="Spotify пускает сторонние программы только через своё приложение разработчика (бесплатно, один раз): developer.spotify.com → Dashboard → Create app. В Redirect URI впиши адрес ниже, отметь Web API, сохрани и скопируй сюда Client ID. Звук играет приложение Spotify, остров им управляет; управление требует Premium."/>
+                        <TextBox x:Name="MusicSpotifyRedirect" IsReadOnly="True" Margin="0,8,0,0" Padding="8,4" FontSize="12"
+                                 FontFamily="Cascadia Mono, Consolas" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF"
+                                 ToolTip="Скопируй в Redirect URIs приложения Spotify"/>
+                        <DockPanel Margin="0,8,0,0">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Сохранить" Click="MusicSpotifyId_Click"/>
+                            <TextBox x:Name="MusicSpotifyIdBox" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
+                                     Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF" CaretBrush="#F2F2F5"
+                                     ToolTip="Client ID приложения Spotify"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- поиск и подборки -->
+                <DockPanel Grid.Row="2" Margin="0,10,0,0">
+                    <Button x:Name="MusicFavButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Мне нравится" Click="MusicFav_Click"/>
+                    <Button x:Name="MusicMixButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Моя волна" Click="MusicMix_Click"/>
+                    <TextBlock Text="&#xE721;" DockPanel.Dock="Left" FontFamily="{StaticResource Icons}" FontSize="15"
+                               Foreground="{StaticResource TextDim}" VerticalAlignment="Center" Margin="4,0,8,0"/>
+                    <TextBox x:Name="MusicSearchBox" Padding="8,5" FontSize="14" VerticalContentAlignment="Center"
+                             Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"
+                             ToolTip="Исполнитель, песня, альбом — Enter" KeyDown="MusicSearch_KeyDown"/>
+                </DockPanel>
+
+                <!-- сейчас играет во встроенном плеере -->
+                <Border x:Name="MusicNowCard" Grid.Row="3" Style="{StaticResource Card}" Padding="10" Margin="0,10,0,0" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="56"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Image x:Name="MusicNowCover" Width="56" Height="56" Stretch="UniformToFill">
+                            <Image.Clip>
+                                <RectangleGeometry Rect="0,0,56,56" RadiusX="9" RadiusY="9"/>
+                            </Image.Clip>
+                        </Image>
+                        <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="MusicNowTitle" TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextMain}"
+                                       FontSize="14.5" FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
+                            <TextBlock x:Name="MusicNowArtist" TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextDim}"
+                                       FontSize="12.5" FontFamily="{StaticResource UiFont}"/>
+                            <Grid x:Name="MusicProgressArea" Height="10" Margin="0,6,0,0" Background="Transparent" Cursor="Hand"
+                                  MouseLeftButtonDown="MusicProgress_Click">
+                                <Border Height="3" CornerRadius="1.5" Background="#33FFFFFF"/>
+                                <Border x:Name="MusicProgressFill" Height="3" CornerRadius="1.5" Background="#F2F2F5"
+                                        HorizontalAlignment="Left" Width="0"/>
+                            </Grid>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource RoundIcon}" Content="&#xE892;" ToolTip="Предыдущий" Click="MusicPrev_Click"/>
+                            <Button x:Name="MusicPlayButton" Style="{StaticResource PlayButton}" Width="38" Height="38" Margin="4,0"
+                                    Content="&#xE768;" Click="MusicPlay_Click"/>
+                            <Button Style="{StaticResource RoundIcon}" Content="&#xE893;" ToolTip="Следующий" Click="MusicNext_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="4" Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="MusicListTitle" Style="{StaticResource CapsLabel}" Margin="2,0,0,8"/>
+                        <StackPanel x:Name="MusicList"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <TextBlock x:Name="MusicStatus" Grid.Row="5" Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" Margin="2,6,0,0"/>
             </Grid>
 
             <!-- ===== ИИ-чаты: WebView2 создаются при первом открытии вкладки ===== -->

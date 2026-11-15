@@ -510,7 +510,7 @@ public sealed partial class VoiceService : IDisposable
         if (live == null) return;
         bool speaking = live.IsSpeaking;
         if (speaking) _liveSpokeAt = DateTime.Now;
-        if (App.Settings.LiveBargeIn || (!speaking && (DateTime.Now - _liveSpokeAt).TotalMilliseconds > 300))
+        if (App.Settings.LiveBargeIn || (!speaking && (DateTime.Now - _liveSpokeAt).TotalMilliseconds > 500))
             live.SendAudio(_pcm, bytes);
     }
 

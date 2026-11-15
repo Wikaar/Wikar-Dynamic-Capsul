@@ -1074,7 +1074,7 @@
                         <TextBlock Text="Голос:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <WrapPanel x:Name="LiveVoicesPanel" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <CheckBox x:Name="LiveBargeInBox" Content="Перебивать голосом, пока он говорит (только с наушниками: с колонками Gemini услышит сам себя)"
+                    <CheckBox x:Name="LiveBargeInBox" Content="Перебивать голосом, пока он говорит (только с гарнитурой! С колонками или отдельным микрофоном Gemini слышит сам себя и обрывает ответ)"
                               Style="{StaticResource SettingsCheck}" Click="Live_Changed"/>
                     <TextBlock x:Name="LiveStatus" Style="{StaticResource Hint}" Margin="0,4,0,6" TextWrapping="Wrap"
                                Text="Слово «Капсулка» ловится на компьютере; звук уходит в Google только во время разговора. Разговор заканчивается после «спасибо», «хватит» или 12 секунд тишины. Если Gemini недоступен — Капсулка сама вернётся к обычному режиму."/>

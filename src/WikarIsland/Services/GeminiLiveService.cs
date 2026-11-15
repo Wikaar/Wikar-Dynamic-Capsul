@@ -61,8 +61,14 @@ public sealed class GeminiLiveService : IDisposable
 
     public bool Ready { get; private set; }
 
-    /// <summary>Ответ ещё звучит (в буфере воспроизведения есть звук).</summary>
-    public bool IsSpeaking => _play is { BufferedBytes: > 0 };
+    private volatile bool _turnActive; // модель отвечает: от первого звука ответа до turnComplete
+
+    /// <summary>
+    /// Ответ ещё идёт: модель продолжает присылать звук или он ещё не доигран. Раньше смотрели только на буфер,
+    /// а он на миг пустеет между пакетами из сети — микрофон включался посреди ответа, шум и эхо колонок
+    /// Gemini принимал за речь и обрывал сам себя.
+    /// </summary>
+    public bool IsSpeaking => _turnActive || _play is { BufferedBytes: > 0 };
 
     public event Action<string>? UserSaid;    // распознанная речь пользователя (накопительно за ход)
     public event Action<string>? ModelSaid;   // текст ответа (накопительно за ход)
@@ -257,6 +263,18 @@ public sealed class GeminiLiveService : IDisposable
                 ["tools"] = App.Settings.LiveGoogleSearch
                     ? new JsonArray(new JsonObject { ["functionDeclarations"] = functions }, new JsonObject { ["googleSearch"] = new JsonObject() })
                     : new JsonArray(new JsonObject { ["functionDeclarations"] = functions }),
+                ["realtimeInputConfig"] = new JsonObject
+                {
+                    // без «перебивания голосом» ответ договаривается до конца, что бы ни услышал микрофон
+                    ["activityHandling"] = App.Settings.LiveBargeIn ? "START_OF_ACTIVITY_INTERRUPTS" : "NO_INTERRUPTION",
+                    ["automaticActivityDetection"] = new JsonObject
+                    {
+                        ["startOfSpeechSensitivity"] = "START_SENSITIVITY_LOW", // кашель, клавиатура и фон — не речь
+                        ["endOfSpeechSensitivity"] = "END_SENSITIVITY_LOW",     // не обрывать фразу на паузе
+                        ["prefixPaddingMs"] = 300,
+                        ["silenceDurationMs"] = 800,
+                    },
+                },
                 ["inputAudioTranscription"] = new JsonObject(),
                 ["outputAudioTranscription"] = new JsonObject(),
                 ["contextWindowCompression"] = new JsonObject { ["slidingWindow"] = new JsonObject() },
@@ -378,7 +396,11 @@ public sealed class GeminiLiveService : IDisposable
 
         if (msg["serverContent"] is JsonObject content)
         {
-            if (content["interrupted"]?.GetValue<bool>() == true) _play?.ClearBuffer();
+            if (content["interrupted"]?.GetValue<bool>() == true)
+            {
+                _play?.ClearBuffer();
+                _turnActive = false;
+            }
 
             if (content["inputTranscription"]?["text"]?.ToString() is { Length: > 0 } heard)
             {
@@ -397,7 +419,11 @@ public sealed class GeminiLiveService : IDisposable
                 {
                     if (part?["inlineData"]?["data"]?.ToString() is not { Length: > 0 } b64) continue;
                     byte[] pcm = Convert.FromBase64String(b64);
-                    _play?.AddSamples(pcm, 0, pcm.Length);
+                    if (_play == null) continue;
+                    // начало ответа: 200 мс тишины в запас, чтобы неровная доставка пакетов не давала «заиканий»
+                    if (!_turnActive && _play.BufferedBytes == 0) _play.AddSamples(new byte[24000 * 2 / 5], 0, 24000 * 2 / 5);
+                    _turnActive = true;
+                    _play.AddSamples(pcm, 0, pcm.Length);
                 }
             }
 
@@ -409,6 +435,7 @@ public sealed class GeminiLiveService : IDisposable
 
             if (content["turnComplete"]?.GetValue<bool>() == true)
             {
+                _turnActive = false;
                 _userText.Clear();
                 TurnDone?.Invoke();
             }

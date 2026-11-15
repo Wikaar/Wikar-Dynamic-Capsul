@@ -898,7 +898,9 @@ public sealed class AssistantService
         {
             Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
         };
-        if (App.Settings.AiKey.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", App.Settings.AiKey);
+        // мозгом выбран Gemini, а ключ Gemini введён во вкладке Live — берём его (в поле ИИ часто остаётся ключ Groq)
+        string key = App.Settings.AiPreset == "gemini" && App.Settings.GeminiKey.Length > 0 ? App.Settings.GeminiKey : App.Settings.AiKey;
+        if (key.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         request.Headers.Add("HTTP-Referer", "https://github.com/Wikaar/Wikar-DynamicIsland"); // OpenRouter просит
         request.Headers.Add("X-Title", "Wikar Island");
 

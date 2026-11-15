@@ -185,7 +185,8 @@ public partial class PanelWindow : Window
             // запоминаем окно, где печатали, — туда вставляется запись из буфера
             if (!NativeMethods.ForegroundIsOurs()) _previousForeground = NativeMethods.GetForegroundWindow();
             if (TabHome.IsChecked != true && TabWeather.IsChecked != true && TabSettings.IsChecked != true
-                && TabClipboard.IsChecked != true && TabCenter.IsChecked != true && !_views.ContainsKey(_current))
+                && TabClipboard.IsChecked != true && TabCenter.IsChecked != true && TabSystem.IsChecked != true
+                && TabVpn.IsChecked != true && TabZapret.IsChecked != true && !_views.ContainsKey(_current))
                 SelectTab(App.Settings.LastTab);
 
             ApplyTabSize(_current);
@@ -194,7 +195,7 @@ public partial class PanelWindow : Window
             Rect from = PillRectLocal();
             ApplyRegion(from, 17);
             UpdateCapsule();
-            if (_current == "system") App.SystemMonitor.Start();
+            if (_current is "system" or "control") App.SystemMonitor.Start();
             _shownAt = DateTime.Now;
             _capsulePressed = false;
             Show();
@@ -404,7 +405,7 @@ public partial class PanelWindow : Window
 
     private void SelectTab(string key)
     {
-        if (key is not ("home" or "control" or "system" or "weather" or "clipboard" or "settings") && !AiUrls.ContainsKey(key)) key = "home";
+        if (key is not ("home" or "control" or "system" or "weather" or "clipboard" or "settings" or "vpn" or "zapret") && !AiUrls.ContainsKey(key)) key = "home";
         _current = key;
 
         RadioButton tab = key switch
@@ -419,6 +420,8 @@ public partial class PanelWindow : Window
             "deepseek" => TabDeepSeek,
             "deepl" => TabDeepL,
             "settings" => TabSettings,
+            "vpn" => TabVpn,
+            "zapret" => TabZapret,
             _ => TabHome,
         };
         if (tab.IsChecked != true) tab.IsChecked = true; // вызовет Tab_Checked ещё раз, это безопасно
@@ -429,7 +432,9 @@ public partial class PanelWindow : Window
         ClipboardView.Visibility = key == "clipboard" ? Visibility.Visible : Visibility.Collapsed;
         ControlView.Visibility = key == "control" ? Visibility.Visible : Visibility.Collapsed;
         SystemView.Visibility = key == "system" ? Visibility.Visible : Visibility.Collapsed;
-        if (key == "system")
+        VpnView.Visibility = key == "vpn" ? Visibility.Visible : Visibility.Collapsed;
+        ZapretMainView.Visibility = key == "zapret" ? Visibility.Visible : Visibility.Collapsed;
+        if (key is "system" or "control")
         {
             App.SystemMonitor.Start();
             UpdateSystem();
@@ -451,9 +456,11 @@ public partial class PanelWindow : Window
         if (isAi && !_views.ContainsKey(key)) _ = CreateAiViewAsync(key);
         if (key == "settings") LoadSettings();
         if (key == "weather") BuildWeatherView();
-        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateNotifications(); UpdateSteam(); UpdateTimer(); }
+        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateSteam(); UpdateTimer(); }
         if (key == "clipboard") UpdateClipboard();
-        if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); UpdateZapret(); }
+        if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); UpdateZapret(); UpdateDnd(); UpdateTimer(); UpdateNotifications(); }
+        if (key == "vpn") { VpnDnsBox.Text = App.Settings.VpnDns; VpnAddStatus.Text = ""; UpdateVpn(); }
+        if (key == "zapret") UpdateZapret();
         if (key == "home") { BuildLauncher(); UpdateWeather(); UpdateNotesTile(); UpdateFocusTile(); }
 
         if (IsVisible && !_closing)
@@ -839,6 +846,11 @@ public partial class PanelWindow : Window
             TimeSpan left = timer.Remaining;
             TimerTileState.Text = left.TotalHours >= 1 ? $"через {(int)left.TotalHours}:{left.Minutes:00}:{left.Seconds:00}" : $"через {left.Minutes}:{left.Seconds:00}";
         }
+        CcTimerCircle.Background = timer.Active ? TimerOn : TileOff;
+        CcTimerCancel.Visibility = timer.Active ? Visibility.Visible : Visibility.Collapsed;
+        CcTimerState.Text = !timer.Active ? "Выключен"
+            : timer.AfterTrack ? $"{PowerTimerService.ActionName(timer.Action)} после трека"
+            : $"{PowerTimerService.ActionName(timer.Action)} в {timer.Target:HH:mm}";
         TimerStatusRow.Visibility = timer.Active ? Visibility.Visible : Visibility.Collapsed;
         TimerHint.Visibility = timer.Active ? Visibility.Collapsed : Visibility.Visible;
         if (!timer.Active) return;
@@ -1141,8 +1153,6 @@ public partial class PanelWindow : Window
         WeatherPillBox.IsChecked = s.WeatherInPill;
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
-        BuildVpnServers();
-        VpnDnsBox.Text = s.VpnDns;
         UpdateDnd();
         BuildPillThemes();
         PillOpacitySlider.Value = s.PillOpacity;
@@ -1473,38 +1483,92 @@ public partial class PanelWindow : Window
 
     // ---------- центр управления ----------
 
-    private static readonly Brush TileOff = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x25));
-    private static readonly Brush TileOn = new SolidColorBrush(Color.FromRgb(0x3D, 0x5A, 0xE0));
+    // как в iOS/Atoll: выключено — графит, включено — системный синий
+    private static readonly Brush TileOff = Frozen(0x2A, 0x2A, 0x31);
+    private static readonly Brush TileOn = Frozen(0x0A, 0x84, 0xFF);
+    private static readonly Brush DndOn = Frozen(0x5E, 0x5C, 0xE6);
+    private static readonly Brush TimerOn = Frozen(0xFF, 0x9F, 0x0A);
+
+    private static Brush Frozen(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
 
     private async Task RefreshControlAsync()
     {
         Radio? wifi = await RadioService.FindAsync(RadioKind.WiFi);
         Radio? bt = await RadioService.FindAsync(RadioKind.Bluetooth);
 
-        SetTile(WifiTile, WifiState, wifi);
-        SetTile(BluetoothTile, BluetoothState, bt);
+        SetTile(WifiTile, WifiCircle, WifiState, wifi);
+        SetTile(BluetoothTile, BluetoothCircle, BluetoothState, bt);
 
         bool icons = ShellHelper.DesktopIconsVisible;
-        IconsTile.Background = icons ? TileOff : TileOn;
-        IconsState.Text = icons ? "Видны" : "Спрятаны";
+        IconsCircle.Background = icons ? TileOff : TileOn;
+        IconsState.Text = icons ? "выкл." : "вкл.";
 
         RadioHint.Visibility = wifi == null && bt == null ? Visibility.Visible : Visibility.Collapsed;
         RadioHint.Text = "Windows не дала доступ к Wi-Fi и Bluetooth. Проверь: Параметры → Конфиденциальность → Радио → разрешить приложениям управлять радио.";
     }
 
-    private static void SetTile(Button tile, TextBlock state, Radio? radio)
+    private static void SetTile(Button tile, Border circle, TextBlock state, Radio? radio)
     {
         if (radio == null)
         {
-            tile.Background = TileOff;
-            tile.Opacity = 0.5;
-            state.Text = "Нет устройства";
+            circle.Background = TileOff;
+            tile.Opacity = 0.45;
+            state.Text = "нет";
             return;
         }
         bool on = radio.State == RadioState.On;
         tile.Opacity = 1;
-        tile.Background = on ? TileOn : TileOff;
-        state.Text = on ? "Включён" : "Выключен";
+        circle.Background = on ? TileOn : TileOff;
+        state.Text = on ? "вкл." : "выкл.";
+    }
+
+    private void CcStats_Click(object sender, MouseButtonEventArgs e) => SelectTab("system");
+
+    private void CcTimer_Click(object sender, MouseButtonEventArgs e)
+    {
+        SelectTab("home");
+        ShowSubView(TimerView);
+    }
+
+    private void CcDnd_Click(object sender, MouseButtonEventArgs e) => App.SetDnd(!App.Settings.DndManual);
+
+    private void CcDndFor_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string minutes }) App.SetDndFor(TimeSpan.FromMinutes(int.Parse(minutes)));
+    }
+
+    private void CcDndOff_Click(object sender, RoutedEventArgs e) => App.SetDnd(false);
+
+    /// <summary>Плитки процессора, видеокарты и памяти в центре управления.</summary>
+    private void UpdateControlStats(SystemSnapshot? snap)
+    {
+        if (snap == null) return;
+        CcCpuValue.Text = snap.Cpu?.Load is double cpu ? $"{cpu:0}%" : "—";
+        CcCpuBar.Content = Bar(snap.Cpu?.Load ?? 0, Color.FromRgb(0x0A, 0x84, 0xFF), thin: true);
+
+        CcGpuTitle.Text = snap.Gpu != null ? ShortGpuName(snap.Gpu.Name) : "ВИДЕОКАРТА";
+        CcGpuTitle.ToolTip = snap.Gpu?.Name;
+        CcGpuValue.Text = snap.Gpu?.Load is double gpu ? $"{gpu:0}%" : "—";
+        CcGpuBar.Content = Bar(snap.Gpu?.Load ?? 0, Color.FromRgb(0x30, 0xD1, 0x58), thin: true);
+
+        double ramPct = snap.RamTotalGb > 0 ? snap.RamUsedGb / snap.RamTotalGb * 100 : 0;
+        CcRamValue.Text = snap.RamTotalGb > 0 ? $"{snap.RamUsedGb:0.0} / {snap.RamTotalGb:0} ГБ" : "—";
+        CcRamBar.Content = Bar(ramPct, Color.FromRgb(0xBF, 0x5A, 0xF2), thin: true);
+    }
+
+    /// <summary>«NVIDIA GeForce RTX 4060 Laptop GPU» → «GEFORCE RTX 4060».</summary>
+    private static string ShortGpuName(string name)
+    {
+        string n = name;
+        foreach (string junk in new[] { "NVIDIA", "AMD", "Intel(R)", "Intel", "(R)", "(TM)", "Laptop GPU", "Graphics", "GPU" })
+            n = n.Replace(junk, "", StringComparison.OrdinalIgnoreCase);
+        n = string.Join(' ', n.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        return n.Length == 0 ? "ВИДЕОКАРТА" : n.ToUpper(Ru);
     }
 
     private async void WifiTile_Click(object sender, RoutedEventArgs e)
@@ -1788,6 +1852,11 @@ public partial class PanelWindow : Window
 
     public void UpdateSystem()
     {
+        if (_current == "control" && IsVisible)
+        {
+            UpdateControlStats(App.SystemMonitor.Current);
+            return;
+        }
         if (_current != "system" || !IsVisible) return;
         SystemContent.Children.Clear();
         SystemSnapshot? snap = App.SystemMonitor.Current;
@@ -1955,11 +2024,12 @@ public partial class PanelWindow : Window
         return row;
     }
 
-    private static Grid Bar(double percent, Color color)
+    private static Grid Bar(double percent, Color color, bool thin = false)
     {
-        var bar = new Grid { Height = 5, Margin = new Thickness(0, 5, 0, 0) };
-        bar.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), CornerRadius = new CornerRadius(2.5) });
-        var fill = new Border { Background = new SolidColorBrush(color), CornerRadius = new CornerRadius(2.5), HorizontalAlignment = HorizontalAlignment.Left };
+        double h = thin ? 3 : 5;
+        var bar = new Grid { Height = h, Margin = new Thickness(0, 5, 0, 0) };
+        bar.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(thin ? (byte)0x1F : (byte)0x33, 0xFF, 0xFF, 0xFF)), CornerRadius = new CornerRadius(h / 2) });
+        var fill = new Border { Background = new SolidColorBrush(color), CornerRadius = new CornerRadius(h / 2), HorizontalAlignment = HorizontalAlignment.Left };
         bar.SizeChanged += (_, _) => fill.Width = bar.ActualWidth * Math.Clamp(percent / 100, 0, 1);
         bar.Children.Add(fill);
         return bar;
@@ -1976,19 +2046,27 @@ public partial class PanelWindow : Window
     public void UpdateVpn()
     {
         VpnService vpn = App.Vpn;
-        VpnTile.Background = vpn.IsConnected ? TileOn : TileOff;
-        VpnState.Text = vpn.IsBusy ? "Подключаю…"
-            : vpn.IsConnected ? (vpn.Exit != null ? $"{vpn.Exit.Country}" : "Подключён")
-            : App.Settings.VpnServers.Count == 0 ? "Добавь ссылку в ⚙" : "Выключен";
+        VpnCircle.Background = vpn.IsConnected ? TileOn : TileOff;
+        VpnPowerCircle.Background = vpn.IsConnected ? TileOn : TileOff;
+        VpnState.Text = vpn.IsBusy ? "подключаю…"
+            : vpn.IsConnected ? (vpn.Exit != null ? vpn.Exit.Country : "вкл.")
+            : App.Settings.VpnServers.Count == 0 ? "нет серверов" : "выкл.";
         VpnTile.ToolTip = vpn.IsConnected ? $"{vpn.ServerName} · IP {vpn.Exit?.Ip}" : vpn.ActiveServer?.Name;
-        if (_current == "settings") BuildVpnServers();
+        VpnHeaderState.Text = vpn.IsBusy ? "Подключаю…"
+            : vpn.IsConnected ? $"Подключён · {vpn.ServerName}" + (vpn.Exit != null ? $" · {vpn.Exit.Country}, IP {vpn.Exit.Ip}" : "")
+            : App.Settings.VpnServers.Count == 0 ? "Добавь ссылку vless:// ниже" : "Выключен";
+        if (_current == "vpn")
+        {
+            BuildVpnServers();
+            VpnPillBox.IsChecked = App.Settings.VpnShowInPill;
+        }
     }
 
     private async void VpnTile_Click(object sender, RoutedEventArgs e)
     {
         if (App.Settings.VpnServers.Count == 0)
         {
-            SelectTab("settings");
+            SelectTab("vpn");
             return;
         }
         await App.Vpn.ToggleAsync();
@@ -2106,21 +2184,22 @@ public partial class PanelWindow : Window
     public void UpdateZapret()
     {
         ZapretService z = App.Zapret;
-        ZapretTile.Background = z.IsRunning ? TileOn : TileOff;
-        ZapretTileState.Text = z.IsBusy ? z.Status
+        ZapretCircle.Background = z.IsRunning ? TileOn : TileOff;
+        ZapretPowerCircle.Background = z.IsRunning ? TileOn : TileOff;
+        ZapretTileState.Text = z.IsBusy ? "запускаю…"
             : z.IsRunning ? ZapretService.ShortName(App.Settings.ZapretStrategy ?? "general")
-            : z.Installed ? "Выключен" : "Не скачан";
+            : z.Installed ? "выкл." : "не скачан";
         ZapretTile.ToolTip = z.Status;
 
-        if (_current != "settings") return;
+        if (_current != "zapret") return;
         ZapretInstallButton.Content = z.Installed ? $"Обновить ({App.Settings.ZapretVersion ?? "?"})" : "Скачать zapret";
         ZapretInstallButton.IsEnabled = !z.IsBusy;
         ZapretStatusText.Text = z.Status.Length > 0 ? z.Status
+            : z.IsRunning ? $"Работает · {ZapretService.ShortName(App.Settings.ZapretStrategy ?? "general")}"
             : z.Installed ? (SystemMonitorService.IsAdmin ? "Готов к работе" : "Скачан. Для запуска нужны права администратора")
             : "Ещё не скачан — нажми «Скачать zapret» (или просто включи кнопкой в пилюле)";
         ZapretAutoBox.IsChecked = App.Settings.ZapretAutoStart;
         ZapretPillBox.IsChecked = App.Settings.ZapretShowInPill;
-        VpnPillBox.IsChecked = App.Settings.VpnShowInPill;
         ZapretRemoveButton.Visibility = z.Installed ? Visibility.Visible : Visibility.Collapsed;
 
         ZapretStrategies.Children.Clear();
@@ -2131,12 +2210,15 @@ public partial class PanelWindow : Window
             {
                 Content = ZapretService.ShortName(strategy),
                 ToolTip = strategy + ".bat",
-                Style = (Style)FindResource("FlatButton"),
+                Style = (Style)FindResource("Chip"),
                 Margin = new Thickness(0, 0, 6, 6),
-                Padding = new Thickness(9, 4, 9, 4),
-                FontSize = 12,
-                Background = selected ? new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80)) : new SolidColorBrush(Color.FromRgb(0x24, 0x24, 0x2A)),
             };
+            if (selected)
+            {
+                b.Background = TileOn;
+                b.Foreground = Brushes.White;
+                b.BorderBrush = TileOn;
+            }
             b.Click += (_, _) =>
             {
                 App.Settings.ZapretStrategy = strategy;
@@ -2207,7 +2289,7 @@ public partial class PanelWindow : Window
 
     private void ZapretAdvanced_Click(object sender, RoutedEventArgs e)
     {
-        SettingsView.Visibility = Visibility.Collapsed;
+        ZapretMainView.Visibility = Visibility.Collapsed;
         ZapretView.Visibility = Visibility.Visible;
         ZapretToolMessage.Text = "";
         BuildZapretAdvanced();
@@ -2216,7 +2298,7 @@ public partial class PanelWindow : Window
     private void ZapretBack_Click(object sender, RoutedEventArgs e)
     {
         ZapretView.Visibility = Visibility.Collapsed;
-        SettingsView.Visibility = Visibility.Visible;
+        ZapretMainView.Visibility = Visibility.Visible;
         UpdateZapret();
     }
 
@@ -2515,6 +2597,11 @@ public partial class PanelWindow : Window
         if (!DndFromBox.IsKeyboardFocused) DndFromBox.Text = s.DndFrom;
         if (!DndToBox.IsKeyboardFocused) DndToBox.Text = s.DndTo;
         _loadingSettings = was;
+
+        CcDndCircle.Background = s.DndManual ? DndOn : TileOff;
+        CcDndState.Text = !s.DndManual ? "Выключено"
+            : App.DndUntil is DateTime until ? $"До {until:HH:mm}" : "Включено";
+        CcDndOff.Visibility = s.DndManual ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Dnd_Changed(object sender, RoutedEventArgs e)

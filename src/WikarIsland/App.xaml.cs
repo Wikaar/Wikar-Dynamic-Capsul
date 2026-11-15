@@ -355,8 +355,34 @@ public partial class App : Application
         };
     }
 
+    /// <summary>До какого времени включён «Не беспокоить» из центра управления (null — без срока).</summary>
+    public static DateTime? DndUntil { get; private set; }
+    private static System.Windows.Threading.DispatcherTimer? _dndTimer;
+
+    /// <summary>Включить «Не беспокоить» на время: 30 мин, 1 ч, 2 ч.</summary>
+    public static void SetDndFor(TimeSpan duration)
+    {
+        SetDnd(true);
+        DndUntil = DateTime.Now + duration;
+        _dndTimer ??= CreateDndTimer();
+        _dndTimer.Start();
+        Panel?.UpdateDnd();
+    }
+
+    private static System.Windows.Threading.DispatcherTimer CreateDndTimer()
+    {
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        timer.Tick += (_, _) =>
+        {
+            if (DndUntil is DateTime until && DateTime.Now >= until) SetDnd(false);
+        };
+        return timer;
+    }
+
     public static void SetDnd(bool on)
     {
+        DndUntil = null;
+        _dndTimer?.Stop();
         Settings.DndManual = on;
         Settings.Save();
         Pill?.UpdateDnd();

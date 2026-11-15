@@ -573,7 +573,7 @@ public partial class PillWindow : Window
         Title = "zapret не включился",
         Body = App.Zapret.Status,
         Time = DateTime.Now,
-        Click = () => App.Panel.ShowTab("settings", activate: true),
+        Click = () => App.Panel.ShowTab("zapret", activate: true),
     });
 
     private void VpnChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

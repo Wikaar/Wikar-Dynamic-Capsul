@@ -127,6 +127,127 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
 
+        <!-- Центр управления: подпись секции капслоком -->
+        <Style x:Key="CapsLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#8A8A94"/>
+            <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <!-- Блок центра управления: чуть светлее фона, мягкие углы -->
+        <Style x:Key="CcCard" TargetType="Border">
+            <Setter Property="Background" Value="#141418"/>
+            <Setter Property="BorderBrush" Value="#0FFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="16,12"/>
+        </Style>
+
+        <!-- Круглый переключатель: кружок со значком, подпись и состояние под ним -->
+        <Style x:Key="CircleToggle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="2">
+                            <ContentPresenter HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Circle" TargetType="Border">
+            <Setter Property="Width" Value="50"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="CornerRadius" Value="25"/>
+            <Setter Property="Background" Value="#2A2A31"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="CircleIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="CircleLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,7,0,0"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="CircleState" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#7C7C86"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="MaxWidth" Value="96"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <!-- Текстовая кнопка со значком (строка питания) -->
+        <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#C8C8D0"/>
+            <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="10" Padding="10,6" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#14FFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Маленькая кнопка-пилюля с обводкой: «30 мин», «1 ч» -->
+        <Style x:Key="Chip" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#D8D8DE"/>
+            <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="12" Padding="10,4" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1AFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Вкладка-значок: подпись видна только у выбранной -->
         <Style x:Key="IconTab" TargetType="RadioButton" BasedOn="{StaticResource TabButton}">
             <Setter Property="Margin" Value="0,0,1,0"/>
@@ -219,6 +340,21 @@
                 <RadioButton x:Name="TabGemini" Tag="gemini" Content="Gemini" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
                 <RadioButton x:Name="TabDeepSeek" Tag="deepseek" Content="DS" ToolTip="DeepSeek" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
                 <RadioButton x:Name="TabDeepL" Tag="deepl" Content="DeepL" ToolTip="Переводчик DeepL" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
+                <Border Width="1" Height="16" Background="#26FFFFFF" Margin="5,0,6,0" VerticalAlignment="Center"/>
+                <RadioButton x:Name="TabVpn" Tag="vpn" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="VPN">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="VPN" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="TabZapret" Tag="zapret" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="zapret">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE945;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="zapret" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
                 <RadioButton x:Name="TabSettings" Tag="settings" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Настройки">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE713;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
@@ -421,19 +557,6 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Уведомления -->
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,6">
-                                <Button x:Name="ClearNotificationsButton" DockPanel.Dock="Right" Style="{StaticResource FlatButton}"
-                                        Content="Очистить всё" Padding="10,4" FontSize="12" Click="ClearNotifications_Click"/>
-                                <TextBlock Text="Уведомления" VerticalAlignment="Center" Foreground="{StaticResource TextMain}" FontSize="14"
-                                           FontWeight="SemiBold" FontFamily="{StaticResource UiFont}"/>
-                            </DockPanel>
-                            <StackPanel x:Name="NotificationsList"/>
-                        </StackPanel>
-                    </Border>
-
                     <TextBlock x:Name="HomeHint" Style="{StaticResource Hint}" LineHeight="18" Margin="4,2,4,0"/>
                 </StackPanel>
             </ScrollViewer>
@@ -530,87 +653,297 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ===== Центр управления ===== -->
+            <!-- ===== Центр управления (в духе Atoll) ===== -->
             <ScrollViewer x:Name="ControlView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="16,4,8,16">
-                    <WrapPanel>
-                        <Button x:Name="WifiTile" Style="{StaticResource Tile}" Click="WifiTile_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE701;" FontFamily="{StaticResource Icons}" FontSize="20"/>
-                                <TextBlock Text="Wi-Fi" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="WifiState" FontSize="11.5" Opacity="0.75"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="BluetoothTile" Style="{StaticResource Tile}" Click="BluetoothTile_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE702;" FontFamily="{StaticResource Icons}" FontSize="20"/>
-                                <TextBlock Text="Bluetooth" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="BluetoothState" FontSize="11.5" Opacity="0.75"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="VpnTile" Style="{StaticResource Tile}" Click="VpnTile_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="20"/>
-                                <TextBlock Text="VPN" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="VpnState" FontSize="11.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="ZapretTile" Style="{StaticResource Tile}" Click="ZapretTile_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE945;" FontFamily="{StaticResource Icons}" FontSize="20"/>
-                                <TextBlock Text="zapret" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="ZapretTileState" FontSize="11.5" Opacity="0.75" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="IconsTile" Style="{StaticResource Tile}" Click="DesktopIcons_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource Icons}" FontSize="20"/>
-                                <TextBlock Text="Значки стола" Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="IconsState" FontSize="11.5" Opacity="0.75"/>
-                            </StackPanel>
-                        </Button>
-                    </WrapPanel>
-                    <TextBlock x:Name="RadioHint" Style="{StaticResource Hint}" Margin="2,0,0,10" Visibility="Collapsed"/>
+                <StackPanel Margin="14,2,14,14">
 
-                    <TextBlock Text="Питание" Style="{StaticResource SectionTitle}" Margin="2,6,0,8"/>
-                    <WrapPanel>
-                        <Button Style="{StaticResource Tile}" Width="112" Height="70" Tag="lock" Click="Power_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="18"/>
-                                <TextBlock Text="Блокировка" Margin="0,6,0,0" FontSize="12.5"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource Tile}" Width="112" Height="70" Tag="sleep" Click="Power_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE708;" FontFamily="{StaticResource Icons}" FontSize="18"/>
-                                <TextBlock Text="Сон" Margin="0,6,0,0" FontSize="12.5"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource Tile}" Width="112" Height="70" Tag="restart" Click="Power_Click">
-                            <StackPanel>
-                                <TextBlock Text="&#xE777;" FontFamily="{StaticResource Icons}" FontSize="18"/>
-                                <TextBlock Text="Перезагрузка" Margin="0,6,0,0" FontSize="12.5"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource Tile}" Width="112" Height="70" Tag="shutdown" Click="Power_Click" Background="#3A1D1F">
-                            <StackPanel>
-                                <TextBlock Text="&#xE7E8;" FontFamily="{StaticResource Icons}" FontSize="18" Foreground="#FF8A80"/>
-                                <TextBlock Text="Выключение" Margin="0,6,0,0" FontSize="12.5"/>
-                            </StackPanel>
-                        </Button>
-                    </WrapPanel>
+                    <!-- Пункт управления: переключатели и питание -->
+                    <Border Style="{StaticResource CcCard}" Padding="16,12,16,8">
+                        <StackPanel>
+                            <TextBlock Text="ПУНКТ УПРАВЛЕНИЯ" Style="{StaticResource CapsLabel}"/>
+                            <UniformGrid Columns="5" Margin="0,12,0,0">
+                                <Button x:Name="WifiTile" Style="{StaticResource CircleToggle}" Click="WifiTile_Click">
+                                    <StackPanel>
+                                        <Border x:Name="WifiCircle" Style="{StaticResource Circle}">
+                                            <TextBlock Text="&#xE701;" Style="{StaticResource CircleIcon}"/>
+                                        </Border>
+                                        <TextBlock Text="Wi-Fi" Style="{StaticResource CircleLabel}"/>
+                                        <TextBlock x:Name="WifiState" Style="{StaticResource CircleState}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BluetoothTile" Style="{StaticResource CircleToggle}" Click="BluetoothTile_Click">
+                                    <StackPanel>
+                                        <Border x:Name="BluetoothCircle" Style="{StaticResource Circle}">
+                                            <TextBlock Text="&#xE702;" Style="{StaticResource CircleIcon}"/>
+                                        </Border>
+                                        <TextBlock Text="Bluetooth" Style="{StaticResource CircleLabel}"/>
+                                        <TextBlock x:Name="BluetoothState" Style="{StaticResource CircleState}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="VpnTile" Style="{StaticResource CircleToggle}" Click="VpnTile_Click">
+                                    <StackPanel>
+                                        <Border x:Name="VpnCircle" Style="{StaticResource Circle}">
+                                            <TextBlock Text="&#xEA18;" Style="{StaticResource CircleIcon}"/>
+                                        </Border>
+                                        <TextBlock Text="VPN" Style="{StaticResource CircleLabel}"/>
+                                        <TextBlock x:Name="VpnState" Style="{StaticResource CircleState}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ZapretTile" Style="{StaticResource CircleToggle}" Click="ZapretTile_Click">
+                                    <StackPanel>
+                                        <Border x:Name="ZapretCircle" Style="{StaticResource Circle}">
+                                            <TextBlock Text="&#xE945;" Style="{StaticResource CircleIcon}"/>
+                                        </Border>
+                                        <TextBlock Text="zapret" Style="{StaticResource CircleLabel}"/>
+                                        <TextBlock x:Name="ZapretTileState" Style="{StaticResource CircleState}"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="IconsTile" Style="{StaticResource CircleToggle}" Click="DesktopIcons_Click">
+                                    <StackPanel>
+                                        <Border x:Name="IconsCircle" Style="{StaticResource Circle}">
+                                            <TextBlock Text="&#xE7F4;" Style="{StaticResource CircleIcon}"/>
+                                        </Border>
+                                        <TextBlock Text="Чистый стол" Style="{StaticResource CircleLabel}"/>
+                                        <TextBlock x:Name="IconsState" Style="{StaticResource CircleState}"/>
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
+                            <TextBlock x:Name="RadioHint" Style="{StaticResource Hint}" FontSize="11.5" Margin="0,8,0,0" Visibility="Collapsed"/>
 
-                    <!-- Подтверждение выключения/перезагрузки -->
-                    <Border x:Name="PowerConfirm" Style="{StaticResource Card}" Visibility="Collapsed" Margin="0,4,8,0" Background="#2A1A1C">
+                            <WrapPanel Margin="-6,10,0,0">
+                                <Button Style="{StaticResource LinkButton}" Tag="lock" Click="Power_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="12" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <TextBlock Text="Блокировка" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource LinkButton}" Tag="sleep" Click="Power_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE708;" FontFamily="{StaticResource Icons}" FontSize="12" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <TextBlock Text="Сон" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource LinkButton}" Tag="restart" Click="Power_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE777;" FontFamily="{StaticResource Icons}" FontSize="12" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <TextBlock Text="Перезагрузка" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource LinkButton}" Tag="shutdown" Click="Power_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE7E8;" FontFamily="{StaticResource Icons}" FontSize="12" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <TextBlock Text="Выключение" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
+
+                            <!-- Подтверждение выключения/перезагрузки -->
+                            <Border x:Name="PowerConfirm" Visibility="Collapsed" Margin="0,6,0,6" Padding="12,8"
+                                    CornerRadius="12" Background="#2A1A1C">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Style="{StaticResource FlatButton}" Content="Отмена" Click="PowerCancel_Click"/>
+                                        <Button x:Name="PowerConfirmButton" Style="{StaticResource FlatButton}" Background="#B3261E" Click="PowerConfirm_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="PowerConfirmText" VerticalAlignment="Center" TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMain}" FontSize="13" FontFamily="{StaticResource UiFont}"/>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Показатели ПК: клик — вкладка «Система» -->
+                    <UniformGrid Columns="3" Margin="0,10,0,0">
+                        <Border Style="{StaticResource CcCard}" Margin="0,0,5,0" Cursor="Hand" MouseLeftButtonUp="CcStats_Click">
+                            <StackPanel>
+                                <TextBlock Text="ПРОЦЕССОР" Style="{StaticResource CapsLabel}"/>
+                                <TextBlock x:Name="CcCpuValue" Text="—" Margin="0,6,0,0" FontSize="22" Foreground="{StaticResource TextMain}"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                                <ContentControl x:Name="CcCpuBar" Margin="0,4,0,2"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CcCard}" Margin="5,0,5,0" Cursor="Hand" MouseLeftButtonUp="CcStats_Click">
+                            <StackPanel>
+                                <TextBlock x:Name="CcGpuTitle" Text="ВИДЕОКАРТА" Style="{StaticResource CapsLabel}"/>
+                                <TextBlock x:Name="CcGpuValue" Text="—" Margin="0,6,0,0" FontSize="22" Foreground="{StaticResource TextMain}"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                                <ContentControl x:Name="CcGpuBar" Margin="0,4,0,2"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CcCard}" Margin="5,0,0,0" Cursor="Hand" MouseLeftButtonUp="CcStats_Click">
+                            <StackPanel>
+                                <TextBlock Text="ПАМЯТЬ" Style="{StaticResource CapsLabel}"/>
+                                <TextBlock x:Name="CcRamValue" Text="—" Margin="0,6,0,0" FontSize="22" Foreground="{StaticResource TextMain}"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                                <ContentControl x:Name="CcRamBar" Margin="0,4,0,2"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Не беспокоить и таймер выключения -->
+                    <UniformGrid Columns="2" Margin="0,10,0,0">
+                        <Border Style="{StaticResource CcCard}" Margin="0,0,5,0">
+                            <StackPanel>
+                                <DockPanel Cursor="Hand" Background="Transparent" MouseLeftButtonUp="CcDnd_Click" ToolTip="Включить или выключить">
+                                    <Border x:Name="CcDndCircle" Style="{StaticResource Circle}" Width="34" Height="34" CornerRadius="17" Margin="0,0,12,0">
+                                        <TextBlock Text="&#xE708;" Style="{StaticResource CircleIcon}" FontSize="14"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Не беспокоить" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="CcDndState" Foreground="#8A8A94" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <WrapPanel Margin="0,12,0,0">
+                                    <Button Style="{StaticResource Chip}" Content="30 мин" Tag="30" Click="CcDndFor_Click"/>
+                                    <Button Style="{StaticResource Chip}" Content="1 ч" Tag="60" Click="CcDndFor_Click"/>
+                                    <Button Style="{StaticResource Chip}" Content="2 ч" Tag="120" Click="CcDndFor_Click"/>
+                                    <Button x:Name="CcDndOff" Style="{StaticResource LinkButton}" Content="Выключить" FontSize="12" Click="CcDndOff_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CcCard}" Margin="5,0,0,0">
+                            <StackPanel>
+                                <DockPanel Cursor="Hand" Background="Transparent" MouseLeftButtonUp="CcTimer_Click" ToolTip="Другие варианты таймера">
+                                    <Border x:Name="CcTimerCircle" Style="{StaticResource Circle}" Width="34" Height="34" CornerRadius="17" Margin="0,0,12,0">
+                                        <TextBlock Text="&#xE916;" Style="{StaticResource CircleIcon}" FontSize="14"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Таймер выключения" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="CcTimerState" Text="Выключен" Foreground="#8A8A94" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <WrapPanel Margin="0,12,0,0">
+                                    <Button Style="{StaticResource Chip}" Content="30 мин" Tag="30" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource Chip}" Content="1 ч" Tag="60" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource Chip}" Content="2 ч" Tag="120" Click="TimerPreset_Click"/>
+                                    <Button x:Name="CcTimerCancel" Style="{StaticResource LinkButton}" Content="Отменить" FontSize="12" Click="TimerCancel_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Уведомления -->
+                    <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,6">
+                                <Button x:Name="ClearNotificationsButton" DockPanel.Dock="Right" Style="{StaticResource LinkButton}"
+                                        Content="Очистить всё" FontSize="12" Margin="0,-6,-6,-6" Click="ClearNotifications_Click"/>
+                                <TextBlock Text="УВЕДОМЛЕНИЯ" Style="{StaticResource CapsLabel}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <StackPanel x:Name="NotificationsList"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== VPN ===== -->
+            <ScrollViewer x:Name="VpnView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="14,2,14,16">
+                    <Border Style="{StaticResource CcCard}">
                         <DockPanel>
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button Style="{StaticResource FlatButton}" Content="Отмена" Click="PowerCancel_Click"/>
-                                <Button x:Name="PowerConfirmButton" Style="{StaticResource FlatButton}" Background="#B3261E" Click="PowerConfirm_Click"/>
+                            <Button x:Name="VpnPowerButton" DockPanel.Dock="Right" Style="{StaticResource CircleToggle}" Click="VpnTile_Click" VerticalAlignment="Center">
+                                <Border x:Name="VpnPowerCircle" Style="{StaticResource Circle}" Width="44" Height="44" CornerRadius="22">
+                                    <TextBlock Text="&#xE7E8;" Style="{StaticResource CircleIcon}" FontSize="16"/>
+                                </Border>
+                            </Button>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="VPN (VLESS)" Foreground="{StaticResource TextMain}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="VpnHeaderState" Foreground="#8A8A94" FontSize="12.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                             </StackPanel>
-                            <TextBlock x:Name="PowerConfirmText" VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextMain}" FontSize="13.5" FontFamily="{StaticResource UiFont}"/>
                         </DockPanel>
                     </Border>
+
+                    <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Text="СЕРВЕРЫ" Style="{StaticResource CapsLabel}" Margin="0,0,0,8"/>
+                            <StackPanel x:Name="VpnServersList"/>
+                            <TextBox x:Name="VpnLinkBox" Height="58" Padding="8,5" Margin="0,10,0,0" FontSize="12.5" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto" FontFamily="Cascadia Mono, Consolas"
+                                     Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF" CaretBrush="#F2F2F5"
+                                     ToolTip="Одна или несколько ссылок vless://, каждая с новой строки"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource FlatButton}" Margin="0" Content="Добавить" Click="VpnAdd_Click"/>
+                                <TextBlock x:Name="VpnAddStatus" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" FontSize="11.5"
+                                       Text="Ядро Xray, трафик идёт через системный прокси Windows. Ссылки хранятся зашифрованными."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Text="DNS" Style="{StaticResource CapsLabel}" Margin="0,0,0,8"/>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Сохранить" Click="VpnDnsSave_Click"/>
+                                <TextBox x:Name="VpnDnsBox" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
+                                         Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF" CaretBrush="#F2F2F5"
+                                         ToolTip="Через запятую: 1.1.1.1 или https://…/dns-query. Пусто — как в системе"/>
+                            </DockPanel>
+                            <WrapPanel Margin="0,10,0,0">
+                                <Button Style="{StaticResource Chip}" Margin="0,0,6,6" Content="Cloudflare" Tag="https://1.1.1.1/dns-query, 1.1.1.1" Click="VpnDnsPreset_Click"/>
+                                <Button Style="{StaticResource Chip}" Margin="0,0,6,6" Content="Google" Tag="https://dns.google/dns-query, 8.8.8.8" Click="VpnDnsPreset_Click"/>
+                                <Button Style="{StaticResource Chip}" Margin="0,0,6,6" Content="AdGuard" ToolTip="Без рекламы" Tag="https://dns.adguard-dns.com/dns-query, 94.140.14.14" Click="VpnDnsPreset_Click"/>
+                                <Button Style="{StaticResource Chip}" Margin="0,0,6,6" Content="Quad9" Tag="https://dns.quad9.net/dns-query, 9.9.9.9" Click="VpnDnsPreset_Click"/>
+                                <Button Style="{StaticResource Chip}" Margin="0,0,6,6" Content="Системный" Tag="" Click="VpnDnsPreset_Click"/>
+                            </WrapPanel>
+                            <TextBlock x:Name="VpnDnsStatus" Style="{StaticResource Hint}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <CheckBox x:Name="VpnPillBox" Content="Кнопка VPN в капсуле (пока подключён — видна всегда)"
+                              Style="{StaticResource SettingsCheck}" FontSize="13" Margin="4,12,0,0" Click="VpnPill_Click"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== zapret ===== -->
+            <ScrollViewer x:Name="ZapretMainView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="14,2,14,16">
+                    <Border Style="{StaticResource CcCard}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource CircleToggle}" Click="ZapretTile_Click" VerticalAlignment="Center">
+                                <Border x:Name="ZapretPowerCircle" Style="{StaticResource Circle}" Width="44" Height="44" CornerRadius="22">
+                                    <TextBlock Text="&#xE7E8;" Style="{StaticResource CircleIcon}" FontSize="16"/>
+                                </Border>
+                            </Button>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="zapret" Foreground="{StaticResource TextMain}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="ZapretStatusText" Foreground="#8A8A94" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Text="СТРАТЕГИЯ" Style="{StaticResource CapsLabel}" Margin="0,0,0,8"/>
+                            <WrapPanel x:Name="ZapretStrategies"/>
+                            <Button Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Margin="-6,2,0,-4" Click="ZapretFind_Click"
+                                    ToolTip="Перебрать стратегии и найти ту, при которой работают Discord и YouTube">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE721;" FontFamily="{StaticResource Icons}" FontSize="12" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <TextBlock Text="Подобрать автоматически" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Text="УСТАНОВКА" Style="{StaticResource CapsLabel}" Margin="0,0,0,8"/>
+                            <WrapPanel>
+                                <Button x:Name="ZapretInstallButton" Style="{StaticResource FlatButton}" Margin="0,0,6,6" Click="ZapretInstall_Click"/>
+                                <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="Дополнительно…" Click="ZapretAdvanced_Click"/>
+                                <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="Папка" Click="ZapretFolder_Click"/>
+                                <Button x:Name="ZapretRemoveButton" Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="Удалить" Click="ZapretRemove_Click"/>
+                            </WrapPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" FontSize="11.5"
+                                       Text="Обход замедления Discord и YouTube через DPI (Flowseal/zapret-discord-youtube). Нужны права администратора; если антивирус ругается на WinDivert, добавь папку в исключения."/>
+                        </StackPanel>
+                    </Border>
+
+                    <CheckBox x:Name="ZapretAutoBox" Content="Включать при запуске острова" Style="{StaticResource SettingsCheck}"
+                              FontSize="13" Margin="4,12,0,0" Click="ZapretOptions_Click"/>
+                    <CheckBox x:Name="ZapretPillBox" Content="Кнопка zapret в капсуле (пока работает — видна всегда)" Style="{StaticResource SettingsCheck}"
+                              FontSize="13" Margin="4,4,0,0" Click="ZapretOptions_Click"/>
                 </StackPanel>
             </ScrollViewer>
 
@@ -660,6 +993,16 @@
                     <CheckBox x:Name="AutoHideBox" Content="Прятать остров за верхний край"
                               Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
 
+                    <TextBlock Text="Обновления" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock x:Name="UpdateStatusText" Style="{StaticResource Hint}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="UpdateCheckButton" Style="{StaticResource FlatButton}" Margin="0" Content="Проверить обновления" Click="UpdateCheck_Click"/>
+                        <Button x:Name="UpdateInstallButton" Style="{StaticResource FlatButton}" Content="Обновить" Visibility="Collapsed" Click="UpdateInstall_Click"
+                                Background="#3A4580"/>
+                        <Button x:Name="UpdateNotesButton" Style="{StaticResource FlatButton}" Content="Что нового" Visibility="Collapsed" Click="UpdateNotes_Click"/>
+                    </StackPanel>
+                    <CheckBox x:Name="AutoUpdateBox" Content="Проверять обновления автоматически (раз в сутки)" Style="{StaticResource SettingsCheck}" Margin="0,8,0,0" Click="AutoUpdate_Click"/>
+
                     <TextBlock Text="Глаза" Style="{StaticResource SectionTitle}"/>
                     <CheckBox x:Name="EyesBox" Content="Глаза, которые следят за курсором"
                               Style="{StaticResource SettingsCheck}" Click="Setting_Changed"/>
@@ -680,58 +1023,6 @@
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                         <Button Style="{StaticResource FlatButton}" Margin="0" Content="Вернуть пилюлю по центру" Click="ResetPill_Click"/>
                     </StackPanel>
-
-                    <TextBlock Text="zapret (Discord и YouTube без VPN)" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
-                               Text="Обход замедления и блокировок через DPI (Flowseal/zapret-discord-youtube). Остров сам скачивает свежий релиз с GitHub. Нужны права администратора (драйвер WinDivert); антивирус может ругаться на WinDivert — добавь папку в исключения."/>
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="ZapretInstallButton" Style="{StaticResource FlatButton}" Margin="0" Click="ZapretInstall_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Content="Подобрать стратегию" Click="ZapretFind_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Content="Папка" Click="ZapretFolder_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Content="Дополнительно…" Click="ZapretAdvanced_Click"/>
-                        <Button x:Name="ZapretRemoveButton" Style="{StaticResource FlatButton}" Content="Удалить" Click="ZapretRemove_Click"/>
-                    </StackPanel>
-                    <TextBlock x:Name="ZapretStatusText" Style="{StaticResource Hint}" Margin="0,6,0,0"/>
-                    <CheckBox x:Name="ZapretAutoBox" Content="Включать zapret при запуске острова" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
-                    <CheckBox x:Name="ZapretPillBox" Content="Показывать кнопку zapret в капсуле (пока он работает — видна всегда)" Style="{StaticResource SettingsCheck}" Click="ZapretOptions_Click"/>
-                    <TextBlock Text="Стратегия" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
-                               FontFamily="{StaticResource UiFont}" Margin="0,6,0,4"/>
-                    <WrapPanel x:Name="ZapretStrategies"/>
-
-                    <TextBlock Text="VPN (VLESS)" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
-                               Text="Вставь одну или несколько ссылок vless:// (каждую с новой строки) и нажми «Добавить». Включается кнопкой-щитом в пилюле или в «Центре». Работает на ядре Xray (как v2rayN), трафик идёт через системный прокси Windows. Ссылки хранятся зашифрованными."/>
-                    <TextBox x:Name="VpnLinkBox" Height="64" Padding="8,5" FontSize="12.5" TextWrapping="Wrap" AcceptsReturn="True"
-                             VerticalScrollBarVisibility="Auto" FontFamily="Cascadia Mono, Consolas"
-                             Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Style="{StaticResource FlatButton}" Margin="0" Content="Добавить" Click="VpnAdd_Click"/>
-                        <TextBlock x:Name="VpnAddStatus" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <StackPanel x:Name="VpnServersList" Margin="0,10,0,0"/>
-                    <CheckBox x:Name="VpnPillBox" Content="Показывать кнопку VPN в капсуле (пока он подключён — видна всегда)" Style="{StaticResource SettingsCheck}" Click="VpnPill_Click"/>
-                    <TextBlock Text="DNS для VPN" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
-                               FontFamily="{StaticResource UiFont}" Margin="0,10,0,4"/>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
-                               Text="Свои DNS-серверы через запятую: обычные (1.1.1.1) или зашифрованные DoH (https://…/dns-query). Пусто — как в системе."/>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBox x:Name="VpnDnsBox" Width="330" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
-                                 Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>
-                        <Button Style="{StaticResource FlatButton}" Content="Сохранить" Click="VpnDnsSave_Click"/>
-                    </StackPanel>
-                    <WrapPanel Margin="0,6,0,0">
-                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Cloudflare"
-                                Tag="https://1.1.1.1/dns-query, 1.1.1.1" Click="VpnDnsPreset_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Google"
-                                Tag="https://dns.google/dns-query, 8.8.8.8" Click="VpnDnsPreset_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="AdGuard (без рекламы)"
-                                Tag="https://dns.adguard-dns.com/dns-query, 94.140.14.14" Click="VpnDnsPreset_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Quad9"
-                                Tag="https://dns.quad9.net/dns-query, 9.9.9.9" Click="VpnDnsPreset_Click"/>
-                        <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Padding="9,4" FontSize="12" Content="Системный"
-                                Tag="" Click="VpnDnsPreset_Click"/>
-                    </WrapPanel>
-                    <TextBlock x:Name="VpnDnsStatus" Style="{StaticResource Hint}"/>
 
                     <TextBlock Text="Погода" Style="{StaticResource SectionTitle}"/>
                     <TextBlock x:Name="WeatherCityText" Style="{StaticResource Hint}" FontSize="14" Margin="0,0,0,8"/>
@@ -818,16 +1109,6 @@
                         <TextBlock Text="до" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
                         <TextBox x:Name="DndToBox" Width="60" Padding="6,3" Margin="6,0,0,0" FontSize="12.5" VerticalAlignment="Center" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5" LostFocus="DndTime_LostFocus"/>
                     </StackPanel>
-
-                    <TextBlock Text="Обновления" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock x:Name="UpdateStatusText" Style="{StaticResource Hint}" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="UpdateCheckButton" Style="{StaticResource FlatButton}" Margin="0" Content="Проверить обновления" Click="UpdateCheck_Click"/>
-                        <Button x:Name="UpdateInstallButton" Style="{StaticResource FlatButton}" Content="Обновить" Visibility="Collapsed" Click="UpdateInstall_Click"
-                                Background="#3A4580"/>
-                        <Button x:Name="UpdateNotesButton" Style="{StaticResource FlatButton}" Content="Что нового" Visibility="Collapsed" Click="UpdateNotes_Click"/>
-                    </StackPanel>
-                    <CheckBox x:Name="AutoUpdateBox" Content="Проверять обновления автоматически (раз в сутки)" Style="{StaticResource SettingsCheck}" Margin="0,8,0,0" Click="AutoUpdate_Click"/>
 
                     <TextBlock Text="Резервная копия" Style="{StaticResource SectionTitle}"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"

@@ -118,6 +118,7 @@ public sealed class AppSettings
     public string LiveModel { get; set; } = "gemini-3.8-live";
     public string LiveVoice { get; set; } = "Charon";
     public bool LiveBargeIn { get; set; } // перебивать голосом (с колонками модель услышит сама себя)
+    public bool LiveGoogleSearch { get; set; } // поиск Google внутри Live — только на платном тарифе
     public string GeminiKeyProtected { get; set; } = "";
 
     [System.Text.Json.Serialization.JsonIgnore]

@@ -253,9 +253,10 @@ public sealed class GeminiLiveService : IDisposable
                 {
                     ["parts"] = new JsonArray(new JsonObject { ["text"] = AssistantService.LiveSystemPrompt() }),
                 },
-                ["tools"] = new JsonArray(
-                    new JsonObject { ["functionDeclarations"] = functions },
-                    new JsonObject { ["googleSearch"] = new JsonObject() }),
+                // без googleSearch: на бесплатном тарифе у Gemini 3 нет квоты на поиск, и вся сессия падает с «exceeded your quota»
+                ["tools"] = App.Settings.LiveGoogleSearch
+                    ? new JsonArray(new JsonObject { ["functionDeclarations"] = functions }, new JsonObject { ["googleSearch"] = new JsonObject() })
+                    : new JsonArray(new JsonObject { ["functionDeclarations"] = functions }),
                 ["inputAudioTranscription"] = new JsonObject(),
                 ["outputAudioTranscription"] = new JsonObject(),
                 ["contextWindowCompression"] = new JsonObject { ["slidingWindow"] = new JsonObject() },

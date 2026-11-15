@@ -521,7 +521,7 @@ public sealed class AssistantService
         "Команды на компьютере выполняй инструментами сразу и докладывай одной короткой фразой. " +
         "Если инструмент просит подтверждение — спроси, и только после «да» вызови confirm_pending. " +
         "Когда пользователь благодарит, прощается или говорит «хватит», «отбой» — коротко попрощайся и вызови end_conversation. " +
-        "Для свежих новостей, курсов и фактов пользуйся поиском Google.";
+        (App.Settings.LiveGoogleSearch ? "Для свежих новостей, курсов и фактов пользуйся поиском Google." : "Для поиска в интернете вызывай web_search — он откроет результаты в браузере.");
 
     /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса).</summary>
     public string RunLiveTool(string name, JsonObject args)
@@ -547,8 +547,8 @@ public sealed class AssistantService
 
     private static string SystemPrompt()
     {
-        string games = string.Join(", ", AppIndex.GameNames.Take(150));
-        string apps = string.Join(", ", AppIndex.Entries.Where(e => e.Kind is not ("Steam" or "Epic")).Select(e => e.Name).Take(150));
+        // коротко: бесплатный Groq считает токены в минуту, длинные списки съедали лимит за пару команд
+        string games = string.Join(", ", AppIndex.GameNames.Take(40));
         return
             "Ты — Капсулка, голосовой ассистент на Windows-компьютере пользователя. Ты говоришь и ведёшь себя как Джарвис " +
             "из «Железного человека»: безупречно вежливый английский дворецкий, невозмутимый, точный, с сухим британским юмором " +
@@ -562,7 +562,6 @@ public sealed class AssistantService
             "Выключение и перезагрузку без задержки делай только через инструмент power — он сам спросит подтверждение. " +
             $"Сейчас {DateTime.Now:dddd, d MMMM yyyy, HH:mm}. " +
             (games.Length > 0 ? $"Установленные игры: {games}. " : "") +
-            (apps.Length > 0 ? $"Программы на компьютере: {apps}. " : "") +
             "Распознавание часто путает названия программ с похожими словами (например, «дискомфорт» — это Discord): " +
             "если слово похоже на программу из списка, считай, что имели в виду её.";
     }
@@ -862,13 +861,15 @@ public sealed class AssistantService
         if (answer.Length == 0) answer = "Готово, сэр.";
         _history.Add(user);
         _history.Add(new JsonObject { ["role"] = "assistant", ["content"] = answer });
-        while (_history.Count > 12) _history.RemoveAt(0);
+        while (_history.Count > 6) _history.RemoveAt(0);
         return new AssistantReply(answer, ExpectReply: _askedConfirmation);
     }
 
-    private static async Task<JsonObject> CompleteAsync(JsonArray messages, bool tools)
+    private const string FallbackGroqModel = "openai/gpt-oss-20b";
+
+    private static async Task<JsonObject> CompleteAsync(JsonArray messages, bool tools, string? modelOverride = null, int attempt = 0)
     {
-        string model = App.Settings.AiModel;
+        string model = modelOverride ?? App.Settings.AiModel;
         bool groq = App.Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase);
         // рассуждающие модели тратят токены на размышления: просим думать по минимуму, иначе голосовой ответ ждёт секундами
         string? effort = model.Contains("gpt-oss", StringComparison.OrdinalIgnoreCase) ? "low"
@@ -880,7 +881,7 @@ public sealed class AssistantService
             ["model"] = model,
             ["messages"] = messages.DeepClone(),
             ["temperature"] = 0.6,
-            ["max_tokens"] = effort != null ? 1200 : 400,
+            ["max_tokens"] = effort != null ? 600 : 400, // Groq засчитывает max_tokens в лимит токенов в минуту
         };
         if (effort != null)
         {
@@ -903,6 +904,19 @@ public sealed class AssistantService
 
         using HttpResponseMessage response = await Http.SendAsync(request);
         string json = await response.Content.ReadAsStringAsync();
+        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt == 0)
+        {
+            // лимит в минуту: если ждать меньше 3 секунд — ждём; иначе у Groq берём модель поменьше (у неё свой лимит)
+            Match wait = Regex.Match(json, @"try again in ([\d.]+)(ms|s)");
+            double seconds = wait.Success && double.TryParse(wait.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double v)
+                ? (wait.Groups[2].Value == "ms" ? v / 1000 : v) : 99;
+            if (seconds <= 3)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(seconds + 0.2));
+                return await CompleteAsync(messages, tools, modelOverride, attempt + 1);
+            }
+            if (groq && model != FallbackGroqModel) return await CompleteAsync(messages, tools, FallbackGroqModel, attempt + 1);
+        }
         if (!response.IsSuccessStatusCode)
         {
             App.LogError(new InvalidOperationException($"ИИ ответил {(int)response.StatusCode}: {json[..Math.Min(json.Length, 500)]}"));

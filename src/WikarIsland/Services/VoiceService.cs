@@ -556,8 +556,12 @@ public sealed partial class VoiceService : IDisposable
     {
         if (!ReferenceEquals(_live, live)) return;
         EndLive(silent: true);
-        _liveOffUntil = DateTime.Now.AddMinutes(10);
-        Problem = "Gemini Live недоступен (" + message + "). 10 минут работаю в обычном режиме.";
+        bool quota = message.Contains("quota", StringComparison.OrdinalIgnoreCase) || message.Contains("billing", StringComparison.OrdinalIgnoreCase);
+        // нет квоты — это не на минуту: не мучаем пользователя каждые 10 минут, ждём до перезапуска или 6 часов
+        _liveOffUntil = DateTime.Now.Add(quota ? TimeSpan.FromMinutes(30) : TimeSpan.FromMinutes(10));
+        Problem = quota
+            ? "Gemini Live: Google ответил «нет квоты» (бесплатный лимит на сегодня исчерпан или модель доступна только с оплатой в AI Studio). 30 минут работаю в обычном режиме."
+            : "Gemini Live недоступен (" + message + "). 10 минут работаю в обычном режиме.";
         Changed?.Invoke();
         if (State == VoiceState.Off) return;
         _deaf = true;

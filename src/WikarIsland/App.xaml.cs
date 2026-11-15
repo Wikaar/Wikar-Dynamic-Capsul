@@ -44,7 +44,7 @@ public partial class App : Application
         // проверка сборки в CI: WikarIsland.exe --selftest → selftest.txt и код выхода
         if (Array.IndexOf(e.Args, "--selftest") >= 0)
         {
-            Environment.Exit(SelfTest.Run());
+            Environment.Exit(SelfTest.Run(online: Array.IndexOf(e.Args, "--online") >= 0));
             return;
         }
 

@@ -7,7 +7,7 @@ namespace WikarIsland.Services;
 /// <summary>Проверка сборки без окон (запускается в CI): токен голоса и загрузка модели распознавания.</summary>
 public static class SelfTest
 {
-    public static int Run()
+    public static int Run(bool online = false)
     {
         var report = new StringBuilder();
         bool ok = EdgeTtsDrm.SelfTest(out string drm);
@@ -26,6 +26,24 @@ public static class SelfTest
         {
             ok = false;
             report.AppendLine("Vosk: FAIL " + ex.GetType().Name + ": " + ex.Message);
+        }
+
+        if (online)
+        {
+            // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен
+            try
+            {
+                byte[] mp3 = SpeechService.SynthesizeAsync("Проверка связи.", "ru-RU-DmitryNeural", 0, System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                bool voiceOk = mp3.Length > 1000;
+                report.AppendLine($"Edge TTS online: {(voiceOk ? "OK" : "FAIL")} {mp3.Length} bytes");
+                ok &= voiceOk;
+            }
+            catch (Exception ex)
+            {
+                ok = false;
+                report.AppendLine("Edge TTS online: FAIL " + ex.GetType().Name + ": " + ex.Message + " " + ex.InnerException?.Message);
+            }
         }
 
         report.AppendLine(ok ? "RESULT: OK" : "RESULT: FAIL");

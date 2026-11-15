@@ -54,6 +54,16 @@ jobs:
           Remove-Item selftest.txt
           if ($p.ExitCode -ne 0) { throw "Self-test failed" }
 
+      - name: Online check (Microsoft neural voice)
+        continue-on-error: true
+        shell: pwsh
+        working-directory: publish
+        run: |
+          $p = Start-Process -FilePath .\WikarIsland.exe -ArgumentList "--selftest","--online" -Wait -PassThru
+          Get-Content selftest.txt
+          Remove-Item selftest.txt
+          if ($p.ExitCode -ne 0) { throw "Online voice check failed" }
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:

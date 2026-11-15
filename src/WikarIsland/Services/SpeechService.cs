@@ -62,7 +62,7 @@ public sealed class SpeechService
             byte[]? mp3 = null;
             try
             {
-                mp3 = await SynthesizeAsync(text, App.Settings.VoiceName, cts.Token);
+                mp3 = await SynthesizeAsync(text, App.Settings.VoiceName, App.Settings.VoiceRate, cts.Token);
                 LastError = null;
             }
             catch (OperationCanceledException)
@@ -122,13 +122,13 @@ public sealed class SpeechService
 
     // ---------- Edge ----------
 
-    public static async Task<byte[]> SynthesizeAsync(string text, string voice, CancellationToken token)
+    public static async Task<byte[]> SynthesizeAsync(string text, string voice, int rate, CancellationToken token)
     {
         for (int attempt = 0; attempt < 2; attempt++)
         {
             try
             {
-                return await SynthesizeOnceAsync(text, voice, token);
+                return await SynthesizeOnceAsync(text, voice, rate, token);
             }
             catch (WebSocketException) when (attempt == 0)
             {
@@ -154,7 +154,7 @@ public sealed class SpeechService
         }
     }
 
-    private static async Task<byte[]> SynthesizeOnceAsync(string text, string voice, CancellationToken token)
+    private static async Task<byte[]> SynthesizeOnceAsync(string text, string voice, int rate, CancellationToken token)
     {
         string connectionId = Guid.NewGuid().ToString("N");
         string url = $"{WssUrl}?TrustedClientToken={EdgeTtsDrm.TrustedClientToken}&ConnectionId={connectionId}" +
@@ -186,7 +186,7 @@ public sealed class SpeechService
 
         string ssml =
             "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ru-RU'>" +
-            $"<voice name='{voice}'><prosody pitch='+0Hz' rate='{App.Settings.VoiceRate:+0;-0}%' volume='+0%'>" +
+            $"<voice name='{voice}'><prosody pitch='+0Hz' rate='{rate:+0;-0}%' volume='+0%'>" +
             SecurityElement.Escape(text) +
             "</prosody></voice></speak>";
         string request =

@@ -104,7 +104,12 @@ public sealed class AssistantService
         }
 
         AssistantReply? local = Local(text);
-        if (local != null) return local;
+        if (local != null)
+        {
+            // как Джарвис: молча выполненная команда получает короткое подтверждение
+            if (local.Text.Length == 0 && !local.EndTalk && App.Settings.VoiceAcknowledge) return local with { Text = Ack() };
+            return local;
+        }
 
         if (AiConfigured) return await AskAiAsync(spoken);
 
@@ -435,6 +440,22 @@ public sealed class AssistantService
         return list;
     }
 
+    private static readonly string[] Acks =
+    {
+        "Есть, сэр.", "Сделано, сэр.", "Как пожелаете.", "Выполнено.", "Готово, сэр.", "Слушаюсь.", "Уже сделано.",
+    };
+
+    private static int _lastAck = -1;
+
+    private static string Ack()
+    {
+        int i;
+        do i = Random.Shared.Next(Acks.Length);
+        while (i == _lastAck && Acks.Length > 1);
+        _lastAck = i;
+        return Acks[i];
+    }
+
     private AssistantReply Confirm(string question, Func<string> action)
     {
         _pending = action;
@@ -492,10 +513,13 @@ public sealed class AssistantService
         string games = string.Join(", ", AppIndex.GameNames.Take(150));
         string apps = string.Join(", ", AppIndex.Entries.Where(e => e.Kind is not ("Steam" or "Epic")).Select(e => e.Name).Take(150));
         return
-            "Ты — Капсулка, голосовой ассистент на Windows-компьютере пользователя, в духе Джарвиса из «Железного человека»: " +
-            "спокойный, вежливый, с лёгкой иронией, обращаешься к пользователю «сэр». " +
+            "Ты — Капсулка, голосовой ассистент на Windows-компьютере пользователя. Ты говоришь и ведёшь себя как Джарвис " +
+            "из «Железного человека»: безупречно вежливый английский дворецкий, невозмутимый, точный, с сухим британским юмором " +
+            "и лёгкой иронией; обращаешься к пользователю «сэр». Никогда не говоришь, что ты ИИ или языковая модель, " +
+            "не извиняешься многословно и не задаёшь лишних вопросов. Сначала делаешь, потом коротко докладываешь " +
+            "(«Готово, сэр», «Discord запущен»). Изредка — уместная ироничная ремарка, но без панибратства. " +
             "Отвечай по-русски и КОРОТКО — одно-два предложения, не больше 40 слов: ответ озвучивается голосом. " +
-            "Без markdown, списков, ссылок и эмодзи; числа и единицы пиши так, как их произносят. " +
+            "Без markdown, списков, ссылок, кавычек, скобок и эмодзи; числа и единицы пиши так, как их произносят. " +
             "Речь пользователя распознаётся автоматически и может быть искажена — угадывай смысл, особенно названия игр и программ. " +
             "Если просят что-то сделать на компьютере — вызывай подходящий инструмент, а потом коротко подтверди. " +
             "Выключение и перезагрузку без задержки делай только через инструмент power — он сам спросит подтверждение. " +
@@ -616,7 +640,9 @@ public sealed class AssistantService
             }
             case "open_url":
                 string url = S("url");
-                if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) url = "https://" + url;
+                // ms-settings:, steam://, mailto: и т. п. — открываем как есть, https:// только для обычных адресов
+                if (!Regex.IsMatch(url, @"^[a-z][a-z0-9+.\-]*:", RegexOptions.IgnoreCase) || Regex.IsMatch(url, @"^[^/]+\.[a-z]{2,}:\d", RegexOptions.IgnoreCase))
+                    url = "https://" + url;
                 AppIndex.OpenUri(url);
                 return "Открыто";
             case "web_search":

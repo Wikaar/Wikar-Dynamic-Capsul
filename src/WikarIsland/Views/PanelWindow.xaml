@@ -1050,6 +1050,8 @@
                     </StackPanel>
                     <CheckBox x:Name="VoiceFollowUpBox" Content="После каждой команды ещё 10 секунд слушать следующую без слова «Капсулка» («спасибо» или «хватит» — закончить)"
                               Style="{StaticResource SettingsCheck}" Click="Voice_Changed"/>
+                    <CheckBox x:Name="VoiceAckBox" Content="Подтверждать команды голосом, как Джарвис («Есть, сэр», «Сделано»)"
+                              Style="{StaticResource SettingsCheck}" Click="Voice_Changed"/>
 
                     <TextBlock Text="Мозг для разговора (ИИ)" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"
                                FontFamily="{StaticResource UiFont}" Margin="0,10,0,4"/>

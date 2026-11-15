@@ -80,6 +80,8 @@ public static class AppIndex
         foreach (LauncherItem l in App.Settings.Launcher)
         {
             string path = l.Path;
+            // ярлык острова на удалённый файл (Discord пересоздаёт свой ярлык при обновлении) — берём программу из «Пуска»
+            if (Path.IsPathFullyQualified(path) && !File.Exists(path) && !Directory.Exists(path)) continue;
             Add(l.Name, "Ярлык", () => ShellHelper.Open(path));
         }
 

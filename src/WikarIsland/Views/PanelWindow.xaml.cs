@@ -2602,6 +2602,7 @@ public partial class PanelWindow : Window
         AppSettings s = App.Settings;
         VoiceEnabledBox.IsChecked = s.VoiceEnabled;
         VoiceFollowUpBox.IsChecked = s.VoiceFollowUp;
+        VoiceAckBox.IsChecked = s.VoiceAcknowledge;
         VoiceHotkeyBox.Text = s.VoiceHotkey;
 
         VoicesPanel.Children.Clear();
@@ -2671,6 +2672,7 @@ public partial class PanelWindow : Window
         AppSettings s = App.Settings;
         bool enable = VoiceEnabledBox.IsChecked == true;
         s.VoiceFollowUp = VoiceFollowUpBox.IsChecked == true;
+        s.VoiceAcknowledge = VoiceAckBox.IsChecked == true;
         if (enable != s.VoiceEnabled)
         {
             s.VoiceEnabled = enable;

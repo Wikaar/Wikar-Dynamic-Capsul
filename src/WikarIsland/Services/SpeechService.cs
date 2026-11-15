@@ -23,7 +23,13 @@ public sealed class SpeechService
         ("ru-RU-DmitryNeural", "Дмитрий (мужской)"),
         ("ru-RU-SvetlanaNeural", "Светлана (женский)"),
         ("ru-RU-DariyaNeural", "Дария (женский)"),
+        ("en-US-BrianMultilingualNeural", "Брайан (мужской, мультиязычный — чисто читает английские слова)"),
+        ("en-US-AndrewMultilingualNeural", "Эндрю (мужской, мультиязычный)"),
+        ("en-US-AvaMultilingualNeural", "Ава (женский, мультиязычный)"),
     };
+
+    /// <summary>Мультиязычные голоса сами переключаются между русским и английским.</summary>
+    public static bool IsMultilingual(string voice) => voice.Contains("Multilingual", StringComparison.OrdinalIgnoreCase);
 
     private const string WssUrl = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1";
 
@@ -53,7 +59,8 @@ public sealed class SpeechService
     /// </summary>
     public async Task SpeakAsync(string text)
     {
-        text = Clean(text);
+        text = SpeechText.Clean(text);
+        if (!IsMultilingual(App.Settings.VoiceName)) text = SpeechText.EnglishForRussianVoice(text);
         if (text.Length == 0) return;
         Stop();
         var cts = new CancellationTokenSource();
@@ -162,16 +169,6 @@ public sealed class SpeechService
     }
 
     /// <summary>Без markdown, ссылок и эмодзи — их не произнести.</summary>
-    private static string Clean(string text)
-    {
-        string s = System.Text.RegularExpressions.Regex.Replace(text, @"https?://\S+", "ссылка");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"[*_`#>|~]", "");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"[\p{So}\p{Cs}]", "");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
-        foreach (char c in s.ToCharArray())
-            if (c < 32) s = s.Replace(c, ' ');
-        return s.Length > 1500 ? s[..1500] : s;
-    }
 
     // ---------- Edge ----------
 
@@ -254,8 +251,8 @@ public sealed class SpeechService
 
         string ssml =
             "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ru-RU'>" +
-            $"<voice name='{voice}'><prosody pitch='+0Hz' rate='{rate:+0;-0}%' volume='+0%'>" +
-            SecurityElement.Escape(text) +
+            $"<voice name='{voice}'><prosody pitch='{Pitch(voice)}' rate='{rate:+0;-0}%' volume='+0%'>" +
+            EscapeXml(text) +
             "</prosody></voice></speak>";
         string request =
             $"X-RequestId:{Guid.NewGuid():N}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{date}Z\r\nPath:ssml\r\n\r\n{ssml}";
@@ -305,6 +302,17 @@ public sealed class SpeechService
         }
         return audio.ToArray();
     }
+
+    /// <summary>
+    /// Только &amp;, &lt; и &gt;. SecurityElement.Escape превращал кавычки и апострофы в &amp;quot; и &amp;apos;,
+    /// а сервис Edge их не раскодирует и читает вслух «квот», «апос».
+    /// </summary>
+    private static string EscapeXml(string text) => text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    /// <summary>Мужские голоса чуть ниже — спокойный тон в духе Джарвиса.</summary>
+    private static string Pitch(string voice) =>
+        voice.Contains("Dmitry", StringComparison.Ordinal) || voice.Contains("Brian", StringComparison.Ordinal)
+        || voice.Contains("Andrew", StringComparison.Ordinal) ? "-6Hz" : "+0Hz";
 
     private static Task SendText(ClientWebSocket ws, string text, CancellationToken ct) =>
         ws.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, true, ct);

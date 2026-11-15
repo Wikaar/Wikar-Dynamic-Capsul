@@ -111,6 +111,7 @@ public sealed class AppSettings
     public int VoiceRate { get; set; } = 5;
     public double VoiceVolume { get; set; } = 0.9;
     public bool VoiceFollowUp { get; set; } = true;
+    public bool VoiceAcknowledge { get; set; } = true; // короткое «Есть, сэр» после команд без ответа
     public string VoiceHotkey { get; set; } = "Ctrl+Alt+K";
 
     // мозг: любой OpenAI-совместимый API

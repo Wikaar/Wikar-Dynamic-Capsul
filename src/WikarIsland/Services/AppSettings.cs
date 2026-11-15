@@ -99,6 +99,11 @@ public sealed class AppSettings
     public string DndTo { get; set; } = "08:00";
 
     public bool ZapretShowInPill { get; set; } = true;
+
+    // игры и загрузки в капсуле
+    public bool GameHud { get; set; } = true;
+    public bool DownloadsInPill { get; set; } = true;
+    public bool DownloadFinishedCard { get; set; } = true;
     public bool VpnShowInPill { get; set; } = true;
 
     public string ZapretGameMode { get; set; } = "disabled";

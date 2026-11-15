@@ -1153,6 +1153,14 @@ public partial class PanelWindow : Window
         WeatherPillBox.IsChecked = s.WeatherInPill;
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
+        GameHudBox.IsChecked = s.GameHud;
+        DownloadsBox.IsChecked = s.DownloadsInPill;
+        DownloadCardBox.IsChecked = s.DownloadFinishedCard;
+        GameHudStatus.Text = !GameService.PresentMonAvailable
+            ? "Нет папки presentmon рядом с программой — FPS не будет, только нагрузка. Скачай свежую сборку целиком."
+            : SystemMonitorService.IsAdmin
+                ? "FPS считает PresentMon (DirectX, Vulkan, OpenGL). Если игра в эксклюзивном полноэкранном режиме, капсулу поверх не видно — включи «Оконный без рамки»."
+                : "Для FPS нужны права администратора: включи «…с правами администратора» в «Общем» и перезапусти остров. Нагрузка видна и так.";
         UpdateDnd();
         BuildPillThemes();
         PillOpacitySlider.Value = s.PillOpacity;
@@ -1197,6 +1205,10 @@ public partial class PanelWindow : Window
         s.MusicInPill = MusicPillBox.IsChecked == true;
         s.WeatherInPill = WeatherPillBox.IsChecked == true;
         s.NotificationsEnabled = NotificationsBox.IsChecked == true;
+        s.GameHud = GameHudBox.IsChecked == true;
+        s.DownloadsInPill = DownloadsBox.IsChecked == true;
+        s.DownloadFinishedCard = DownloadCardBox.IsChecked == true;
+        if (!s.GameHud) App.Game.End();
 
         s.Save();
         App.Pill.ApplySettings();

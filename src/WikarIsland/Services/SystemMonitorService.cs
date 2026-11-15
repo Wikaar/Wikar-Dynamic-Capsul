@@ -54,19 +54,25 @@ public sealed class SystemMonitorService : IDisposable
         }
     }
 
-    public void Start()
+    private readonly HashSet<string> _holders = new();
+
+    /// <summary>Опрос идёт, пока он нужен хоть кому-то: вкладкам панели («panel») или игровому режиму («game»).</summary>
+    public void Start(string who = "panel")
     {
         lock (_lock)
         {
+            _holders.Add(who);
             if (_timer != null) return;
             _timer = new Timer(_ => Poll(), null, 0, 1500);
         }
     }
 
-    public void Stop()
+    public void Stop(string who = "panel")
     {
         lock (_lock)
         {
+            _holders.Remove(who);
+            if (_holders.Count > 0) return;
             _timer?.Dispose();
             _timer = null;
         }

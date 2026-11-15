@@ -26,6 +26,16 @@ jobs:
           Expand-Archive xray.zip -DestinationPath publish/xray -Force
           Get-ChildItem publish/xray
 
+      - name: Add PresentMon (FPS in games)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/presentmon | Out-Null
+          gh release download -R GameTechDev/PresentMon --pattern "PresentMon-*-x64.exe" --output publish/presentmon/PresentMon.exe --clobber
+          if (-not (Test-Path publish/presentmon/PresentMon.exe)) { throw "PresentMon not downloaded" }
+          Get-ChildItem publish/presentmon
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:

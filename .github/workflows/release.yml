@@ -27,6 +27,16 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-windows-64.zip" -OutFile xray.zip
           Expand-Archive xray.zip -DestinationPath publish/xray -Force
 
+      - name: Add PresentMon (FPS in games)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/presentmon | Out-Null
+          gh release download -R GameTechDev/PresentMon --pattern "PresentMon-*-x64.exe" --output publish/presentmon/PresentMon.exe --clobber
+          if (-not (Test-Path publish/presentmon/PresentMon.exe)) { throw "PresentMon not downloaded" }
+          Get-ChildItem publish/presentmon
+
       - name: Zip
         shell: pwsh
         run: Compress-Archive -Path publish/* -DestinationPath "WikarIsland-${{ github.ref_name }}-win-x64.zip"

@@ -74,5 +74,7 @@ public static class FocusService
     public static bool Active => App.Settings.DndManual || InSchedule() || _fullscreen;
 
     /// <summary>Прятать саму капсулу (только для полноэкранных приложений).</summary>
-    public static bool HidePill => _fullscreen && App.Settings.DndHidePill;
+    /// <summary>Игровая строка с FPS важнее: в игре капсулу не прячем.</summary>
+    public static bool HidePill => _fullscreen && App.Settings.DndHidePill
+                                   && !(App.Settings.GameHud && App.Game?.Active == true);
 }

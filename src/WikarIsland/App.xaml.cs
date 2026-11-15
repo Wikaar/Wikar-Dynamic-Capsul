@@ -29,6 +29,8 @@ public partial class App : Application
     public static UpdateService Updater { get; private set; } = null!;
     public static FocusTimerService FocusTimer { get; private set; } = null!;
     public static ReminderService Reminders { get; private set; } = null!;
+    public static GameService Game { get; private set; } = null!;
+    public static DownloadService Downloads { get; private set; } = null!;
     public static SpectrumService Spectrum { get; } = new();
 
     private static Mutex? _instanceMutex;
@@ -149,6 +151,8 @@ public partial class App : Application
         Updater = new UpdateService();
         FocusTimer = new FocusTimerService();
         Reminders = new ReminderService();
+        Game = new GameService();
+        Downloads = new DownloadService();
         ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
@@ -305,6 +309,25 @@ public partial class App : Application
 
         Safe("музыка", () => _ = Media.StartAsync());
         Safe("Steam", Steam.Start);
+        Game.Changed += () => Pill.UpdateGame();
+        Downloads.Changed += () => Pill.UpdateDownloads();
+        Downloads.FileFinished += (name, path, icon) =>
+        {
+            if (!Settings.DownloadFinishedCard) return;
+            var item = new NotificationItem
+            {
+                AppId = "wikar.download",
+                AppName = "Загрузки",
+                AppIcon = icon,
+                Title = $"Скачано: {name}",
+                Body = "Нажми, чтобы показать в папке",
+                Time = DateTime.Now,
+                Click = () => ShellHelper.ShowInExplorer(path),
+            };
+            if (FocusService.Active) Pill.CountMissed();
+            else Pill.ShowNotification(item);
+        };
+        Safe("загрузки", Downloads.Start);
         Safe("погода", Weather.Start);
         Safe("уведомления", Notifications.Start);
 
@@ -416,6 +439,7 @@ public partial class App : Application
         Recorder?.Stop();
         AudioRecorder?.Stop();
         Spectrum.Dispose();
+        Game?.Dispose();
         SystemMonitor?.Dispose();
         Vpn?.Disconnect();
         Zapret?.Stop();

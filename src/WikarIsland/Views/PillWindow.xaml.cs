@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -47,6 +48,7 @@ public partial class PillWindow : Window
         {
             UpdateTime();
             FocusService.Poll();
+            App.Game.Tick();
             App.FocusTimer.Tick();
             App.Reminders.Tick();
             if (App.FocusTimer.Active) UpdateFocus();
@@ -257,16 +259,19 @@ public partial class PillWindow : Window
 
     private void UpdateContent()
     {
-        // приоритет: таймер (последняя минута) > уведомление > громкость > музыка > загрузка Steam > обычное
+        // приоритет: таймер (последняя минута) > уведомление > громкость > игра (FPS) > музыка > загрузки > обычное
         MediaInfo? m = App.Media?.Current;
         bool timer = App.PowerTimer?.InWarning == true;
         bool recording = !timer && (App.Recorder?.IsRecording == true || App.AudioRecorder?.IsRecording == true);
         bool card = !timer && _card != null;
         bool volume = !timer && !card && DateTime.Now < _volumeUntil;
         if (card || volume) recording = false;
-        bool music = !timer && !recording && !card && !volume && App.Settings.MusicInPill && m != null
+        bool game = !timer && !recording && !card && !volume && App.Settings.GameHud && App.Game?.Active == true;
+        bool music = !timer && !recording && !card && !volume && !game && App.Settings.MusicInPill && m != null
                      && (m.IsPlaying || (DateTime.Now - _lastPlaying).TotalSeconds < 15);
-        bool steam = !timer && !recording && !card && !volume && !music && App.Steam?.Downloads.Count > 0;
+        bool steam = !timer && !recording && !card && !volume && !game && !music
+                     && App.Settings.DownloadsInPill && App.Downloads?.Items.Count > 0;
+        bool chips = !timer && !recording && !card && !volume && !game; // в игре — только самое нужное
 
         TimerPart.Visibility = timer ? Visibility.Visible : Visibility.Collapsed;
         RecordPart.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
@@ -280,16 +285,17 @@ public partial class PillWindow : Window
         NotifyPart.Visibility = card ? Visibility.Visible : Visibility.Collapsed;
         VolumePart.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
         MusicPart.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
-        SteamPart.Visibility = steam ? Visibility.Visible : Visibility.Collapsed;
-        IdlePart.Visibility = !timer && !recording && !card && !volume && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
-        VpnChip.Visibility = !timer && !recording && !card && !volume && App.Settings.VpnServers.Count > 0
+        DownloadPart.Visibility = steam ? Visibility.Visible : Visibility.Collapsed;
+        GamePart.Visibility = game ? Visibility.Visible : Visibility.Collapsed;
+        IdlePart.Visibility = !timer && !recording && !card && !volume && !game && !music && !steam ? Visibility.Visible : Visibility.Collapsed;
+        VpnChip.Visibility = chips && App.Settings.VpnServers.Count > 0
                              && (App.Settings.VpnShowInPill || App.Vpn?.IsConnected == true)
             ? Visibility.Visible : Visibility.Collapsed;
-        FocusChip.Visibility = !timer && !recording && !card && !volume && App.FocusTimer?.Active == true
+        FocusChip.Visibility = chips && App.FocusTimer?.Active == true
             ? Visibility.Visible : Visibility.Collapsed;
         DndIcon.Visibility = !timer && !recording && !card && !volume && FocusService.Active
             ? Visibility.Visible : Visibility.Collapsed;
-        ZapretChip.Visibility = !timer && !recording && !card && !volume && App.Zapret?.Installed == true
+        ZapretChip.Visibility = chips && App.Zapret?.Installed == true
                                 && (App.Settings.ZapretShowInPill || App.Zapret.IsRunning)
             ? Visibility.Visible : Visibility.Collapsed;
 
@@ -400,7 +406,7 @@ public partial class PillWindow : Window
                 Title = "Пока было «Не беспокоить»",
                 Body = $"Пришло уведомлений: {n}. Нажми, чтобы посмотреть",
                 Time = DateTime.Now,
-                Click = () => App.Panel.ShowTab("home", activate: true),
+                Click = () => App.Panel.ShowTab("control", activate: true),
             });
         }
         _dndWas = active;
@@ -506,20 +512,96 @@ public partial class PillWindow : Window
         }
     }
 
-    public void UpdateSteam()
-    {
-        SteamService steam = App.Steam;
-        if (steam.Downloads.Count > 0)
-        {
-            SteamDownload d = steam.Downloads[0];
-            SteamIcon.Source = steam.SteamIcon;
-            SteamName.Text = steam.Downloads.Count > 1 ? $"{d.Name} +{steam.Downloads.Count - 1}" : d.Name;
-            SteamFill.Width = 60 * d.Progress;
-            SteamPercent.Text = d.Total > 0 ? $"{d.Progress * 100:0}%" : "…";
-        }
+    /// <summary>Steam сообщил о загрузке — сама строка собирается в UpdateDownloads.</summary>
+    public void UpdateSteam() => UpdateContent();
 
-        // запущенную игру в пилюле не показываем — только загрузки (игра видна на «Главной»)
-        GameChip.Visibility = Visibility.Collapsed;
+    private bool _shimmer;
+
+    /// <summary>Строка загрузки: первая из списка, остальные — «+N» и подсказкой.</summary>
+    public void UpdateDownloads()
+    {
+        List<DownloadItem> items = App.Downloads.Items;
+        if (items.Count > 0)
+        {
+            // сначала те, у которых известен прогресс, потом самые быстрые
+            DownloadItem d = items.OrderByDescending(i => i.Progress.HasValue).ThenByDescending(i => i.Speed).First();
+            DownloadIcon.Source = d.Icon;
+            DownloadGlyph.Visibility = d.Icon == null ? Visibility.Visible : Visibility.Collapsed;
+            DownloadName.Text = items.Count > 1 ? $"{d.Name} +{items.Count - 1}" : d.Name;
+            DownloadFill.Background = new SolidColorBrush(d.Accent);
+
+            if (d.Progress is double p)
+            {
+                SetShimmer(false);
+                DownloadFill.Width = 60 * p;
+                DownloadText.Text = d.Speed > 64 * 1024 ? $"{p * 100:0}% · {DownloadService.FormatSpeed(d.Speed)}" : $"{p * 100:0}%";
+            }
+            else
+            {
+                SetShimmer(true);
+                DownloadText.Text = d.Speed > 0 ? DownloadService.FormatSpeed(d.Speed)
+                    : d.Done > 0 ? DownloadService.FormatSize(d.Done) : "…";
+            }
+
+            DownloadPart.ToolTip = string.Join("\n", items.Select(i =>
+                $"{i.Source}: {i.Name}" +
+                (i.Progress is double ip ? $" — {ip * 100:0}%" : i.Done > 0 ? $" — {DownloadService.FormatSize(i.Done)}" : "") +
+                (i.Speed > 0 ? $", {DownloadService.FormatSpeed(i.Speed)}" : "")));
+        }
+        else
+        {
+            SetShimmer(false);
+        }
+        UpdateContent();
+    }
+
+    /// <summary>Размер неизвестен — по полоске бегает короткий отрезок.</summary>
+    private void SetShimmer(bool on)
+    {
+        if (on == _shimmer) return;
+        _shimmer = on;
+        if (on)
+        {
+            DownloadFill.Width = 18;
+            DownloadShift.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(-18, 60, TimeSpan.FromSeconds(1.2)) { RepeatBehavior = RepeatBehavior.Forever });
+        }
+        else
+        {
+            DownloadShift.BeginAnimation(TranslateTransform.XProperty, null);
+            DownloadShift.X = 0;
+        }
+    }
+
+    /// <summary>FPS и нагрузка, пока идёт игра.</summary>
+    public void UpdateGame()
+    {
+        GameService g = App.Game;
+        if (g.Active)
+        {
+            if (g.Fps is double fps)
+            {
+                GameFps.Text = $"{fps:0}";
+                GameFps.Foreground = new SolidColorBrush(fps >= 55 ? Color.FromRgb(0x6E, 0xE0, 0x9A)
+                    : fps >= 30 ? Color.FromRgb(0xF5, 0xD7, 0x5A) : Color.FromRgb(0xFF, 0x6B, 0x61));
+            }
+            else
+            {
+                GameFps.Text = "—";
+                GameFps.Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x8A, 0x94));
+            }
+
+            SystemSnapshot? snap = App.SystemMonitor.Current;
+            GameCpu.Text = snap?.Cpu?.Load is double cpu ? $"{cpu:0}%" : "—";
+            GameGpu.Text = snap?.Gpu?.Load is double gpu ? $"{gpu:0}%" : "—";
+            double? temp = snap?.Gpu?.Temperature ?? snap?.Cpu?.Temperature;
+            GameTemp.Text = temp is double t ? $"{t:0}°" : "";
+            GameTemp.Foreground = new SolidColorBrush(temp is >= 85 ? Color.FromRgb(0xFF, 0x6B, 0x61)
+                : temp is >= 75 ? Color.FromRgb(0xF5, 0xC8, 0x5A) : Color.FromRgb(0xF2, 0xF2, 0xF5));
+
+            GamePart.ToolTip = g.Name + (g.FpsProblem != null ? $"\nFPS: {g.FpsProblem}" : "")
+                               + (snap?.Gpu != null ? $"\n{snap.Gpu.Name}" : "");
+        }
         UpdateContent();
     }
 

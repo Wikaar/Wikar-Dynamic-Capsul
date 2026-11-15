@@ -116,7 +116,7 @@ public sealed class SpeechService
         catch (Exception ex)
         {
             LastError = ex.Message;
-            _edgeDownUntil = DateTime.Now.AddMinutes(2);
+            _edgeDownUntil = DateTime.Now.AddSeconds(20); // не на 2 минуты: следующая фраза снова пробует основной голос
             App.LogError(new InvalidOperationException("Голос Edge не ответил, говорю голосом Windows", ex));
             return null;
         }
@@ -296,11 +296,11 @@ public sealed class SpeechService
 
         // короткие таймауты: если Microsoft тупит, быстрее перейти на голос Windows, чем ждать
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(4));
+        timeout.CancelAfter(TimeSpan.FromSeconds(9)); // 4 секунды было мало: при медленном ответе Microsoft обрывали сами
         CancellationToken ct = timeout.Token;
 
         await ws.ConnectAsync(new Uri(url), ct);
-        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(3 + text.Length / 40, 5, 15)));
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(6 + text.Length / 30, 10, 25)));
         LastStage = "отправка";
 
         string date = DateTime.UtcNow.ToString("ddd MMM dd yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
@@ -408,8 +408,13 @@ public sealed class SpeechService
         try
         {
             using var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-            var voice = Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices
-                .FirstOrDefault(v => v.Language.StartsWith("ru", StringComparison.OrdinalIgnoreCase));
+            // запасной голос того же пола, что основной: вместо мужского Брайана/Дмитрия — Павел, а не Ирина
+            string main = App.Settings.VoiceName;
+            bool male = !(main.Contains("Svetlana") || main.Contains("Dariya") || main.Contains("Ava") || main.Contains("Emma"));
+            var russian = Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices
+                .Where(v => v.Language.StartsWith("ru", StringComparison.OrdinalIgnoreCase)).ToList();
+            var gender = male ? Windows.Media.SpeechSynthesis.VoiceGender.Male : Windows.Media.SpeechSynthesis.VoiceGender.Female;
+            var voice = russian.FirstOrDefault(v => v.Gender == gender) ?? russian.FirstOrDefault();
             if (voice == null) return; // русского голоса в Windows нет — ответ всё равно виден в капсуле
             synth.Voice = voice;
             using var stream = await synth.SynthesizeTextToStreamAsync(text);

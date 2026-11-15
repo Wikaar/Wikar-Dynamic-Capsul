@@ -95,6 +95,9 @@ public sealed class AssistantService
     {
         string text = Regex.Replace(spoken.ToLowerInvariant().Replace('ё', 'е'), @"[^\w\s:,.\-]", " ").Trim();
         text = Regex.Replace(text, @"\s+", " ");
+        // имя помощника в начале (Капсулка, Капсуль, Капсула, Капс, Capsule) и точки по краям — не часть команды
+        text = Regex.Replace(text, @"^(?:к[ао][пб]\s?сул\w*|капс|capsul\w*|kapsul\w*|kapsel\w*)[\s,.:!\-]*", "");
+        text = text.Trim('.', ',', ' ', ':', '-', '!');
         text = FixMishearing(text);
         if (text.Length == 0) return new AssistantReply("");
 
@@ -109,6 +112,14 @@ public sealed class AssistantService
         }
 
         App.LogVoice($"Команда: «{spoken}»");
+
+        // музыка — до быстрых команд и с проверкой: говорим «играет …» только если медиапульт Windows это подтверждает
+        if (ParseMusic(text) is { } music)
+        {
+            AppAutomation.MusicResult r = await AppAutomation.PlayMusicAsync(music.service, music.query);
+            return new AssistantReply(r.Playing ? r.Message + " Приятного прослушивания, сэр." : "Не получилось, сэр: " + r.Message, Silent: true);
+        }
+
         AssistantReply? local = Local(text);
         if (local != null)
         {
@@ -328,25 +339,6 @@ public sealed class AssistantService
             return new AssistantReply("", Silent: true);
         }
 
-        // --- музыка: «включи Яндекс Музыку», «включи музыку в ютуб музыке», «поставь Linkin Park в Яндекс Музыке» ---
-        if (AppAutomation.IsMusicService(t))
-        {
-            const string S = @"(янд\w*\s?музык\w*|yandex\s?music\w*|(?:ютуб|ютюб|youtube)\s?(?:musi[ck]\w*|музык\w*)|спотиф\w*|spotify)";
-            Match music = Regex.Match(t, @"^(?:включи|поставь|запусти|играй|сыграй|давай)\s+(?:(?:мою волну|волну|музыку|музыка|что-нибудь|что нибудь|плейлист|радио)\s+)?(?:в|на|из|во)?\s*" + S + "$");
-            if (music.Success)
-            {
-                _ = AppAutomation.PlayMusicAsync(music.Groups[1].Value, null);
-                return new AssistantReply("Включаю музыку, сэр.", Silent: true);
-            }
-            music = Regex.Match(t, @"^(?:включи|поставь|запусти|найди|сыграй|играй)\s+(?:песню\s+|трек\s+|группу\s+|альбом\s+|исполнителя\s+)?(.+?)\s+(?:в|на|из|во)\s+" + S + "$");
-            if (music.Success)
-            {
-                string what = music.Groups[1].Value;
-                _ = AppAutomation.PlayMusicAsync(music.Groups[2].Value, what);
-                return new AssistantReply($"Ищу {what}, сэр.", Silent: true);
-            }
-        }
-
         // --- кнопки внутри программ: «нажми Играть в Battle.net», «включи Мою волну в Яндекс Музыке» ---
         if ((m = Regex.Match(t, @"^(?:нажми|кликни|щелкни|выбери|включи|поставь|запусти)\s+(?:кнопку\s+|пункт\s+)?(.+?)\s+(?:в|во|на)\s+(?:программе\s+|приложении\s+)?(.+)$")).Success)
         {
@@ -360,6 +352,10 @@ public sealed class AssistantService
                 // не нашли сами — пусть ИИ посмотрит список кнопок и попробует иначе
             }
         }
+
+        // --- что открыто на панели задач ---
+        if (Regex.IsMatch(t, @"^(что|какие программы|какие окна|какие игры|что у меня)\s+(сейчас\s+)?(открыто|открыты|запущено|запущены|работает|на панели задач)|^что на панели задач"))
+            return new AssistantReply(WindowControl.Describe(), Silent: true);
 
         // --- окна: свернуть, развернуть, закрыть программы и игры ---
         if (Regex.IsMatch(t, @"^((сверни|спрячь|убери) все( окна| программы| игры| приложения)?|покажи рабочий стол|рабочий стол)$"))
@@ -412,6 +408,8 @@ public sealed class AssistantService
         if ((m = Regex.Match(t, @"^(?:открой|запусти|включи|поиграем в|давай поиграем в|хочу поиграть в)\s+(?:игру\s+|программу\s+|сайт\s+)?(.+)$")).Success)
         {
             string name = m.Groups[1].Value.Trim();
+            // «открой Яндекс Музыку и запусти плейлист дня» — две просьбы; целиком отдаём ИИ, иначе вторая теряется
+            if (AiConfigured && Regex.IsMatch(name, @"\s+и\s+(?:запусти|включи|открой|поставь|найди|нажми|сверни|закрой)\b")) return null;
             if (Sites.TryGetValue(name, out string? url))
             {
                 AppIndex.OpenUri(url);
@@ -465,6 +463,22 @@ public sealed class AssistantService
         foreach ((Regex pattern, string replacement) in Mishearings) text = pattern.Replace(text, replacement);
         return text;
     }
+
+    /// <summary>«Включи Яндекс Музыку», «поставь Король и Шут в Яндекс.Музыке», «включи музыку в ютуб музыке».</summary>
+    private static (string service, string? query)? ParseMusic(string t)
+    {
+        if (!AppAutomation.IsMusicService(t) || Regex.IsMatch(t, @"\s+и\s+(?:запусти|включи|открой|поставь|найди|нажми)\b")) return null;
+        string s = "(" + AppAutomation.ServicePattern + ")";
+        Match m = Regex.Match(t, @"^(?:включи|поставь|запусти|играй|сыграй|давай)\s+(?:(?:мою волну|волну|музыку|музыка|что-нибудь|что нибудь|радио)\s+)?(?:в|на|из|во)?\s*" + s + "$");
+        if (m.Success) return (m.Groups[1].Value, null);
+        m = Regex.Match(t, @"^(?:включи|поставь|запусти|найди|сыграй|играй)\s+(?:песню\s+|трек\s+|группу\s+|альбом\s+|исполнителя\s+|плейлист\s+)?(.+?)\s+(?:в|на|из|во)\s+" + s + "$");
+        if (m.Success) return (m.Groups[2].Value, m.Groups[1].Value.Trim());
+        return null;
+    }
+
+    /// <summary>Просьба что-то сделать на компьютере (а не вопрос) — по первому слову.</summary>
+    private static bool IsActionRequest(string t) =>
+        Regex.IsMatch(t, @"^(открой|запусти|включи|поставь|закрой|выключи|сверни|разверни|нажми|найди|переключи|сыграй|играй|удали|создай)\b");
 
     /// <summary>Как ещё может называться программа: русское сокращение и название из списка игр и программ.</summary>
     internal static List<string> NameVariants(string name)
@@ -551,6 +565,19 @@ public sealed class AssistantService
 
     // ---------- ИИ ----------
 
+    private static async Task<string> PlayMusicToolAsync(JsonObject args)
+    {
+        string service = args["service"]?.ToString() switch
+        {
+            "youtube_music" => "youtube music",
+            "spotify" => "spotify",
+            _ => "яндекс музыка",
+        };
+        string? query = args["query"]?.ToString();
+        AppAutomation.MusicResult r = await AppAutomation.PlayMusicAsync(service, query);
+        return r.Playing ? r.Message : "НЕ получилось: " + r.Message;
+    }
+
     // ---------- для Gemini Live ----------
 
     /// <summary>Те же инструменты, что у ИИ-разговора (формат OpenAI) — GeminiLiveService переводит их в свой.</summary>
@@ -566,10 +593,16 @@ public sealed class AssistantService
         "Когда пользователь благодарит, прощается или говорит «хватит», «отбой» — коротко попрощайся и вызови end_conversation. " +
         (App.Settings.LiveGoogleSearch ? "Для свежих новостей, курсов и фактов пользуйся поиском Google." : "Для поиска в интернете вызывай web_search — он откроет результаты в браузере.");
 
-    /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса).</summary>
-    public string RunLiveTool(string name, JsonObject args)
+    /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса); музыка — с ожиданием и проверкой.</summary>
+    public async Task<string> RunLiveToolAsync(string name, JsonObject args)
     {
-        App.LogVoice($"  Live → {name}({args.ToJsonString()})");
+        string result = name == "play_music" ? await PlayMusicToolAsync(args) : RunLiveTool(name, args);
+        App.LogVoice($"  Live → {name}({args.ToJsonString()}) = {result[..Math.Min(result.Length, 300)]}");
+        return result;
+    }
+
+    private string RunLiveTool(string name, JsonObject args)
+    {
         if (name == "confirm_pending")
         {
             if (_pending == null || DateTime.Now > _pendingUntil) return "Нечего подтверждать";
@@ -603,7 +636,11 @@ public sealed class AssistantService
             "Без markdown, списков, ссылок, кавычек, скобок и эмодзи; числа и единицы пиши так, как их произносят. " +
             "Речь пользователя распознаётся автоматически и может быть искажена — угадывай смысл, особенно названия игр и программ. " +
             "Если просят что-то сделать на компьютере — вызывай подходящий инструмент, а потом коротко подтверди. " +
-            "Действия внутри программ (включить музыку в Яндекс Музыке, нажать Играть в Battle.net, найти трек) делай так: " +
+            "Музыку (Яндекс Музыка, YouTube Music, Spotify) включай ТОЛЬКО через play_music и пересказывай его ответ как есть: " +
+            "если он вернул «НЕ получилось» — так и скажи, никогда не утверждай, что музыка играет. " +
+            "Никогда не говори, что что-то запущено, открыто или включено, если ты не вызвал для этого инструмент и он не подтвердил успех. " +
+            "Что открыто на компьютере — list_windows. " +
+            "Другие действия внутри программ (нажать Играть в Battle.net) делай так: " +
             "если программа не открыта — open_app; затем app_click по надписи кнопки; не нашлось — возьми точное название из списка в ответе; " +
             "для поиска — app_keys ctrl+f (или клик по полю поиска), app_type с текстом и enter. Музыку на паузу и следующий трек — media-команды. " +
             "Выключение и перезагрузку без задержки делай только через инструмент power — он сам спросит подтверждение. " +
@@ -642,6 +679,14 @@ public sealed class AssistantService
         {
             Fn("open_app", "Запустить игру, программу или ярлык по названию (точное название из списка игр, если подходит).",
                 new JsonObject { ["name"] = Str("Название игры или программы") }, "name"),
+            Fn("play_music", "Включить музыку в Яндекс Музыке, YouTube Music или Spotify: откроет сервис, найдёт и включит; без запроса — «Моя волна»/«Мой джем». " +
+                    "Возвращает, что реально играет (по медиапульту Windows) — говори пользователю ровно это.",
+                new JsonObject
+                {
+                    ["service"] = Enum("Сервис", "yandex", "youtube_music", "spotify"),
+                    ["query"] = Str("Что включить: исполнитель, трек, альбом или плейлист (пусто — просто музыку)"),
+                }, "service"),
+            Fn("list_windows", "Какие программы и игры сейчас открыты (окна на панели задач), какие из них свёрнуты.", new JsonObject()),
             Fn("app_click", "Нажать кнопку, пункт меню, вкладку или ссылку внутри открытой программы по её названию " +
                     "(например «Играть» в Battle.net, «Моя волна» в Яндекс Музыке). Если не найдено — в ответе список видимых элементов, выбери из него и вызови снова.",
                 new JsonObject { ["app"] = Str("Программа (как называется окно или программа)"), ["target"] = Str("Надпись на кнопке или пункте") }, "app", "target"),
@@ -707,6 +752,8 @@ public sealed class AssistantService
                 e.Launch();
                 return $"Запущено: {e.Name}";
             }
+            case "list_windows":
+                return WindowControl.Describe();
             case "app_click":
                 return AppAutomation.Click(S("app"), S("target"));
             case "app_buttons":
@@ -850,7 +897,10 @@ public sealed class AssistantService
 
     private async Task<AssistantReply> AskAiAsync(string spoken, Action<string>? speak = null)
     {
-        var splitter = speak != null ? new SentenceSplitter(speak) : null;
+        // для просьб «сделай» ответ не озвучиваем на лету: сначала проверим, что ИИ действительно что-то сделал
+        bool action = IsActionRequest(spoken.ToLowerInvariant());
+        var splitter = speak != null && !action ? new SentenceSplitter(speak) : null;
+        int toolCalls = 0;
         if ((DateTime.Now - _lastTalk).TotalMinutes > 5) _history.Clear();
         _lastTalk = DateTime.Now;
         _askedConfirmation = false;
@@ -894,9 +944,10 @@ public sealed class AssistantService
                         args = new JsonObject();
                     }
                     string result;
+                    toolCalls++;
                     try
                     {
-                        result = RunTool(fn, args);
+                        result = fn == "play_music" ? await PlayMusicToolAsync(args) : RunTool(fn, args);
                     }
                     catch (Exception ex)
                     {
@@ -924,6 +975,12 @@ public sealed class AssistantService
         }
 
         answer = answer.Trim();
+        // маленькие модели любят отвечать «запущено» вообще без действия — такой ответ не пропускаем
+        if (action && toolCalls == 0 && Regex.IsMatch(answer, @"запущ|включ|открыл|открыва|найден|нашёл|нашел|готово|сделано|выполн|закрыл|свернул|играет", RegexOptions.IgnoreCase))
+        {
+            App.LogVoice($"  ИИ сказал «{answer}», но ничего не сделал — заменяю ответ");
+            answer = "Не вышло, сэр: я ничего не сделал. Скажите иначе — например, «включи Яндекс Музыку» или «открой Discord».";
+        }
         App.LogVoice($"  ИИ ответ: {answer[..Math.Min(answer.Length, 300)]}");
         splitter?.Flush();
         bool spoken2 = splitter?.Emitted == true;

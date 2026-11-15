@@ -77,6 +77,14 @@ public static class AppIndex
             list.Add(new AppEntry(name, kind, launch));
         }
 
+        // игры Steam и Epic — первыми: если на рабочем столе есть ярлык с тем же названием (Counter-Strike 2),
+        // раньше игра записывалась как «ярлык», выпадала из списка игр для ИИ, и он отвечал, что её нет
+        foreach ((int id, string name) in App.Steam.InstalledGames())
+            Add(name, "Steam", () => SteamService.Launch(id));
+
+        foreach ((string name, string uri) in EpicGames())
+            Add(name, "Epic", () => OpenUri(uri));
+
         foreach (LauncherItem l in App.Settings.Launcher)
         {
             string path = l.Path;
@@ -84,12 +92,6 @@ public static class AppIndex
             if (Path.IsPathFullyQualified(path) && !File.Exists(path) && !Directory.Exists(path)) continue;
             Add(l.Name, "Ярлык", () => ShellHelper.Open(path));
         }
-
-        foreach ((int id, string name) in App.Steam.InstalledGames())
-            Add(name, "Steam", () => SteamService.Launch(id));
-
-        foreach ((string name, string uri) in EpicGames())
-            Add(name, "Epic", () => OpenUri(uri));
 
         foreach (string lnk in StartMenuShortcuts())
         {

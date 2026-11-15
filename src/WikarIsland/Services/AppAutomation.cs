@@ -115,8 +115,15 @@ public static class AppAutomation
 
     /// <summary>«Яндекс Музыка», «ютуб музыка», «spotify» в любой форме → сервис.</summary>
     public static bool IsMusicService(string spoken) =>
-        System.Text.RegularExpressions.Regex.IsMatch(spoken, @"янд\w*\s?музык|yandex\s?music|(ютуб|ютюб|youtube)\s?musi?[ck]|ютуб\s?музык|спотиф|spotify",
+        System.Text.RegularExpressions.Regex.IsMatch(spoken, ServicePattern,
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Название сервиса в любом написании: «Яндекс.Музыка», «яндекс-музыке», «YouTube Music», «ютуб музыку», «Spotify».</summary>
+    public const string ServicePattern =
+        @"янд\w*[\s.\-]*музык\w*|yandex[\s.\-]*music\w*|(?:ютуб|ютюб|youtube)[\s.\-]*(?:musi[ck]\w*|музык\w*)|спотиф\w*|spotify";
+
+    /// <summary>Итог команды «включи музыку»: заиграла ли музыка на самом деле (по медиапульту Windows) и что именно.</summary>
+    public sealed record MusicResult(bool Playing, string Message);
 
     private static MusicService ServiceOf(string spoken) =>
         spoken.Contains("янд", StringComparison.OrdinalIgnoreCase) || spoken.Contains("yandex", StringComparison.OrdinalIgnoreCase) ? Yandex
@@ -127,13 +134,41 @@ public static class AppAutomation
     /// Включить музыку: открыть сервис (программу или сайт), дождаться окна и нажать «Моя волна» / «Воспроизвести»;
     /// с запросом — найти и включить исполнителя или трек. Долго (до ~25 секунд), поэтому выполняется в фоне.
     /// </summary>
-    public static Task<string> PlayMusicAsync(string spokenService, string? query) => Task.Run(() =>
+    public static Task<MusicResult> PlayMusicAsync(string spokenService, string? query) => Task.Run(() =>
     {
         MusicService svc = ServiceOf(spokenService);
-        string result = PlayMusic(svc, string.IsNullOrWhiteSpace(query) ? null : query.Trim());
-        App.LogVoice($"  музыка [{svc.Name}] «{query}» → {result}");
+        query = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
+        MediaInfo? before = App.Media.Current;
+        string steps = PlayMusic(svc, query);
+        MusicResult result = Verify(before, query, steps);
+        App.LogVoice($"  музыка [{svc.Name}] «{query}» → {steps} → {(result.Playing ? "ИГРАЕТ" : "не играет")}: {result.Message}");
         return result;
     });
+
+    /// <summary>
+    /// Не верим кнопкам на слово: до 8 секунд смотрим в медиапульт Windows. Заиграло (новый трек или с паузы) — успех,
+    /// и говорим, что именно играет. Нет — честно сообщаем, что не вышло, и на каком шаге.
+    /// </summary>
+    private static MusicResult Verify(MediaInfo? before, string? query, string steps)
+    {
+        string[] words = (query ?? "").ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => w.Length >= 3).ToArray();
+        MediaInfo? now = null;
+        for (int i = 0; i < 16; i++)
+        {
+            Thread.Sleep(500);
+            now = App.Media.Current;
+            if (now is not { IsPlaying: true }) continue;
+            bool changed = before is not { IsPlaying: true } || before.Title != now.Title;
+            bool matches = words.Length == 0 || words.Any(w => (now.Title + " " + now.Artist).ToLowerInvariant().Contains(w));
+            if (changed && matches) break;
+            if (changed && i >= 8) break; // заиграло что-то другое — тоже итог
+        }
+        if (now is not { IsPlaying: true })
+            return new MusicResult(false, $"музыка не заиграла. {steps}");
+        string track = now.Artist.Length > 0 ? $"{now.Artist}, {now.Title}" : now.Title;
+        bool asked = words.Length == 0 || words.Any(w => (now.Title + " " + now.Artist).ToLowerInvariant().Contains(w));
+        return new MusicResult(true, asked ? $"Играет {track}." : $"Играет {track}, но это не похоже на «{query}».");
+    }
 
     private static string PlayMusic(MusicService svc, string? query)
     {

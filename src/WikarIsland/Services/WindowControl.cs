@@ -146,10 +146,14 @@ public static class WindowControl
 
     private static List<IntPtr> _lastMinimized = new();
 
-    /// <summary>Вернуть окна, свёрнутые командой «сверни всё».</summary>
+    /// <summary>
+    /// Вернуть окна: свёрнутые командой «сверни всё», а если такой команды не было — все свёрнутые на панели задач.
+    /// </summary>
     public static int RestoreAll()
     {
         int n = 0;
+        if (_lastMinimized.Count == 0)
+            _lastMinimized = All().Where(w => IsIconic(w.Handle)).Select(w => w.Handle).ToList();
         foreach (IntPtr h in _lastMinimized)
         {
             if (!IsWindow(h) || !IsIconic(h)) continue;
@@ -158,6 +162,22 @@ public static class WindowControl
         }
         _lastMinimized = new List<IntPtr>();
         return n;
+    }
+
+    /// <summary>Что на панели задач — для ответа голосом и для ИИ: «Открыто: Discord, Chrome (свёрнут), Valheim».</summary>
+    public static string Describe()
+    {
+        var names = new List<string>();
+        foreach (IGrouping<int, OpenWindow> g in All().GroupBy(w => w.ProcessId))
+        {
+            OpenWindow w = g.First();
+            string name = w.ProcessName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase) ? w.Title
+                : w.Product.Length > 0 ? w.Product : w.ProcessName;
+            if (name.Length > 40) name = name[..40];
+            names.Add(g.All(x => IsIconic(x.Handle)) ? name + " (свёрнуто)" : name);
+        }
+        names = names.Distinct().ToList();
+        return names.Count == 0 ? "На панели задач ничего не открыто, сэр." : "Открыто: " + string.Join(", ", names) + ".";
     }
 
     public static void MinimizeForeground()

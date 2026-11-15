@@ -79,7 +79,8 @@ public sealed partial class VoiceService : IDisposable
     public static string ModelPath => Path.Combine(AppContext.BaseDirectory, "vosk", "model");
     public static bool ModelAvailable => Directory.Exists(ModelPath);
 
-    [GeneratedRegex(@"к[ао][пб]\s?сул\w*")]
+    // Капсулка, Капсуль, Капсула, Капс; Whisper иногда пишет по-английски — Capsule, Kapsulka, Kapsel
+    [GeneratedRegex(@"к[ао][пб]\s?сул\w*|\bкапс\b|\bcapsul\w*|\bkapsul\w*|\bkapsel\w*", RegexOptions.IgnoreCase)]
     private static partial Regex WakeWord();
 
     // ---------- включение ----------
@@ -411,6 +412,12 @@ public sealed partial class VoiceService : IDisposable
 
         string command = AfterWake(text);
         if (command.Length < 2) return; // сказали только «Капсулка» или шум — ждём команду дальше
+        // в режиме разговора при играющей музыке без имени не слушаем — это слова песни
+        if (_followUp && App.Media.Current?.IsPlaying == true && !WakeWord().IsMatch(text))
+        {
+            App.LogVoice($"Пропущено (играет музыка, без имени): «{text}»");
+            return;
+        }
         DispatchHeard(command, audio);
     }
 
@@ -574,9 +581,12 @@ public sealed partial class VoiceService : IDisposable
         if (State != VoiceState.Off) BeginCommand(chime: true, seconds: 8);
     }
 
+    private bool _followUp;
+
     private void BeginCommand(bool chime, int seconds)
     {
         _command = true;
+        _followUp = !chime; // без звонка — это режим разговора после команды, а не «Капсулка»/горячая клавиша
         _heardSomething = false;
         _commandUntil = DateTime.Now.AddSeconds(seconds);
         if (chime) Chime.Play();
@@ -639,10 +649,16 @@ public sealed partial class VoiceService : IDisposable
             _deaf = false;
 
             // ждём ответа («да» на подтверждение) или продолжения разговора — без слова «Капсулка»
-            if (reply.ExpectReply) BeginCommand(chime: false, seconds: 8);
+            if (reply.ExpectReply)
+            {
+                BeginCommand(chime: false, seconds: 8);
+                _followUp = false; // ждём именно ответа «да/нет» — слушаем даже при музыке
+            }
             // режим разговора: после любой команды ещё 10 секунд слушаем следующую без слова «Капсулка»;
             // окно продлевается после каждой команды, «спасибо» или «хватит» его закрывают
-            else if (App.Settings.VoiceFollowUp && !reply.EndTalk) BeginCommand(chime: false, seconds: FollowUpSeconds);
+            // пока играет музыка — не слушаем без имени: слова песни из колонок иначе становятся «командами»
+            else if (App.Settings.VoiceFollowUp && !reply.EndTalk && App.Media.Current?.IsPlaying != true)
+                BeginCommand(chime: false, seconds: FollowUpSeconds);
             else Set(VoiceState.Waiting, "");
         });
     }

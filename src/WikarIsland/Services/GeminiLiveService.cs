@@ -461,7 +461,7 @@ public sealed class GeminiLiveService : IDisposable
                     try
                     {
                         // инструменты трогают окна WPF — выполняем в потоке интерфейса
-                        result = await _ui.InvokeAsync(() => App.Assistant.RunLiveTool(name, (JsonObject)args.DeepClone()));
+                        result = await await _ui.InvokeAsync(() => App.Assistant.RunLiveToolAsync(name, (JsonObject)args.DeepClone()));
                     }
                     catch (Exception ex)
                     {

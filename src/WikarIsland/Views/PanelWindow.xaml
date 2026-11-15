@@ -1037,7 +1037,7 @@
                     <CheckBox x:Name="VoiceEnabledBox" Content="Слушать слово «Капсулка»" Style="{StaticResource SettingsCheck}" Click="Voice_Changed"/>
                     <TextBlock x:Name="VoiceStatus" Style="{StaticResource Hint}" Margin="24,0,0,6"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
-                               Text="Скажи «Капсулка, …»: открой браузер, найди на ютубе…, запусти Valheim, громкость 30, следующий трек, включи VPN, таймер на 10 минут, напомни через час…, какая погода, температура видеокарты, выключи компьютер. Всё остальное — разговор с ИИ. Клик по капсуле — замолчать."/>
+                               Text="Скажи «Капсулка, …» (или Капсуль, Капсула, Капс): открой браузер, найди на ютубе…, запусти Valheim, громкость 30, следующий трек, включи VPN, таймер на 10 минут, напомни через час…, какая погода, температура видеокарты, выключи компьютер. Всё остальное — разговор с ИИ. Клик по капсуле — замолчать."/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <TextBlock Text="Говорить без слова:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox x:Name="VoiceHotkeyBox" Width="150" Padding="8,5" FontSize="13" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"/>

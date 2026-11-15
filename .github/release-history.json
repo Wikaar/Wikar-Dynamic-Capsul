@@ -153,5 +153,10 @@
   "version": "0.17.0",
   "sha": "cbcd42f6aed6092dfdf6099e7dd5385c3d9647d6",
   "title": "FPS в играх и загрузки из всех источников"
+ },
+ {
+  "version": "0.17.1",
+  "sha": "777a64499226bebbdbd14c8075becbe8d59a1c9f",
+  "title": "Ложная загрузка Steam при закрытом Steam"
  }
 ]

@@ -135,6 +135,13 @@ public static class AppIndex
         return (best, bestScore);
     }
 
+    /// <summary>Похожесть названия на запрос 0..1 (то же сравнение, что при запуске).</summary>
+    public static double Similarity(string query, string name)
+    {
+        string q = Fold(query);
+        return q.Length < 2 ? 0 : Score(q, Fold(name));
+    }
+
     private static double Score(string q, string name)
     {
         if (name.Length == 0) return 0;

@@ -314,6 +314,53 @@ public sealed class AssistantService
             return new AssistantReply("", Silent: true);
         }
 
+        // --- окна: свернуть, развернуть, закрыть программы и игры ---
+        if (Regex.IsMatch(t, @"^((сверни|спрячь|убери) все( окна| программы| игры| приложения)?|покажи рабочий стол|рабочий стол)$"))
+        {
+            int n = WindowControl.MinimizeAll();
+            return new AssistantReply(n == 0 ? "Всё уже свёрнуто." : "", Silent: true);
+        }
+        if (Regex.IsMatch(t, @"^(разверни|верни|покажи|восстанови) все( окна| программы| игры| приложения)?( обратно)?$|^верни окна$"))
+        {
+            int n = WindowControl.RestoreAll();
+            return new AssistantReply(n == 0 ? "Нечего возвращать, сэр." : "", Silent: true);
+        }
+        if (Regex.IsMatch(t, @"^(сверни|спрячь)( это| окно| это окно| игру| программу| приложение)?$"))
+        {
+            WindowControl.MinimizeForeground();
+            return new AssistantReply("", Silent: true);
+        }
+        if ((m = Regex.Match(t, @"^(?:сверни|спрячь)\s+(?:игру\s+|программу\s+|приложение\s+|окно\s+)?(.+)$")).Success)
+        {
+            string name = m.Groups[1].Value.Trim();
+            List<OpenWindow> found = WindowControl.Find(NameVariants(name), out _);
+            if (found.Count == 0) return new AssistantReply($"Не вижу открытого «{name}».", Silent: true);
+            WindowControl.Minimize(found);
+            return new AssistantReply("", Silent: true);
+        }
+        if ((m = Regex.Match(t, @"^(?:разверни|переключись на|переключи на|перейди в|покажи окно|вернись в)\s+(?:игру\s+|программу\s+|приложение\s+|окно\s+)?(.+)$")).Success)
+        {
+            string name = m.Groups[1].Value.Trim();
+            List<OpenWindow> found = WindowControl.Find(NameVariants(name), out _);
+            if (found.Count == 0) return new AssistantReply($"Не вижу открытого «{name}».", Silent: true);
+            WindowControl.Restore(found);
+            return new AssistantReply("", Silent: true);
+        }
+        if ((m = Regex.Match(t, @"^(закрой|закрыть|выключи|выруби|заверши|выйди из|убей|останови)\s+(принудительно\s+)?(?:игру\s+|программу\s+|приложение\s+)?(.+?)(\s+принудительно)?$")).Success)
+        {
+            string verb = m.Groups[1].Value;
+            string name = m.Groups[3].Value.Trim();
+            bool force = verb == "убей" || m.Groups[2].Success || m.Groups[4].Success;
+            List<OpenWindow> found = WindowControl.Find(NameVariants(name), out string shown);
+            if (found.Count > 0)
+            {
+                WindowControl.Close(found, force);
+                return new AssistantReply($"Закрываю {shown}.", Silent: true);
+            }
+            if (verb is "закрой" or "закрыть" or "убей" || !AiConfigured) return new AssistantReply($"Не вижу открытого «{name}».", Silent: true);
+            return null; // «выключи …» — может, это не программа; пусть решит ИИ
+        }
+
         // --- запуск программ, игр и сайтов ---
         if ((m = Regex.Match(t, @"^(?:открой|запусти|включи|поиграем в|давай поиграем в|хочу поиграть в)\s+(?:игру\s+|программу\s+|сайт\s+)?(.+)$")).Success)
         {
@@ -344,6 +391,23 @@ public sealed class AssistantService
         }
 
         return null;
+    }
+
+    /// <summary>Как ещё может называться программа: русское сокращение и название из списка игр и программ.</summary>
+    private static List<string> NameVariants(string name)
+    {
+        var list = new List<string> { name };
+        string query = name;
+        if (Aliases.TryGetValue(name, out string? alias) && alias.Length > 0 && !alias.Contains(':'))
+        {
+            query = alias.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || alias.EndsWith(".msc", StringComparison.OrdinalIgnoreCase)
+                ? alias[..^4]
+                : alias;
+            list.Add(query);
+        }
+        (AppEntry? entry, double score) = AppIndex.Find(query);
+        if (entry != null && score >= 0.7) list.Add(entry.Name);
+        return list;
     }
 
     private AssistantReply Confirm(string question, Func<string> action)
@@ -442,6 +506,14 @@ public sealed class AssistantService
         {
             Fn("open_app", "Запустить игру, программу или ярлык по названию (точное название из списка игр, если подходит).",
                 new JsonObject { ["name"] = Str("Название игры или программы") }, "name"),
+            Fn("close_app", "Закрыть открытую программу или игру по названию.",
+                new JsonObject { ["name"] = Str("Название программы или игры"), ["force"] = Bool("Завершить принудительно, если не закрывается") }, "name"),
+            Fn("window", "Свернуть или развернуть окна программ и игр.",
+                new JsonObject
+                {
+                    ["action"] = Enum("Действие", "minimize", "restore", "minimize_all", "restore_all"),
+                    ["name"] = Str("Название программы или игры (для minimize и restore; пусто — активное окно)"),
+                }, "action"),
             Fn("open_url", "Открыть сайт в браузере.", new JsonObject { ["url"] = Str("Полный адрес https://…") }, "url"),
             Fn("web_search", "Поиск в интернете или на YouTube.",
                 new JsonObject { ["query"] = Str("Запрос"), ["site"] = Enum("Где искать", "google", "youtube") }, "query"),
@@ -484,6 +556,29 @@ public sealed class AssistantService
                 if (e == null || score < 0.55) return $"Не найдено: {S("name")}";
                 e.Launch();
                 return $"Запущено: {e.Name}";
+            }
+            case "close_app":
+            {
+                List<OpenWindow> found = WindowControl.Find(NameVariants(S("name")), out string shown);
+                if (found.Count == 0) return $"Не открыто: {S("name")}";
+                WindowControl.Close(found, B("force"));
+                return $"Закрыто: {shown}";
+            }
+            case "window":
+            {
+                string action = S("action");
+                if (action == "minimize_all") return $"Свёрнуто окон: {WindowControl.MinimizeAll()}";
+                if (action == "restore_all") return $"Возвращено окон: {WindowControl.RestoreAll()}";
+                if (S("name").Length == 0)
+                {
+                    if (action == "minimize") WindowControl.MinimizeForeground();
+                    return "Готово";
+                }
+                List<OpenWindow> found = WindowControl.Find(NameVariants(S("name")), out string shown);
+                if (found.Count == 0) return $"Не открыто: {S("name")}";
+                if (action == "restore") WindowControl.Restore(found);
+                else WindowControl.Minimize(found);
+                return $"Готово: {shown}";
             }
             case "open_url":
                 string url = S("url");

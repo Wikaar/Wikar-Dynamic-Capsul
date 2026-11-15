@@ -2660,7 +2660,8 @@ public partial class PanelWindow : Window
         {
             VoiceState.Off when App.Settings.VoiceEnabled => "Запускаю распознавание…",
             VoiceState.Off => "Выключено. Микрофон не используется.",
-            _ => $"Слушаю микрофон. Скажи «Капсулка» или нажми {App.Settings.VoiceHotkey}.",
+            _ => $"Слушаю микрофон. Скажи «Капсулка» или нажми {App.Settings.VoiceHotkey}."
+                 + (CloudStt.Available ? " Команды распознаёт Whisper (Groq)." : " Команды распознаются офлайн — с ключом Groq будет точнее."),
         });
     }
 

@@ -48,6 +48,8 @@ public sealed partial class VoiceService : IDisposable
     private volatile bool _lost;     // Windows отключила микрофон (0x88890004 и т. п.)
     private int _reconnecting;
     private System.Threading.Timer? _watch;
+    private readonly MemoryStream _utterance = new(); // звук текущей фразы (16 кГц моно) — для онлайн-распознавания
+    private const int MaxUtteranceBytes = SampleRate * 2 * 20;
 
     public VoiceState State { get; private set; } = VoiceState.Off;
 
@@ -64,7 +66,7 @@ public sealed partial class VoiceService : IDisposable
     public static string ModelPath => Path.Combine(AppContext.BaseDirectory, "vosk", "model");
     public static bool ModelAvailable => Directory.Exists(ModelPath);
 
-    [GeneratedRegex(@"кап\s?сул\w*")]
+    [GeneratedRegex(@"к[ао][пб]\s?сул\w*")]
     private static partial Regex WakeWord();
 
     // ---------- включение ----------
@@ -304,15 +306,30 @@ public sealed partial class VoiceService : IDisposable
     private void Recognize(int bytes)
     {
         string? final = null, partial = null;
+        byte[] audio = Array.Empty<byte>();
         lock (_lock)
         {
             if (_recognizer == null) return;
-            if (_recognizer.AcceptWaveform(_pcm, bytes)) final = TextOf(_recognizer.Result(), "text");
+            if (_utterance.Length + bytes > MaxUtteranceBytes)
+            {
+                // слишком длинная фраза — оставляем последние 10 секунд
+                byte[] all = _utterance.ToArray();
+                int keep = MaxUtteranceBytes / 2;
+                _utterance.SetLength(0);
+                _utterance.Write(all, all.Length - keep, keep);
+            }
+            _utterance.Write(_pcm, 0, bytes);
+            if (_recognizer.AcceptWaveform(_pcm, bytes))
+            {
+                final = TextOf(_recognizer.Result(), "text");
+                audio = _utterance.ToArray();
+                _utterance.SetLength(0);
+            }
             else partial = TextOf(_recognizer.PartialResult(), "partial");
         }
 
         if (partial != null) OnPartial(partial);
-        if (final != null) OnFinal(final);
+        if (final != null) OnFinal(final, audio);
     }
 
     private static string TextOf(string json, string key)
@@ -341,20 +358,49 @@ public sealed partial class VoiceService : IDisposable
         Set(VoiceState.Listening, shown);
     }
 
-    private void OnFinal(string text)
+    private void OnFinal(string text, byte[] audio)
     {
         if (!_command)
         {
             if (!WakeWord().IsMatch(text)) return;
             string rest = AfterWake(text);
-            if (rest.Length > 0) Dispatch(rest);
+            if (rest.Length > 0) DispatchHeard(rest, audio);
             else BeginCommand(chime: true, seconds: 8);
             return;
         }
 
         string command = AfterWake(text);
         if (command.Length == 0) return; // сказали только «Капсулка» — ждём команду дальше
-        Dispatch(command);
+        DispatchHeard(command, audio);
+    }
+
+    /// <summary>
+    /// Фраза закончилась. Если есть ключ Groq — переспрашиваем её у Whisper (он знает названия программ),
+    /// офлайн-текст Vosk остаётся запасным, если сеть подвела.
+    /// </summary>
+    private void DispatchHeard(string voskCommand, byte[] audio)
+    {
+        if (!CloudStt.Available)
+        {
+            Dispatch(voskCommand);
+            return;
+        }
+        _command = false;
+        _deaf = true;
+        ResetRecognizer();
+        Set(VoiceState.Thinking, voskCommand);
+        Task.Run(async () =>
+        {
+            string command = voskCommand;
+            string? heard = await CloudStt.TranscribeAsync(audio);
+            if (heard != null)
+            {
+                string fromCloud = AfterWake(heard.ToLowerInvariant());
+                if (fromCloud.Length > 0) command = fromCloud;
+            }
+            if (State == VoiceState.Off) return;
+            Dispatch(command);
+        });
     }
 
     /// <summary>Всё, что после слова «Капсулка» (если слова нет — весь текст).</summary>
@@ -363,7 +409,7 @@ public sealed partial class VoiceService : IDisposable
         Match m = WakeWord().Match(text);
         string rest = m.Success ? text[(m.Index + m.Length)..] : text;
         rest = Regex.Replace(rest, @"^\s*ка\b", ""); // «капсул ка»
-        return rest.Trim();
+        return rest.Trim().Trim(',', '.', '!', '?', ':', ';', '—', '-', '…', ' ');
     }
 
     private void BeginCommand(bool chime, int seconds)
@@ -380,6 +426,7 @@ public sealed partial class VoiceService : IDisposable
         lock (_lock)
         {
             _recognizer?.Reset();
+            _utterance.SetLength(0);
         }
     }
 

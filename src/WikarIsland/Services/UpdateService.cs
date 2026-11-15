@@ -86,7 +86,7 @@ public sealed class UpdateService
         Changed?.Invoke();
         try
         {
-            string work = Path.Combine(Path.GetTempPath(), "WikarIslandUpdate");
+            string work = WorkDir;
             if (Directory.Exists(work)) Directory.Delete(work, true);
             string extract = Path.Combine(work, "files");
             Directory.CreateDirectory(extract);
@@ -124,25 +124,14 @@ public sealed class UpdateService
             if (!CanWrite(target) && !SystemMonitorService.IsAdmin)
                 throw new UnauthorizedAccessException($"Нет прав на запись в {target}. Перезапусти остров от администратора и обнови снова.");
 
-            // скрипт ждёт выхода острова, копирует файлы поверх и запускает новую версию
-            string script = Path.Combine(work, "update.cmd");
-            string log = Path.Combine(AppSettings.DataDir, "update.log");
-            var sb = new StringBuilder();
-            sb.AppendLine("@echo off");
-            sb.AppendLine("chcp 65001 >nul");
-            sb.AppendLine($":wait");
-            sb.AppendLine($"tasklist /FI \"PID eq {Environment.ProcessId}\" | find \"{Environment.ProcessId}\" >nul && (timeout /t 1 /nobreak >nul & goto wait)");
-            sb.AppendLine("taskkill /F /IM xray.exe >nul 2>&1");
-            sb.AppendLine($"robocopy \"{extract}\" \"{target}\" /E /R:10 /W:1 /NP /NFL /NDL > \"{log}\"");
-            sb.AppendLine($"start \"\" \"{Path.Combine(target, "WikarIsland.exe")}\"");
-            File.WriteAllText(script, sb.ToString(), new UTF8Encoding(false));
-
+            // Новая версия сама заменяет старую: ждёт, пока этот процесс закроется, копирует свои файлы
+            // в папку острова и запускает её. Никаких скриптов — их антивирусы принимают за загрузчики вирусов.
             progress.Report("Перезапускаю…");
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{script}\"")
+            Process.Start(new ProcessStartInfo(Path.Combine(extract, "WikarIsland.exe"),
+                $"--apply-update \"{target}\" --update-from {Environment.ProcessId}")
             {
-                CreateNoWindow = true,
                 UseShellExecute = false,
-                WorkingDirectory = work,
+                WorkingDirectory = extract,
             });
             App.Quit();
         }
@@ -150,6 +139,123 @@ public sealed class UpdateService
         {
             IsBusy = false;
             Changed?.Invoke();
+        }
+    }
+
+    private static string WorkDir => Path.Combine(Path.GetTempPath(), "WikarIslandUpdate");
+
+    /// <summary>
+    /// Запуск с --apply-update: это распакованная новая версия. Ждём закрытия старой, копируем файлы,
+    /// запускаем остров из его папки. Возвращает true, если это был такой запуск.
+    /// </summary>
+    public static bool TryApplyUpdate(string[] args)
+    {
+        int i = Array.IndexOf(args, "--apply-update");
+        if (i < 0 || i + 1 >= args.Length) return false;
+        string target = args[i + 1].TrimEnd('\\');
+        string source = AppContext.BaseDirectory.TrimEnd('\\');
+        string log = Path.Combine(AppSettings.DataDir, "update.log");
+        var report = new StringBuilder($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source} -> {target}\n");
+
+        try
+        {
+            int p = Array.IndexOf(args, "--update-from");
+            if (p >= 0 && p + 1 < args.Length && int.TryParse(args[p + 1], out int pid))
+            {
+                try
+                {
+                    using Process old = Process.GetProcessById(pid);
+                    old.WaitForExit(30000);
+                }
+                catch
+                {
+                    // уже закрылся
+                }
+            }
+
+            // ядро VPN из папки острова держит свои файлы — закрываем
+            foreach (Process x in Process.GetProcessesByName("xray"))
+            {
+                using (x)
+                {
+                    try
+                    {
+                        string? path = x.MainModule?.FileName;
+                        if (path == null || path.StartsWith(target, StringComparison.OrdinalIgnoreCase)) x.Kill();
+                    }
+                    catch
+                    {
+                        // нет доступа — не наш
+                    }
+                }
+            }
+
+            int copied = 0, failed = 0;
+            foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+            {
+                string dest = Path.Combine(target, Path.GetRelativePath(source, file));
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                bool ok = false;
+                for (int attempt = 0; attempt < 20 && !ok; attempt++)
+                {
+                    try
+                    {
+                        File.Copy(file, dest, overwrite: true);
+                        ok = true;
+                    }
+                    catch (IOException) when (attempt < 19)
+                    {
+                        System.Threading.Thread.Sleep(500); // файл ещё занят закрывающимся островом
+                    }
+                    catch (Exception ex)
+                    {
+                        report.AppendLine($"  ! {dest}: {ex.Message}");
+                        break;
+                    }
+                }
+                if (ok) copied++;
+                else failed++;
+            }
+            report.AppendLine($"  скопировано: {copied}, ошибок: {failed}");
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("  ошибка: " + ex);
+        }
+
+        try
+        {
+            Directory.CreateDirectory(AppSettings.DataDir);
+            File.WriteAllText(log, report.ToString());
+        }
+        catch
+        {
+            // без лога
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(Path.Combine(target, "WikarIsland.exe")) { UseShellExecute = true, WorkingDirectory = target });
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
+        return true;
+    }
+
+    /// <summary>После обновления убираем распакованную копию из временной папки.</summary>
+    public static void CleanupAfterUpdate()
+    {
+        try
+        {
+            if (!Directory.Exists(WorkDir)) return;
+            if (AppContext.BaseDirectory.StartsWith(WorkDir, StringComparison.OrdinalIgnoreCase)) return;
+            Directory.Delete(WorkDir, true);
+        }
+        catch
+        {
+            // копия ещё занята — уберём в следующий раз
         }
     }
 

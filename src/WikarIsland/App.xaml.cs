@@ -38,6 +38,13 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // распакованная новая версия: заменить файлы острова и запустить его
+        if (UpdateService.TryApplyUpdate(e.Args))
+        {
+            Shutdown();
+            return;
+        }
+
         // перезапуск (например, от администратора): ждём, пока старый экземпляр закроется
         int waitIndex = Array.IndexOf(e.Args, "--wait-for");
         if (waitIndex >= 0 && waitIndex + 1 < e.Args.Length && int.TryParse(e.Args[waitIndex + 1], out int oldPid))
@@ -133,6 +140,7 @@ public partial class App : Application
                 $"Нужна Windows 10 версии 1809 (сборка 17763) или новее, а здесь сборка {Environment.OSVersion.Version.Build}. Обнови Windows.");
 
         Settings = AppSettings.Load();
+        System.Threading.Tasks.Task.Run(UpdateService.CleanupAfterUpdate);
         if (Settings.AutoStart && !Settings.AutoStartElevated) AutoStart.Apply(true, false); // обновить путь, если exe переехал
 
         Media = new MediaService();

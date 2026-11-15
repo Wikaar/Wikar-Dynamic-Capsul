@@ -89,6 +89,7 @@ public sealed class AssistantService
     {
         string text = Regex.Replace(spoken.ToLowerInvariant().Replace('ё', 'е'), @"[^\w\s:,.\-]", " ").Trim();
         text = Regex.Replace(text, @"\s+", " ");
+        text = FixMishearing(text);
         if (text.Length == 0) return new AssistantReply("");
 
         // ответ на «вы уверены?»
@@ -380,8 +381,8 @@ public sealed class AssistantService
                 }
                 name = alias;
             }
-            (AppEntry? entry, double score) = AppIndex.Find(name);
-            if (entry != null && score >= 0.7)
+            AppEntry? entry = AppIndex.FindConfident(name);
+            if (entry != null)
             {
                 entry.Launch();
                 return new AssistantReply(entry.Kind is "Steam" or "Epic" ? $"Запускаю {entry.Name}. Приятной игры, сэр." : $"Открываю {entry.Name}.", Silent: true);
@@ -391,6 +392,29 @@ public sealed class AssistantService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Слова, которых нет в словаре офлайн-распознавания, приходят похожими русскими словами.
+    /// Здесь — частые ошибки для популярных программ; остальное ловит нечёткое сравнение с установленными программами.
+    /// </summary>
+    private static readonly (Regex pattern, string replacement)[] Mishearings =
+    {
+        (new Regex(@"\b(дискомфорт\w*|диско орд\w*|дис корд\w*|дискорт\w*|дискорд\w*|диск орд\w*)\b"), "дискорд"),
+        (new Regex(@"\b(телеграм\w*|теле грамм?\w*|телега\w*)\b"), "телеграм"),
+        (new Regex(@"\b(стиме|стима|стим)\b"), "стим"),
+        (new Regex(@"\b(спотифай\w*|споти фай)\b"), "спотифай"),
+        (new Regex(@"\b(вальхейм\w*|вал хейм\w*|вальгейм\w*|валхайм\w*|вальхалл\w*)\b"), "вальхейм"),
+        (new Regex(@"\b(майнкрафт\w*|мой крафт|майн крафт)\b"), "майнкрафт"),
+        (new Regex(@"\b(ютуб\w*|ю туб|ютюб\w*)\b"), "ютуб"),
+    };
+
+    private static string FixMishearing(string text)
+    {
+        // только в командах с программами: «открой/закрой/сверни …», чтобы не портить обычные вопросы к ИИ
+        if (!Regex.IsMatch(text, @"^(открой|запусти|включи|закрой|выключи|выйди из|заверши|убей|сверни|разверни|переключись на|покажи)\b")) return text;
+        foreach ((Regex pattern, string replacement) in Mishearings) text = pattern.Replace(text, replacement);
+        return text;
     }
 
     /// <summary>Как ещё может называться программа: русское сокращение и название из списка игр и программ.</summary>
@@ -405,8 +429,8 @@ public sealed class AssistantService
                 : alias;
             list.Add(query);
         }
-        (AppEntry? entry, double score) = AppIndex.Find(query);
-        if (entry != null && score >= 0.7) list.Add(entry.Name);
+        AppEntry? entry = AppIndex.FindConfident(query);
+        if (entry != null) list.Add(entry.Name);
         return list;
     }
 
@@ -465,6 +489,7 @@ public sealed class AssistantService
     private static string SystemPrompt()
     {
         string games = string.Join(", ", AppIndex.GameNames.Take(150));
+        string apps = string.Join(", ", AppIndex.Entries.Where(e => e.Kind is not ("Steam" or "Epic")).Select(e => e.Name).Take(150));
         return
             "Ты — Капсулка, голосовой ассистент на Windows-компьютере пользователя, в духе Джарвиса из «Железного человека»: " +
             "спокойный, вежливый, с лёгкой иронией, обращаешься к пользователю «сэр». " +
@@ -474,7 +499,10 @@ public sealed class AssistantService
             "Если просят что-то сделать на компьютере — вызывай подходящий инструмент, а потом коротко подтверди. " +
             "Выключение и перезагрузку без задержки делай только через инструмент power — он сам спросит подтверждение. " +
             $"Сейчас {DateTime.Now:dddd, d MMMM yyyy, HH:mm}. " +
-            (games.Length > 0 ? $"Установленные игры: {games}." : "");
+            (games.Length > 0 ? $"Установленные игры: {games}. " : "") +
+            (apps.Length > 0 ? $"Программы на компьютере: {apps}. " : "") +
+            "Распознавание часто путает названия программ с похожими словами (например, «дискомфорт» — это Discord): " +
+            "если слово похоже на программу из списка, считай, что имели в виду её.";
     }
 
     private static JsonArray Tools()
@@ -552,8 +580,13 @@ public sealed class AssistantService
         {
             case "open_app":
             {
-                (AppEntry? e, double score) = AppIndex.Find(S("name"));
-                if (e == null || score < 0.55) return $"Не найдено: {S("name")}";
+                AppEntry? e = AppIndex.FindConfident(S("name"));
+                if (e == null)
+                {
+                    (AppEntry? guess, double score) = AppIndex.Find(S("name"));
+                    if (guess == null || score < 0.55) return $"Не найдено: {S("name")}";
+                    e = guess;
+                }
                 e.Launch();
                 return $"Запущено: {e.Name}";
             }

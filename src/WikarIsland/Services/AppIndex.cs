@@ -135,6 +135,37 @@ public static class AppIndex
         return (best, bestScore);
     }
 
+    /// <summary>
+    /// Уверенный поиск для голоса. Офлайн-распознавание не знает многих названий и подставляет похожие слова
+    /// («дискомфорт» вместо «дискорд»), поэтому принимаем и не очень точное совпадение,
+    /// если оно заметно лучше всех остальных программ.
+    /// </summary>
+    public static AppEntry? FindConfident(string query)
+    {
+        string q = Fold(query);
+        if (q.Length < 2) return null;
+        AppEntry? best = null;
+        double bestScore = 0, second = 0;
+        foreach (AppEntry e in Entries)
+        {
+            double s = Score(q, Fold(e.Name)) + (e.Kind != "Пуск" ? 0.02 : 0);
+            if (s > bestScore)
+            {
+                second = bestScore;
+                bestScore = s;
+                best = e;
+            }
+            else if (s > second && !string.Equals(e.Name, best?.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                second = s;
+            }
+        }
+        if (best == null) return null;
+        if (bestScore >= 0.7) return best;
+        if (bestScore >= 0.58 && bestScore - second >= 0.1) return best;
+        return null;
+    }
+
     /// <summary>Похожесть названия на запрос 0..1 (то же сравнение, что при запуске).</summary>
     public static double Similarity(string query, string name)
     {
@@ -153,7 +184,12 @@ public static class AppIndex
         // «контр страйк» против «counterstrike2»: сравниваем и с началом названия той же длины
         string head = name.Length > q.Length ? name[..q.Length] : name;
         double prefix = 1 - (double)Levenshtein(q, head) / Math.Max(q.Length, head.Length);
-        return Math.Max(whole, prefix * 0.92);
+        double score = Math.Max(whole, prefix * 0.92);
+        // общее начало слова: распознавание обычно верно ловит начало и путает конец («дискомфорт» → «дискорд»)
+        int common = 0;
+        while (common < q.Length && common < name.Length && q[common] == name[common]) common++;
+        if (common >= 4) score = Math.Max(score, 0.5 + 0.3 * common / Math.Max(name.Length, 5));
+        return score;
     }
 
     /// <summary>Нижний регистр, транслит, только буквы и цифры, сглаживание похожих звуков.</summary>

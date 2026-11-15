@@ -1048,7 +1048,7 @@
                         <WrapPanel x:Name="VoicesPanel" VerticalAlignment="Center"/>
                         <Button Style="{StaticResource FlatButton}" Content="Прослушать" Click="VoiceTest_Click"/>
                     </StackPanel>
-                    <CheckBox x:Name="VoiceFollowUpBox" Content="После ответа ещё 6 секунд слушать продолжение без слова «Капсулка»"
+                    <CheckBox x:Name="VoiceFollowUpBox" Content="После каждой команды ещё 10 секунд слушать следующую без слова «Капсулка» («спасибо» или «хватит» — закончить)"
                               Style="{StaticResource SettingsCheck}" Click="Voice_Changed"/>
 
                     <TextBlock Text="Мозг для разговора (ИИ)" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"

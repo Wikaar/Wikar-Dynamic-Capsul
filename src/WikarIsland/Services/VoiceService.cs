@@ -50,6 +50,7 @@ public sealed partial class VoiceService : IDisposable
     private System.Threading.Timer? _watch;
     private readonly MemoryStream _utterance = new(); // звук текущей фразы (16 кГц моно) — для онлайн-распознавания
     private const int MaxUtteranceBytes = SampleRate * 2 * 20;
+    private const int FollowUpSeconds = 10;
 
     public VoiceState State { get; private set; } = VoiceState.Off;
 
@@ -370,7 +371,7 @@ public sealed partial class VoiceService : IDisposable
         }
 
         string command = AfterWake(text);
-        if (command.Length == 0) return; // сказали только «Капсулка» — ждём команду дальше
+        if (command.Length < 2) return; // сказали только «Капсулка» или шум — ждём команду дальше
         DispatchHeard(command, audio);
     }
 
@@ -466,7 +467,9 @@ public sealed partial class VoiceService : IDisposable
 
             // ждём ответа («да» на подтверждение) или продолжения разговора — без слова «Капсулка»
             if (reply.ExpectReply) BeginCommand(chime: false, seconds: 8);
-            else if (App.Settings.VoiceFollowUp && reply.Text.Length > 0 && !reply.Silent) BeginCommand(chime: false, seconds: 6);
+            // режим разговора: после любой команды ещё 10 секунд слушаем следующую без слова «Капсулка»;
+            // окно продлевается после каждой команды, «спасибо» или «хватит» его закрывают
+            else if (App.Settings.VoiceFollowUp && !reply.EndTalk) BeginCommand(chime: false, seconds: FollowUpSeconds);
             else Set(VoiceState.Waiting, "");
         });
     }

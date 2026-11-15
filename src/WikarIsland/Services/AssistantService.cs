@@ -17,7 +17,8 @@ namespace WikarIsland.Services;
 /// <param name="Text">Что сказать (пусто — промолчать).</param>
 /// <param name="ExpectReply">Ждём ответа без слова «Капсулка» (подтверждение).</param>
 /// <param name="Silent">Не ждать продолжения разговора («стоп», «спасибо»).</param>
-public sealed record AssistantReply(string Text, bool ExpectReply = false, bool Silent = false);
+/// <param name="EndTalk">Разговор окончен («спасибо», «хватит») — дальше снова ждём слово «Капсулка».</param>
+public sealed record AssistantReply(string Text, bool ExpectReply = false, bool Silent = false, bool EndTalk = false);
 
 public sealed record AiPreset(string Key, string Name, string BaseUrl, string Model, string KeyUrl);
 
@@ -121,10 +122,10 @@ public sealed class AssistantService
         string t = RuNumbers.Digitize(text);
         Match m;
 
-        if (Regex.IsMatch(t, @"^(стоп|хватит|замолчи|молчи|отмена|тихо|забудь)$"))
-            return new AssistantReply("", Silent: true);
-        if (Regex.IsMatch(t, @"^(спасибо|благодарю|спасибо большое)\b"))
-            return new AssistantReply("Всегда к вашим услугам, сэр.", Silent: true);
+        if (Regex.IsMatch(t, @"^(стоп|хватит|замолчи|молчи|отмена|тихо|забудь|отбой|все|все хватит|свободна|свободен)$"))
+            return new AssistantReply("", Silent: true, EndTalk: true);
+        if (Regex.IsMatch(t, @"^(спасибо|благодарю|спасибо большое|пока|до свидания|все спасибо)\b"))
+            return new AssistantReply("Всегда к вашим услугам, сэр.", Silent: true, EndTalk: true);
         if (Regex.IsMatch(t, @"^(привет|здравствуй|добрый (день|вечер)|доброе утро)\b") && t.Split(' ').Length <= 3)
             return new AssistantReply(Greeting());
 

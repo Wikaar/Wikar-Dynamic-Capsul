@@ -61,7 +61,10 @@ public sealed class AssistantService
         ["блокнот"] = "notepad.exe", ["калькулятор"] = "calc.exe", ["проводник"] = "explorer.exe",
         ["диспетчер задач"] = "taskmgr.exe", ["панель управления"] = "control.exe", ["параметры"] = "ms-settings:",
         ["настройки windows"] = "ms-settings:", ["командную строку"] = "cmd.exe", ["терминал"] = "wt.exe", ["пейнт"] = "mspaint.exe",
-        ["ведьмак"] = "Witcher", ["ведьмака"] = "Witcher", ["гта"] = "Grand Theft Auto", ["кс"] = "Counter-Strike",
+        ["ведьмак"] = "Witcher", ["ведьмака"] = "Witcher", ["гта"] = "Grand Theft Auto", ["кс"] = "Counter-Strike", ["кс 2"] = "Counter-Strike 2", ["кс2"] = "Counter-Strike 2", ["кс два"] = "Counter-Strike 2",
+        ["контру"] = "Counter-Strike", ["контра"] = "Counter-Strike", ["контр страйк"] = "Counter-Strike", ["каунтер страйк"] = "Counter-Strike",
+        ["каунтер страйк 2"] = "Counter-Strike 2", ["контр страйк 2"] = "Counter-Strike 2", ["cs2"] = "Counter-Strike 2", ["cs 2"] = "Counter-Strike 2",
+        ["ксго"] = "Counter-Strike", ["кс го"] = "Counter-Strike",
         ["контру"] = "Counter-Strike", ["контра"] = "Counter-Strike", ["варфейс"] = "Warface", ["танки"] = "World of Tanks",
         ["хром"] = "Chrome", ["браузер"] = "", // браузер открываем отдельно
         ["ножницы"] = "SnippingTool.exe", ["редактор реестра"] = "regedit.exe", ["реестр"] = "regedit.exe",
@@ -105,9 +108,11 @@ public sealed class AssistantService
             if (DateTime.Now <= _pendingUntil) return new AssistantReply("Отменил, сэр.", Silent: true);
         }
 
+        App.LogVoice($"Команда: «{spoken}»");
         AssistantReply? local = Local(text);
         if (local != null)
         {
+            App.LogVoice($"  быстрая команда → «{local.Text}»");
             // как Джарвис: молча выполненная команда получает короткое подтверждение
             if (local.Text.Length == 0 && !local.EndTalk && App.Settings.VoiceAcknowledge) return local with { Text = Ack() };
             return local;
@@ -323,6 +328,25 @@ public sealed class AssistantService
             return new AssistantReply("", Silent: true);
         }
 
+        // --- музыка: «включи Яндекс Музыку», «включи музыку в ютуб музыке», «поставь Linkin Park в Яндекс Музыке» ---
+        if (AppAutomation.IsMusicService(t))
+        {
+            const string S = @"(янд\w*\s?музык\w*|yandex\s?music\w*|(?:ютуб|ютюб|youtube)\s?(?:musi[ck]\w*|музык\w*)|спотиф\w*|spotify)";
+            Match music = Regex.Match(t, @"^(?:включи|поставь|запусти|играй|сыграй|давай)\s+(?:(?:мою волну|волну|музыку|музыка|что-нибудь|что нибудь|плейлист|радио)\s+)?(?:в|на|из|во)?\s*" + S + "$");
+            if (music.Success)
+            {
+                _ = AppAutomation.PlayMusicAsync(music.Groups[1].Value, null);
+                return new AssistantReply("Включаю музыку, сэр.", Silent: true);
+            }
+            music = Regex.Match(t, @"^(?:включи|поставь|запусти|найди|сыграй|играй)\s+(?:песню\s+|трек\s+|группу\s+|альбом\s+|исполнителя\s+)?(.+?)\s+(?:в|на|из|во)\s+" + S + "$");
+            if (music.Success)
+            {
+                string what = music.Groups[1].Value;
+                _ = AppAutomation.PlayMusicAsync(music.Groups[2].Value, what);
+                return new AssistantReply($"Ищу {what}, сэр.", Silent: true);
+            }
+        }
+
         // --- кнопки внутри программ: «нажми Играть в Battle.net», «включи Мою волну в Яндекс Музыке» ---
         if ((m = Regex.Match(t, @"^(?:нажми|кликни|щелкни|выбери|включи|поставь|запусти)\s+(?:кнопку\s+|пункт\s+)?(.+?)\s+(?:в|во|на)\s+(?:программе\s+|приложении\s+)?(.+)$")).Success)
         {
@@ -403,7 +427,10 @@ public sealed class AssistantService
                 }
                 name = alias;
             }
-            AppEntry? entry = AppIndex.FindConfident(name);
+            AppEntry? entry = AppIndex.FindConfident(name)
+                              ?? AppIndex.FindConfident(Regex.Replace(name, @"\bодин\b|\bдва\b|\bтри\b|\bчетыре\b|\bпять\b",
+                                  w => w.Value switch { "один" => "1", "два" => "2", "три" => "3", "четыре" => "4", _ => "5" }));
+            App.LogVoice($"  запуск «{name}» → {(entry == null ? "не найдено" : $"{entry.Name} [{entry.Kind}]")}");
             if (entry != null)
             {
                 entry.Launch();
@@ -542,6 +569,7 @@ public sealed class AssistantService
     /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса).</summary>
     public string RunLiveTool(string name, JsonObject args)
     {
+        App.LogVoice($"  Live → {name}({args.ToJsonString()})");
         if (name == "confirm_pending")
         {
             if (_pending == null || DateTime.Now > _pendingUntil) return "Нечего подтверждать";
@@ -875,6 +903,7 @@ public sealed class AssistantService
                         App.LogError(ex);
                         result = "Ошибка: " + ex.Message;
                     }
+                    App.LogVoice($"  ИИ → {fn}({args.ToJsonString()}) = {result[..Math.Min(result.Length, 400)]}");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = id, ["content"] = result });
                 }
             }
@@ -895,6 +924,7 @@ public sealed class AssistantService
         }
 
         answer = answer.Trim();
+        App.LogVoice($"  ИИ ответ: {answer[..Math.Min(answer.Length, 300)]}");
         splitter?.Flush();
         bool spoken2 = splitter?.Emitted == true;
         if (answer.Length == 0) answer = "Готово, сэр.";

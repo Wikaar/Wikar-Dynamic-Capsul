@@ -504,6 +504,30 @@ public partial class App : Application
         Settings.Save();
     }
 
+    /// <summary>
+    /// Журнал голосовых команд (voice.log): что услышали и что сделали. Нужен, чтобы понять, почему команда не сработала.
+    /// Держим не больше ~300 КБ — старое обрезается.
+    /// </summary>
+    public static void LogVoice(string line)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppSettings.DataDir);
+            string path = Path.Combine(AppSettings.DataDir, "voice.log");
+            var info = new FileInfo(path);
+            if (info.Exists && info.Length > 300_000)
+            {
+                string[] lines = File.ReadAllLines(path);
+                File.WriteAllLines(path, lines.Skip(lines.Length / 2));
+            }
+            File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {line}\n");
+        }
+        catch
+        {
+            // журнал не записался — не страшно
+        }
+    }
+
     public static void LogError(Exception ex)
     {
         try

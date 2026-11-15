@@ -97,6 +97,187 @@ public static class AppAutomation
         return $"Напечатано в {shown}: {text}";
     }
 
+    // ---------- музыка ----------
+
+    private sealed record MusicService(string Name, string[] Apps, string Web, string SearchUrl, string[] PlayWords, string[] StartTargets);
+
+    private static readonly MusicService Yandex = new("Яндекс Музыка", new[] { "Яндекс Музыка", "Yandex Music" },
+        "https://music.yandex.ru", "https://music.yandex.ru/search?text={0}",
+        new[] { "Воспроизвести", "Слушать", "Играть", "Play" }, new[] { "Моя волна", "Слушать", "Воспроизвести" });
+
+    private static readonly MusicService YouTubeMusic = new("YouTube Music", new[] { "YouTube Music" },
+        "https://music.youtube.com", "https://music.youtube.com/search?q={0}",
+        new[] { "Воспроизвести", "Слушать", "Play", "Перемешать", "Shuffle" }, new[] { "Мой джем", "My Supermix", "Перемешать", "Воспроизвести", "Play" });
+
+    private static readonly MusicService Spotify = new("Spotify", new[] { "Spotify" },
+        "https://open.spotify.com", "spotify:search:{0}",
+        new[] { "Воспроизвести", "Play" }, new[] { "Воспроизвести", "Play" });
+
+    /// <summary>«Яндекс Музыка», «ютуб музыка», «spotify» в любой форме → сервис.</summary>
+    public static bool IsMusicService(string spoken) =>
+        System.Text.RegularExpressions.Regex.IsMatch(spoken, @"янд\w*\s?музык|yandex\s?music|(ютуб|ютюб|youtube)\s?musi?[ck]|ютуб\s?музык|спотиф|spotify",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static MusicService ServiceOf(string spoken) =>
+        spoken.Contains("янд", StringComparison.OrdinalIgnoreCase) || spoken.Contains("yandex", StringComparison.OrdinalIgnoreCase) ? Yandex
+        : spoken.Contains("спот", StringComparison.OrdinalIgnoreCase) || spoken.Contains("spot", StringComparison.OrdinalIgnoreCase) ? Spotify
+        : YouTubeMusic;
+
+    /// <summary>
+    /// Включить музыку: открыть сервис (программу или сайт), дождаться окна и нажать «Моя волна» / «Воспроизвести»;
+    /// с запросом — найти и включить исполнителя или трек. Долго (до ~25 секунд), поэтому выполняется в фоне.
+    /// </summary>
+    public static Task<string> PlayMusicAsync(string spokenService, string? query) => Task.Run(() =>
+    {
+        MusicService svc = ServiceOf(spokenService);
+        string result = PlayMusic(svc, string.IsNullOrWhiteSpace(query) ? null : query.Trim());
+        App.LogVoice($"  музыка [{svc.Name}] «{query}» → {result}");
+        return result;
+    });
+
+    private static string PlayMusic(MusicService svc, string? query)
+    {
+        List<OpenWindow> windows = WindowControl.Find(svc.Apps, out _);
+        bool opened = windows.Count == 0;
+        if (opened)
+        {
+            AppEntry? app = svc.Apps.Select(AppIndex.FindConfident).FirstOrDefault(e => e != null);
+            if (app != null) app.Launch();
+            else AppIndex.OpenUri(query != null && !svc.SearchUrl.StartsWith("spotify:") ? string.Format(svc.SearchUrl, Uri.EscapeDataString(query)) : svc.Web);
+            for (int i = 0; i < 30 && windows.Count == 0; i++)
+            {
+                Thread.Sleep(500);
+                windows = WindowControl.Find(svc.Apps, out _);
+            }
+            if (windows.Count == 0) return $"{svc.Name} не открылась.";
+            Thread.Sleep(3500); // интерфейс Electron/сайта догружается после появления окна
+        }
+
+        if (query == null)
+        {
+            foreach (string target in svc.StartTargets)
+            {
+                string r = Click(svc.Apps[0], target);
+                if (IsDone(r)) return r;
+            }
+            SendCombo("playpause"); // последний трек — медиаклавишей
+            return "Нажал «воспроизведение» медиаклавишей.";
+        }
+
+        if (svc == Spotify)
+        {
+            AppIndex.OpenUri(string.Format(svc.SearchUrl, Uri.EscapeDataString(query)));
+            Thread.Sleep(2500);
+        }
+        else
+        {
+            string typed = TypeIntoSearch(svc.Apps[0], query);
+            if (typed.Length > 0) return typed;
+            Thread.Sleep(3000); // результаты поиска
+        }
+        return PlayFromResults(svc, query);
+    }
+
+    /// <summary>Мы уже в фоновом потоке и шаги сами по себе с ожиданиями — без общего таймаута, только перехват ошибок.</summary>
+    private static string? Safe(Func<string> work)
+    {
+        try
+        {
+            return work();
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            return "Окно программы изменилось по ходу: " + ex.Message;
+        }
+    }
+
+    private static bool IsDone(string r) => System.Text.RegularExpressions.Regex.IsMatch(r, "^(Нажато|Переключено|Выбрано|Открыто|Щёлкнул)");
+
+    /// <summary>Найти поле поиска в окне и ввести запрос. Пустая строка — получилось.</summary>
+    private static string TypeIntoSearch(string app, string query)
+    {
+        List<OpenWindow> windows = WindowControl.Find(AssistantService.NameVariants(app), out string shown);
+        if (windows.Count == 0) return $"{app} не открыта.";
+        WindowControl.Restore(windows);
+        Thread.Sleep(300);
+        string? error = Safe(() =>
+        {
+            AutomationElement? box = null;
+            foreach (OpenWindow w in windows)
+            {
+                AutomationElementCollection edits = AutomationElement.FromHandle(w.Handle).FindAll(TreeScope.Descendants,
+                    new OrCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
+                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)));
+                foreach (AutomationElement e in edits)
+                {
+                    string n = (e.Current.Name ?? "").ToLowerInvariant();
+                    if (n.Contains("поиск") || n.Contains("search") || n.Contains("найти") || n.Contains("искать")) { box = e; break; }
+                    box ??= e;
+                }
+                if (box != null) break;
+            }
+            if (box == null)
+            {
+                // кнопка-лупа, которая открывает поле
+                string r = Click(app, "Поиск");
+                if (!IsDone(r)) return $"Не нашёл поиск в {shown}.";
+                Thread.Sleep(600);
+            }
+            else
+            {
+                try
+                {
+                    box.SetFocus();
+                }
+                catch
+                {
+                    System.Windows.Rect rect = box.Current.BoundingRectangle;
+                    ClickAt((int)(rect.X + rect.Width / 2), (int)(rect.Y + rect.Height / 2));
+                }
+                Thread.Sleep(200);
+            }
+            SendCombo("ctrl+a");
+            foreach (char c in query) SendChar(c);
+            SendCombo("enter");
+            return "";
+        });
+        return error ?? $"{shown} не ответил вовремя.";
+    }
+
+    /// <summary>
+    /// В результатах поиска: кнопка «Воспроизвести …» рядом с найденным, иначе открыть найденное и нажать «Слушать»/«Воспроизвести».
+    /// Просто «Воспроизвести» без названия — это кнопка плеера (продолжит прошлый трек), её берём в последнюю очередь.
+    /// </summary>
+    private static string PlayFromResults(MusicService svc, string query)
+    {
+        List<OpenWindow> windows = WindowControl.Find(svc.Apps, out string shown);
+        if (windows.Count == 0) return $"{svc.Name} закрылась.";
+        string[] words = query.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => w.Length >= 3).ToArray();
+        string? r = Safe(() =>
+        {
+            List<(AutomationElement el, string name)> items = windows.SelectMany(w => Collect(AutomationElement.FromHandle(w.Handle))).ToList();
+            bool HasQuery(string n) => words.Length == 0 || words.Any(w => n.ToLowerInvariant().Contains(w));
+            bool HasPlay(string n) => svc.PlayWords.Any(p => n.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+            var direct = items.FirstOrDefault(i => HasPlay(i.name) && HasQuery(i.name) && i.name.Length > 14);
+            if (direct.el != null) return Press(direct.el, direct.name, shown);
+
+            var found = items.FirstOrDefault(i => HasQuery(i.name) && !HasPlay(i.name));
+            if (found.el == null)
+                return $"Не нашёл «{query}» в {shown}. Видно: {string.Join(", ", items.Select(i => i.name).Distinct().Take(30))}";
+            Press(found.el, found.name, shown);
+            Thread.Sleep(2500);
+            foreach (string play in svc.PlayWords)
+            {
+                string done = Click(svc.Apps[0], play);
+                if (IsDone(done)) return $"Открыл «{found.name}» и {done}";
+            }
+            return $"Открыл «{found.name}», но не нашёл кнопку воспроизведения.";
+        });
+        return r ?? $"{shown} не ответил вовремя.";
+    }
+
     // ---------- поиск элементов ----------
 
     private static List<(AutomationElement el, string name)> Collect(AutomationElement root)
@@ -204,7 +385,17 @@ public static class AppAutomation
     {
         // UI Automation в тяжёлых окнах (Electron) бывает медленным — не вешаем остров дольше 8 секунд
         Task<string> task = Task.Run(work);
-        return task.Wait(TimeSpan.FromSeconds(8)) ? task.Result : null;
+        // если не дождались — ошибку из фона всё равно «забираем», иначе она всплывёт в журнале как необработанная
+        task.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        try
+        {
+            return task.Wait(TimeSpan.FromSeconds(8)) ? task.Result : null;
+        }
+        catch (AggregateException ex)
+        {
+            App.LogError(ex.InnerException ?? ex);
+            return "Окно программы изменилось, пока я искал кнопку. Попробуйте ещё раз.";
+        }
     }
 
     // ---------- мышь и клавиатура ----------

@@ -18,7 +18,8 @@ namespace WikarIsland.Services;
 /// <param name="ExpectReply">Ждём ответа без слова «Капсулка» (подтверждение).</param>
 /// <param name="Silent">Не ждать продолжения разговора («стоп», «спасибо»).</param>
 /// <param name="EndTalk">Разговор окончен («спасибо», «хватит») — дальше снова ждём слово «Капсулка».</param>
-public sealed record AssistantReply(string Text, bool ExpectReply = false, bool Silent = false, bool EndTalk = false);
+/// <param name="Spoken">Ответ уже озвучен по ходу генерации (потоком) — повторно не говорить.</param>
+public sealed record AssistantReply(string Text, bool ExpectReply = false, bool Silent = false, bool EndTalk = false, bool Spoken = false);
 
 public sealed record AiPreset(string Key, string Name, string BaseUrl, string Model, string KeyUrl);
 
@@ -86,7 +87,8 @@ public sealed class AssistantService
     public static bool AiConfigured => App.Settings.AiBaseUrl.Length > 0 && App.Settings.AiModel.Length > 0
                                        && (App.Settings.AiKey.Length > 0 || App.Settings.AiPreset == "ollama");
 
-    public async Task<AssistantReply> HandleAsync(string spoken)
+    /// <param name="speak">Если задан — ответ ИИ отдаётся сюда по предложениям, пока ещё генерируется (голос начинает раньше).</param>
+    public async Task<AssistantReply> HandleAsync(string spoken, Action<string>? speak = null)
     {
         string text = Regex.Replace(spoken.ToLowerInvariant().Replace('ё', 'е'), @"[^\w\s:,.\-]", " ").Trim();
         text = Regex.Replace(text, @"\s+", " ");
@@ -111,7 +113,7 @@ public sealed class AssistantService
             return local;
         }
 
-        if (AiConfigured) return await AskAiAsync(spoken);
+        if (AiConfigured) return await AskAiAsync(spoken, speak);
 
         // мозг не подключён — задаём вопрос в веб-чате, где уже есть вход в аккаунт
         App.Panel.AskAi(App.Settings.CommandAi, spoken);
@@ -784,8 +786,9 @@ public sealed class AssistantService
 
     private bool _askedConfirmation;
 
-    private async Task<AssistantReply> AskAiAsync(string spoken)
+    private async Task<AssistantReply> AskAiAsync(string spoken, Action<string>? speak = null)
     {
+        var splitter = speak != null ? new SentenceSplitter(speak) : null;
         if ((DateTime.Now - _lastTalk).TotalMinutes > 5) _history.Clear();
         _lastTalk = DateTime.Now;
         _askedConfirmation = false;
@@ -800,7 +803,7 @@ public sealed class AssistantService
         {
             for (int step = 0; step < 4; step++)
             {
-                JsonObject message = await CompleteAsync(messages, tools: true);
+                JsonObject message = await CompleteAsync(messages, tools: true, onContent: splitter == null ? null : splitter.Push);
                 var calls = message["tool_calls"] as JsonArray;
                 if (calls == null || calls.Count == 0)
                 {
@@ -858,16 +861,71 @@ public sealed class AssistantService
         }
 
         answer = answer.Trim();
+        splitter?.Flush();
+        bool spoken2 = splitter?.Emitted == true;
         if (answer.Length == 0) answer = "Готово, сэр.";
         _history.Add(user);
         _history.Add(new JsonObject { ["role"] = "assistant", ["content"] = answer });
         while (_history.Count > 6) _history.RemoveAt(0);
-        return new AssistantReply(answer, ExpectReply: _askedConfirmation);
+        return new AssistantReply(answer, ExpectReply: _askedConfirmation, Spoken: spoken2);
+    }
+
+    /// <summary>Режет поток текста от ИИ на предложения: первое — как можно раньше, чтобы голос начал сразу.</summary>
+    private sealed class SentenceSplitter
+    {
+        private readonly Action<string> _out;
+        private readonly StringBuilder _buf = new();
+        public bool Emitted { get; private set; }
+
+        public SentenceSplitter(Action<string> output) => _out = output;
+
+        public void Push(string piece)
+        {
+            _buf.Append(piece);
+            while (true)
+            {
+                string text = _buf.ToString();
+                int min = Emitted ? 60 : 12; // первое предложение — сразу, дальше кусками побольше (меньше пауз между ними)
+                int cut = -1;
+                for (int i = min; i < text.Length - 1; i++)
+                {
+                    char c = text[i];
+                    if ((c is '.' or '!' or '?' or '…' or ';' || (c == ',' && i > 140)) && char.IsWhiteSpace(text[i + 1]))
+                    {
+                        cut = i + 1;
+                        break;
+                    }
+                    if (c == '\n')
+                    {
+                        cut = i + 1;
+                        break;
+                    }
+                }
+                if (cut < 0) return;
+                Emit(text[..cut]);
+                _buf.Remove(0, cut);
+            }
+        }
+
+        public void Flush()
+        {
+            Emit(_buf.ToString());
+            _buf.Clear();
+        }
+
+        private void Emit(string sentence)
+        {
+            sentence = sentence.Trim();
+            if (sentence.Length == 0) return;
+            Emitted = true;
+            _out(sentence);
+        }
     }
 
     private const string FallbackGroqModel = "openai/gpt-oss-20b";
 
-    private static async Task<JsonObject> CompleteAsync(JsonArray messages, bool tools, string? modelOverride = null, int attempt = 0)
+    private static async Task<JsonObject> CompleteAsync(JsonArray messages, bool tools, string? modelOverride = null, int attempt = 0,
+        Action<string>? onContent = null)
     {
         string model = modelOverride ?? App.Settings.AiModel;
         bool groq = App.Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase);
@@ -893,6 +951,7 @@ public sealed class AssistantService
             body["tools"] = Tools();
             body["tool_choice"] = "auto";
         }
+        if (onContent != null) body["stream"] = true; // ответ по кусочкам — голос начинает с первого предложения
 
         using var request = new HttpRequestMessage(HttpMethod.Post, App.Settings.AiBaseUrl.TrimEnd('/') + "/chat/completions")
         {
@@ -904,7 +963,8 @@ public sealed class AssistantService
         request.Headers.Add("HTTP-Referer", "https://github.com/Wikaar/Wikar-DynamicIsland"); // OpenRouter просит
         request.Headers.Add("X-Title", "Wikar Island");
 
-        using HttpResponseMessage response = await Http.SendAsync(request);
+        using HttpResponseMessage response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        if (response.IsSuccessStatusCode && onContent != null) return await ReadStreamAsync(response, onContent);
         string json = await response.Content.ReadAsStringAsync();
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt == 0)
         {
@@ -915,9 +975,9 @@ public sealed class AssistantService
             if (seconds <= 3)
             {
                 await Task.Delay(TimeSpan.FromSeconds(seconds + 0.2));
-                return await CompleteAsync(messages, tools, modelOverride, attempt + 1);
+                return await CompleteAsync(messages, tools, modelOverride, attempt + 1, onContent);
             }
-            if (groq && model != FallbackGroqModel) return await CompleteAsync(messages, tools, FallbackGroqModel, attempt + 1);
+            if (groq && model != FallbackGroqModel) return await CompleteAsync(messages, tools, FallbackGroqModel, attempt + 1, onContent);
         }
         if (!response.IsSuccessStatusCode)
         {
@@ -926,6 +986,64 @@ public sealed class AssistantService
         }
         JsonNode? root = JsonNode.Parse(json);
         return root?["choices"]?[0]?["message"] as JsonObject ?? new JsonObject { ["content"] = "" };
+    }
+
+    /// <summary>Server-Sent Events от OpenAI-совместимого API: собираем текст (отдавая его по кусочкам) и вызовы инструментов.</summary>
+    private static async Task<JsonObject> ReadStreamAsync(HttpResponseMessage response, Action<string> onContent)
+    {
+        var content = new StringBuilder();
+        var calls = new SortedDictionary<int, JsonObject>();
+        using var reader = new System.IO.StreamReader(await response.Content.ReadAsStreamAsync());
+        string? line;
+        while ((line = await reader.ReadLineAsync()) != null)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+            string data = line[5..].Trim();
+            if (data == "[DONE]") break;
+            JsonNode? chunk;
+            try
+            {
+                chunk = JsonNode.Parse(data);
+            }
+            catch
+            {
+                continue;
+            }
+            if (chunk?["choices"]?[0]?["delta"] is not JsonObject delta) continue;
+
+            if (delta["content"] is JsonValue cv && cv.TryGetValue(out string? piece) && piece.Length > 0)
+            {
+                content.Append(piece);
+                onContent(piece);
+            }
+            if (delta["tool_calls"] is not JsonArray toolCalls) continue;
+            foreach (JsonNode? item in toolCalls)
+            {
+                if (item == null) continue;
+                string id = item["id"]?.ToString() ?? "";
+                int index = item["index"] is JsonValue iv && iv.TryGetValue(out int ix) ? ix : calls.Count - 1;
+                // у некоторых API нет index: новый id — новый вызов
+                if (index < 0 || (id.Length > 0 && calls.TryGetValue(index, out JsonObject? same) && same["id"]?.ToString() is { Length: > 0 } old && old != id))
+                    index = calls.Count;
+                if (!calls.TryGetValue(index, out JsonObject? call))
+                {
+                    call = new JsonObject
+                    {
+                        ["id"] = "",
+                        ["type"] = "function",
+                        ["function"] = new JsonObject { ["name"] = "", ["arguments"] = "" },
+                    };
+                    calls[index] = call;
+                }
+                if (id.Length > 0) call["id"] = id;
+                JsonObject fn = (JsonObject)call["function"]!;
+                if (item["function"]?["name"]?.ToString() is { Length: > 0 } name) fn["name"] = fn["name"]!.ToString() + name;
+                if (item["function"]?["arguments"]?.ToString() is { Length: > 0 } args) fn["arguments"] = fn["arguments"]!.ToString() + args;
+            }
+        }
+        var message = new JsonObject { ["content"] = content.ToString() };
+        if (calls.Count > 0) message["tool_calls"] = new JsonArray(calls.Values.Select(c => (JsonNode)c).ToArray());
+        return message;
     }
 
     /// <summary>Кнопка «Проверить» в настройках.</summary>

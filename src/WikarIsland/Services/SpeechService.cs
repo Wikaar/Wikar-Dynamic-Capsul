@@ -7,6 +7,7 @@ using System.Net.WebSockets;
 using System.Security;
 using System.Text;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Windows.Media;
 
@@ -59,8 +60,7 @@ public sealed class SpeechService
     /// </summary>
     public async Task SpeakAsync(string text)
     {
-        text = SpeechText.Clean(text);
-        if (!IsMultilingual(App.Settings.VoiceName)) text = SpeechText.EnglishForRussianVoice(text);
+        text = Prepare(text);
         if (text.Length == 0) return;
         Stop();
         var cts = new CancellationTokenSource();
@@ -143,6 +143,68 @@ public sealed class SpeechService
         if (current.Length > 0) parts.Add(current.ToString());
         if (parts.Count == 0) parts.Add(text);
         return parts;
+    }
+
+    /// <summary>Подготовить фразу к озвучке: без знаков, которые голос читает вслух, английское — по-русски (для русских голосов).</summary>
+    public static string Prepare(string text)
+    {
+        text = SpeechText.Clean(text);
+        if (!IsMultilingual(App.Settings.VoiceName)) text = SpeechText.EnglishForRussianVoice(text);
+        return text;
+    }
+
+    /// <summary>
+    /// Озвучка ответа, который ещё генерируется: предложения приходят по одному. Пока звучит текущее,
+    /// следующее уже синтезируется — между ними почти нет пауз.
+    /// </summary>
+    public async Task SpeakStreamAsync(ChannelReader<string> sentences, Action<string>? onSentence = null)
+    {
+        Stop();
+        var cts = new CancellationTokenSource();
+        _cts = cts;
+        CancellationToken token = cts.Token;
+        bool started = false;
+
+        async Task<(string text, Task<byte[]?>? audio)?> TakeAsync()
+        {
+            while (await sentences.WaitToReadAsync(token))
+            {
+                if (!sentences.TryRead(out string? raw)) continue;
+                string text = Prepare(raw);
+                if (text.Length == 0) continue;
+                Task<byte[]?>? audio = DateTime.Now >= _edgeDownUntil ? TrySynthesizeAsync(text, token) : null;
+                return (text, audio);
+            }
+            return null;
+        }
+
+        try
+        {
+            (string text, Task<byte[]?>? audio)? current = await TakeAsync();
+            while (current is { } item && !token.IsCancellationRequested)
+            {
+                if (!started)
+                {
+                    started = true;
+                    SetSpeaking(true);
+                }
+                onSentence?.Invoke(item.text);
+                byte[]? mp3 = item.audio != null ? await item.audio : null;
+                if (token.IsCancellationRequested) return;
+                Task<(string text, Task<byte[]?>? audio)?> next = TakeAsync(); // следующее готовится, пока играет это
+                if (mp3 is { Length: > 0 }) await PlayAsync(mp3, token);
+                else await SpeakWindowsAsync(item.text, token);
+                current = await next;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // перебили
+        }
+        finally
+        {
+            if (_cts == cts && started) SetSpeaking(false);
+        }
     }
 
     public void Stop()

@@ -50,6 +50,12 @@ public static partial class SpeechText
         s = Regex.Replace(s, @"```.*?```", " ", RegexOptions.Singleline); // код не читаем
         s = Regex.Replace(s, @"[\p{So}\p{Cs}]", "");                      // эмодзи
         s = Regex.Replace(s, @"(\d)\s*°\s*[CС]\b", "$1 градусов");
+        s = Regex.Replace(s, @"\bкм\s*/\s*ч\b", "километров в час");
+        s = Regex.Replace(s, @"\bм\s*/\s*с\b", "метров в секунду");
+        s = Regex.Replace(s, @"\$\s?(\d[\d\s.,]*)", "$1 долларов ");
+        s = Regex.Replace(s, @"€\s?(\d[\d\s.,]*)|(\d[\d\s.,]*)\s?€", "$1$2 евро ");
+        s = Regex.Replace(s, @"(\p{L})['’](\p{L})", "$1$2");           // It's → Its, апостроф не читаем
+        s = Regex.Replace(s, @"\s/\s", " или ");                      // да / нет
         s = s.Replace("°", " градусов").Replace("№", "номер ").Replace("&", " и ").Replace("+", " плюс ")
              .Replace("=", " равно ").Replace("%", " процентов");
         s = Regex.Replace(s, @"(\d)\s*-\s*(\d)", "$1 до $2");               // 5-10 → 5 до 10
@@ -58,7 +64,7 @@ public static partial class SpeechText
         s = Regex.Replace(s, @"[*_`#>|~^\[\]{}()<>""'«»„“”‘’/\\@$]", " ");    // разметка, кавычки, скобки, слэши
         s = Regex.Replace(s, @"(?m)^\s*[-•]\s*", "");                       // маркеры списков
         s = Regex.Replace(s, @"\s+([,.!?;:])", "$1");
-        s = Regex.Replace(s, @"([,.!?;:]){2,}", "$1");
+        s = Regex.Replace(s, @"([,.!?;:])[,.!?;:]+", "$1");          // «?..» → «?», «!!!» → «!»
         s = Regex.Replace(s, @"\s+", " ").Trim();
         foreach (char c in s.ToCharArray())
             if (c < 32) s = s.Replace(c, ' ');

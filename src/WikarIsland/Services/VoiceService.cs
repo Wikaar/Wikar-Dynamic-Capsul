@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using NAudio.CoreAudioApi;
@@ -602,19 +603,31 @@ public sealed partial class VoiceService : IDisposable
 
         _ui.BeginInvoke(async () =>
         {
+            // ответ ИИ приходит по кусочкам: первое предложение начинает звучать, пока пишется остальное
+            var sentences = Channel.CreateUnbounded<string>();
+            Task? streaming = null;
+            void Speak(string sentence)
+            {
+                if (State == VoiceState.Off) return;
+                streaming ??= App.Speech.SpeakStreamAsync(sentences.Reader, said => Set(VoiceState.Speaking, said));
+                sentences.Writer.TryWrite(sentence);
+            }
+
             AssistantReply reply;
             try
             {
-                reply = await App.Assistant.HandleAsync(command);
+                reply = await App.Assistant.HandleAsync(command, Speak);
             }
             catch (Exception ex)
             {
                 App.LogError(ex);
                 reply = new AssistantReply("Что-то пошло не так, сэр. Подробности в журнале ошибок.");
             }
+            sentences.Writer.TryComplete();
 
             if (State == VoiceState.Off) return;
-            if (reply.Text.Length > 0)
+            if (streaming != null) await streaming;
+            if (!reply.Spoken && reply.Text.Length > 0)
             {
                 Set(VoiceState.Speaking, reply.Text);
                 await App.Speech.SpeakAsync(reply.Text);

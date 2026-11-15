@@ -1045,7 +1045,18 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Голос:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <WrapPanel x:Name="VoicesPanel" VerticalAlignment="Center"/>
+                        <Grid VerticalAlignment="Center">
+                            <Button x:Name="VoicePickButton" Style="{StaticResource FlatButton}" Margin="0" MinWidth="240"
+                                    HorizontalContentAlignment="Left" Click="VoicePicker_Click" Tag="VoicePopup"/>
+                            <Popup x:Name="VoicePopup" PlacementTarget="{Binding ElementName=VoicePickButton}" Placement="Bottom"
+                                   VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                                <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
+                                    <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="VoicesPanel" MinWidth="330"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
                         <Button Style="{StaticResource FlatButton}" Content="Прослушать" Click="VoiceTest_Click"/>
                     </StackPanel>
                     <CheckBox x:Name="VoiceFollowUpBox" Content="После каждой команды ещё 10 секунд слушать следующую без слова «Капсулка» («спасибо» или «хватит» — закончить)"
@@ -1072,7 +1083,18 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                         <TextBlock Text="Голос:" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <WrapPanel x:Name="LiveVoicesPanel" VerticalAlignment="Center"/>
+                        <Grid VerticalAlignment="Center">
+                            <Button x:Name="LiveVoicePickButton" Style="{StaticResource FlatButton}" Margin="0" MinWidth="240"
+                                    HorizontalContentAlignment="Left" Click="VoicePicker_Click" Tag="LiveVoicePopup"/>
+                            <Popup x:Name="LiveVoicePopup" PlacementTarget="{Binding ElementName=LiveVoicePickButton}" Placement="Bottom"
+                                   VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                                <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
+                                    <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="LiveVoicesPanel" MinWidth="330"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
                     </StackPanel>
                     <CheckBox x:Name="LiveBargeInBox" Content="Перебивать голосом, пока он говорит (только с гарнитурой! С колонками или отдельным микрофоном Gemini слышит сам себя и обрывает ответ)"
                               Style="{StaticResource SettingsCheck}" Click="Live_Changed"/>

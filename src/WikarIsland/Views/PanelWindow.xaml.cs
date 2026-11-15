@@ -2605,42 +2605,20 @@ public partial class PanelWindow : Window
         VoiceAckBox.IsChecked = s.VoiceAcknowledge;
         VoiceHotkeyBox.Text = s.VoiceHotkey;
 
-        VoicesPanel.Children.Clear();
-        foreach ((string id, string name) in SpeechService.Voices)
+        FillVoicePicker(VoicePickButton, VoicePopup, VoicesPanel, SpeechService.Voices, s.VoiceName, id =>
         {
-            var radio = new RadioButton
-            {
-                Content = name, GroupName = "VoiceName", IsChecked = s.VoiceName == id,
-                Style = (Style)FindResource("SettingsRadio"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center,
-            };
-            radio.GroupName = "VoiceName";
-            radio.Checked += (_, _) =>
-            {
-                App.Settings.VoiceName = id;
-                App.Settings.Save();
-            };
-            VoicesPanel.Children.Add(radio);
-        }
+            App.Settings.VoiceName = id;
+            App.Settings.Save();
+        });
 
         LiveEnabledBox.IsChecked = s.LiveEnabled;
         LiveBargeInBox.IsChecked = s.LiveBargeIn;
         LiveKeyBox.Password = s.GeminiKey;
-        LiveVoicesPanel.Children.Clear();
-        foreach ((string id, string name) in GeminiLiveService.Voices)
+        FillVoicePicker(LiveVoicePickButton, LiveVoicePopup, LiveVoicesPanel, GeminiLiveService.Voices, s.LiveVoice, id =>
         {
-            var radio = new RadioButton
-            {
-                Content = name, GroupName = "LiveVoice", IsChecked = s.LiveVoice == id,
-                Style = (Style)FindResource("SettingsRadio"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center,
-            };
-            radio.GroupName = "LiveVoice";
-            radio.Checked += (_, _) =>
-            {
-                App.Settings.LiveVoice = id;
-                App.Settings.Save(); // голос применится со следующего разговора
-            };
-            LiveVoicesPanel.Children.Add(radio);
-        }
+            App.Settings.LiveVoice = id;
+            App.Settings.Save(); // голос применится со следующего разговора
+        });
 
         AiPresetsPanel.Children.Clear();
         foreach (AiPreset preset in AssistantService.Presets)
@@ -2736,6 +2714,83 @@ public partial class PanelWindow : Window
         s.Save();
         AiStatus.Text = "Проверяю…";
         AiStatus.Text = await AssistantService.TestAsync();
+    }
+
+    /// <summary>«Дмитрий (мужской)» → («Дмитрий», «мужской»); «Charon — низкий…» → («Charon», «низкий…»).</summary>
+    private static (string title, string note) SplitVoiceName(string name)
+    {
+        int dash = name.IndexOf(" — ", StringComparison.Ordinal);
+        if (dash > 0) return (name[..dash], name[(dash + 3)..]);
+        int paren = name.IndexOf(" (", StringComparison.Ordinal);
+        if (paren > 0) return (name[..paren], name[(paren + 2)..].TrimEnd(')'));
+        return (name, "");
+    }
+
+    /// <summary>Выбор голоса: кнопка с текущим голосом, по клику — всплывающий список (в строку они не помещались).</summary>
+    private void FillVoicePicker(Button picker, System.Windows.Controls.Primitives.Popup popup, StackPanel list,
+        (string id, string name)[] voices, string current, Action<string> select)
+    {
+        list.Children.Clear();
+        (string id, string name) chosen = voices.FirstOrDefault(v => v.id == current);
+        if (chosen.name == null) chosen = voices[0];
+
+        var head = new StackPanel { Orientation = Orientation.Horizontal };
+        head.Children.Add(new TextBlock
+        {
+            Text = SplitVoiceName(chosen.name).title, FontSize = 13.5, Foreground = (Brush)FindResource("TextMain"),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        head.Children.Add(new TextBlock
+        {
+            Text = "  " + SplitVoiceName(chosen.name).note, FontSize = 11.5, Foreground = (Brush)FindResource("TextDim"),
+            VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 260,
+        });
+        head.Children.Add(new TextBlock
+        {
+            Text = "  ▾", FontSize = 12, Foreground = (Brush)FindResource("TextDim"), VerticalAlignment = VerticalAlignment.Center,
+        });
+        picker.Content = head;
+
+        foreach ((string id, string name) in voices)
+        {
+            (string title, string note) = SplitVoiceName(name);
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            row.Children.Add(new TextBlock
+            {
+                Text = id == chosen.id ? "✓" : "", Width = 22, FontSize = 14, Foreground = (Brush)FindResource("Accent"),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            var text = new StackPanel();
+            text.Children.Add(new TextBlock { Text = title, FontSize = 13.5, Foreground = (Brush)FindResource("TextMain") });
+            if (note.Length > 0)
+                text.Children.Add(new TextBlock { Text = note, FontSize = 11, Foreground = (Brush)FindResource("TextDim"), TextWrapping = TextWrapping.Wrap, MaxWidth = 300 });
+            row.Children.Add(text);
+
+            var button = new Button
+            {
+                Content = row,
+                Style = (Style)FindResource("FlatButton"),
+                Background = Brushes.Transparent,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 2),
+                Padding = new Thickness(8, 6, 12, 6),
+            };
+            string picked = id;
+            button.Click += (_, _) =>
+            {
+                select(picked);
+                popup.IsOpen = false;
+                FillVoicePicker(picker, popup, list, voices, picked, select);
+            };
+            list.Children.Add(button);
+        }
+    }
+
+    private void VoicePicker_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string name } && FindName(name) is System.Windows.Controls.Primitives.Popup popup)
+            popup.IsOpen = !popup.IsOpen;
     }
 
     private void Live_Changed(object sender, RoutedEventArgs e)

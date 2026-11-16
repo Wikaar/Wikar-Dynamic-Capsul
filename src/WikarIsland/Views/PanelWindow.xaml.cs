@@ -3233,7 +3233,8 @@ public partial class PanelWindow : Window
     {
         if (PillOpacityText == null) return;
         PillOpacityText.Text = $"{Math.Round(e.NewValue * 100)}%";
-        if (_loadingSettings) return;
+        // при создании окна ползунок сам выставляет минимум — остров ещё не готов, сохранять нечего
+        if (_loadingSettings || !IsLoaded) return;
         App.Settings.PillOpacity = Math.Round(e.NewValue, 2);
         App.Settings.Save();
         App.Pill.ApplySettings();

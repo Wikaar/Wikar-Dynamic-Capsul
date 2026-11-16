@@ -306,6 +306,14 @@ public partial class PanelWindow : Window
         Height = Math.Min(wide ? 700 : 620, wa.Height - 10);
     }
 
+    // Колёсико над вкладками листает их вбок, если все не влезли в узкую панель
+    private void TabsScroll_Wheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (TabsScroll.ScrollableWidth <= 0) return;
+        TabsScroll.ScrollToHorizontalOffset(TabsScroll.HorizontalOffset - e.Delta / 2.0);
+        e.Handled = true;
+    }
+
     private void PositionNearPill()
     {
         PillWindow pill = App.Pill;
@@ -429,6 +437,8 @@ public partial class PanelWindow : Window
             _ => TabHome,
         };
         if (tab.IsChecked != true) tab.IsChecked = true; // вызовет Tab_Checked ещё раз, это безопасно
+        // выбранная вкладка не должна прятаться за правым краем узкой панели
+        Dispatcher.BeginInvoke(() => tab.BringIntoView(), System.Windows.Threading.DispatcherPriority.Loaded);
 
         bool isAi = AiUrls.ContainsKey(key);
         HomeView.Visibility = key == "home" ? Visibility.Visible : Visibility.Collapsed;

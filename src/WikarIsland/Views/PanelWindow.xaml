@@ -457,7 +457,32 @@
                         Content="&#xE72C;" ToolTip="Обновить страницу" Click="Reload_Click"/>
                 <Button x:Name="PopOutButton" Style="{StaticResource RoundIcon}" Width="30" Margin="1,0" FontSize="13"
                         Content="&#xE8A7;" ToolTip="Открыть в отдельном окне" Click="PopOut_Click"/>
+                <Border Width="1" Height="16" Background="#26FFFFFF" Margin="5,0,6,0" VerticalAlignment="Center"/>
+                <RadioButton x:Name="TabVpn" Tag="vpn" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="VPN">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="VPN" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="TabZapret" Tag="zapret" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="zapret">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE945;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="zapret" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="TabSettings" Tag="settings" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Настройки">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE713;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Настройки" Margin="7,0,0,0" FontWeight="SemiBold"
+                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </RadioButton>
             </StackPanel>
+            <!-- Остальные вкладки: если не влезают, обрезаются они, а VPN, zapret и настройки справа видны всегда -->
+            <ScrollViewer x:Name="TabsScroll" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="TabsScroll_Wheel" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <RadioButton x:Name="TabHome" Tag="home" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Главная">
                     <StackPanel Orientation="Horizontal">
@@ -506,29 +531,8 @@
                 <RadioButton x:Name="TabGemini" Tag="gemini" Content="Gemini" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
                 <RadioButton x:Name="TabDeepSeek" Tag="deepseek" Content="DS" ToolTip="DeepSeek" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
                 <RadioButton x:Name="TabDeepL" Tag="deepl" Content="DeepL" ToolTip="Переводчик DeepL" Style="{StaticResource IconTab}" Checked="Tab_Checked"/>
-                <Border Width="1" Height="16" Background="#26FFFFFF" Margin="5,0,6,0" VerticalAlignment="Center"/>
-                <RadioButton x:Name="TabVpn" Tag="vpn" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="VPN">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text="VPN" Margin="7,0,0,0" FontWeight="SemiBold"
-                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
-                    </StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="TabZapret" Tag="zapret" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="zapret">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE945;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text="zapret" Margin="7,0,0,0" FontWeight="SemiBold"
-                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
-                    </StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="TabSettings" Tag="settings" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Настройки">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE713;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text="Настройки" Margin="7,0,0,0" FontWeight="SemiBold"
-                                   Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
-                    </StackPanel>
-                </RadioButton>
             </StackPanel>
+            </ScrollViewer>
         </DockPanel>
 
         <Grid Grid.Row="2">

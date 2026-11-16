@@ -674,8 +674,8 @@ public sealed class AssistantService
     /// <summary>Имя файла и папка, где он лежит, — как это сказать вслух (без длинного пути).</summary>
     private static string Spoken(FileFinder.Found f)
     {
-        string name = Path.GetFileName(f.Path.TrimEnd('\'));
-        string parent = Path.GetFileName(Path.GetDirectoryName(f.Path.TrimEnd('\')) ?? "") ?? "";
+        string name = Path.GetFileName(f.Path.TrimEnd('\\'));
+        string parent = Path.GetFileName(Path.GetDirectoryName(f.Path.TrimEnd('\\')) ?? "") ?? "";
         return parent.Length > 0 ? $"«{name}» в папке «{parent}»" : $"«{name}»";
     }
 

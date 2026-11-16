@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,6 +28,9 @@ public static class FishAudioTts
     public static string VoiceId(string input)
     {
         string s = (input ?? "").Trim().TrimEnd('/');
+        // ссылка со страницы синтеза: …/text-to-speech/?modelId=<id>&text=…
+        Match model = Regex.Match(s, @"[?&](?:modelId|model_id|reference_id)=([0-9a-zA-Z]+)");
+        if (model.Success) return model.Groups[1].Value;
         int q = s.IndexOfAny(new[] { '?', '#' });
         if (q >= 0) s = s[..q].TrimEnd('/');
         int slash = s.LastIndexOf('/');

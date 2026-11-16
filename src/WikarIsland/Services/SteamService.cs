@@ -34,6 +34,9 @@ public sealed partial class SteamService
     private string? _steamPath;
     private List<string> _libraries = new();
 
+    /// <summary>Папки библиотек Steam (в каждой есть steamapps\common).</summary>
+    public IReadOnlyList<string> Libraries => _libraries;
+
     public bool Installed => _steamPath != null;
     public ImageSource? SteamIcon { get; private set; }
     public List<SteamDownload> Downloads { get; private set; } = new();

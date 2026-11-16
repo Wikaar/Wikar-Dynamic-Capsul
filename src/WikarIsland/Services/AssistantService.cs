@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -126,6 +127,12 @@ public sealed class AssistantService
         {
             AppAutomation.MusicResult r = await AppAutomation.PlayMusicAsync(music.service, music.query);
             return new AssistantReply(r.Playing ? r.Message + " Приятного прослушивания, сэр." : "Не получилось, сэр: " + r.Message, Silent: true);
+        }
+
+        if (await FileCommandAsync(text) is { } files)
+        {
+            App.LogVoice($"  файлы → «{files.Text}»");
+            return files;
         }
 
         AssistantReply? local = Local(text);
@@ -649,11 +656,169 @@ public sealed class AssistantService
 
     // ---------- ИИ ----------
 
+    // ---------- файлы и папки ----------
+
+    private DateTime _lastFilesAt = DateTime.MinValue;
+
+    private static readonly string[] Ordinals = { "перв", "втор", "трет", "четверт", "пят", "шест", "седьм", "восьм", "девят", "десят" };
+
+    /// <summary>«первый», «второго», «3» → индекс в последних найденных.</summary>
+    private static int OrdinalIndex(string word)
+    {
+        if (int.TryParse(word, out int n)) return n - 1;
+        for (int i = 0; i < Ordinals.Length; i++)
+            if (word.StartsWith(Ordinals[i], StringComparison.Ordinal)) return i;
+        return -1;
+    }
+
+    /// <summary>Имя файла и папка, где он лежит, — как это сказать вслух (без длинного пути).</summary>
+    private static string Spoken(FileFinder.Found f)
+    {
+        string name = Path.GetFileName(f.Path.TrimEnd('\'));
+        string parent = Path.GetFileName(Path.GetDirectoryName(f.Path.TrimEnd('\')) ?? "") ?? "";
+        return parent.Length > 0 ? $"«{name}» в папке «{parent}»" : $"«{name}»";
+    }
+
+    /// <summary>Быстрые команды про файлы: найти, открыть папку, открыть найденное по номеру, файлы программы.</summary>
+    private async Task<AssistantReply?> FileCommandAsync(string t)
+    {
+        Match m;
+        // «открой загрузки», «открой папку документы», «открой диск D»
+        if ((m = Regex.Match(t, @"^(?:открой|покажи|зайди в)\s+(папку\s+)?(.+)$")).Success)
+        {
+            string target = m.Groups[2].Value.Trim();
+            bool saidFolder = m.Groups[1].Success;
+            string? known = FileFinder.KnownFolder(target);
+            bool unambiguous = known != null && !Regex.IsMatch(target, @"^(музык|видео|фото|картинк|изображени)");
+            if (known != null && (saidFolder || unambiguous))
+            {
+                FileFinder.OpenFolder(known);
+                return new AssistantReply("", Silent: true);
+            }
+            // «открой второй», «открой папку первого», «открой первый файл»
+            if (DateTime.Now - _lastFilesAt < TimeSpan.FromMinutes(5) && FileFinder.Last.Count > 0)
+            {
+                Match n = Regex.Match(target, @"^(?:папку\s+)?(\d+|перв\w*|втор\w*|трет\w*|четверт\w*|пят\w*|шест\w*|седьм\w*|восьм\w*|девят\w*|десят\w*)(?:\s+(файл\w*|документ\w*|результат\w*|папк\w*))?$");
+                if (n.Success)
+                {
+                    int i = OrdinalIndex(n.Groups[1].Value);
+                    if (i < 0 || i >= FileFinder.Last.Count) return new AssistantReply($"Такого номера нет, нашлось {FileFinder.Last.Count}.", Silent: true);
+                    FileFinder.Found f = FileFinder.Last[i];
+                    bool folder = saidFolder || n.Groups[2].Value.StartsWith("папк") || f.IsFolder;
+                    if (folder) FileFinder.ShowInFolder(f.Path);
+                    else FileFinder.OpenFile(f.Path);
+                    return new AssistantReply("", Silent: true);
+                }
+            }
+            if (saidFolder && AiConfigured) return null; // «открой папку проекта» — пусть ИИ поищет
+            return null;
+        }
+
+        // «найди все файлы valheim», «где лежат файлы дискорда», «где установлена игра …»
+        if ((m = Regex.Match(t, @"^(?:найди|покажи|где)\s+(?:лежат\s+|находятся\s+)?(?:все\s+)?(?:файлы|папки)\s+(?:от\s+|программы\s+|игры\s+|приложения\s+)?(.+)$")).Success
+            || (m = Regex.Match(t, @"^где\s+(?:установлен\w*|лежит|находится)\s+(?:программа\s+|игра\s+|приложение\s+)?(.+)$")).Success)
+        {
+            string program = m.Groups[1].Value.Trim();
+            List<FileFinder.Found> folders = await FileFinder.ProgramFoldersAsync(program);
+            _lastFilesAt = DateTime.Now;
+            if (folders.Count == 0) return new AssistantReply($"Не нашёл папок «{program}», сэр.", Silent: true);
+            string list = string.Join("; ", folders.Take(4).Select((f, i) => $"{i + 1}) {Spoken(f)}" + (f.Size > 0 ? $", {ProcessCleanup.Size(f.Size)}" : "")));
+            _pending = () =>
+            {
+                foreach (FileFinder.Found f in folders.Take(3)) FileFinder.OpenFolder(f.Path);
+                return "";
+            };
+            _pendingUntil = DateTime.Now.AddSeconds(25);
+            return new AssistantReply($"Нашёл папок: {folders.Count}. {list}. Открыть?", ExpectReply: true);
+        }
+
+        // «найди документ отчёт и открой папку», «найди фото паспорт», «где лежит файл договор»
+        if ((m = Regex.Match(t, @"^(?:найди|найти|поищи|отыщи|где лежит|где находится)\s+(?:мне\s+)?(?:на компьютере\s+)?((?:файл|документ|папк|фото|фотографи|картинк|изображени|скриншот|видео|таблиц|презентаци|архив|pdf|пдф|песн|трек)\w*)\s+(.+)$")).Success)
+        {
+            string kindWord = m.Groups[1].Value;
+            string rest = m.Groups[2].Value;
+            Match open = Regex.Match(rest, @"\s*,?\s*(?:и\s+)?(?:открой|покажи)\s*(?:его|ее|её)?\s*(папку|где\s+(?:он|она)\s+лежит|файл)?\s*$");
+            string? openHow = null;
+            if (open.Success)
+            {
+                openHow = open.Groups[1].Value.StartsWith("файл") ? "file" : "folder";
+                if (open.Groups[1].Value.Length == 0) openHow = kindWord.StartsWith("папк") ? "folder" : "file";
+                rest = rest[..open.Index];
+            }
+            rest = Regex.Replace(rest, @"\s+на (?:компьютере|компе|пк)$", "").Trim();
+            string? kind = kindWord.StartsWith("папк") ? null : FileFinder.KindFromWords(kindWord);
+            List<FileFinder.Found> found = await FileFinder.SearchAsync(rest, kind);
+            if (kindWord.StartsWith("папк")) found = found.Where(f => f.IsFolder).ToList();
+            _lastFilesAt = DateTime.Now;
+            if (found.Count == 0) return new AssistantReply($"Не нашёл «{rest}», сэр.", Silent: true);
+            FileFinder.Found first = found[0];
+            if (openHow != null || found.Count == 1)
+            {
+                if (openHow == "file" && !first.IsFolder) FileFinder.OpenFile(first.Path);
+                else FileFinder.ShowInFolder(first.Path);
+                string more = found.Count > 1 ? $" Нашлось ещё {found.Count - 1} — скажите «открой второй»." : "";
+                return new AssistantReply($"Нашёл {Spoken(first)}.{more}", Silent: found.Count == 1);
+            }
+            string names = string.Join("; ", found.Take(3).Select((f, i) => $"{i + 1}) {Spoken(f)}"));
+            return new AssistantReply($"Нашёл {found.Count}: {names}. Какой открыть?", ExpectReply: true);
+        }
+        return null;
+    }
+
+    private async Task<string> FindFilesToolAsync(JsonObject args)
+    {
+        string query = args["query"]?.ToString() ?? "";
+        string? kind = args["kind"]?.ToString() is { Length: > 0 } k && k is not ("any" or "folder") ? k : null;
+        List<FileFinder.Found> found = await FileFinder.SearchAsync(query, kind);
+        if (args["kind"]?.ToString() == "folder") found = found.Where(f => f.IsFolder).ToList();
+        _lastFilesAt = DateTime.Now;
+        if (found.Count == 0) return $"Ничего не найдено по «{query}».";
+        string open = args["open"]?.ToString() ?? "none";
+        if (open == "folder") FileFinder.ShowInFolder(found[0].Path);
+        else if (open == "file" && !found[0].IsFolder) FileFinder.OpenFile(found[0].Path);
+        return $"Найдено {found.Count}" + (open is "folder" or "file" ? ", первый открыт" : "") + ":\n" + FileFinder.Describe(found, 8) +
+               "\nОткрыть другой — open_found с номером. Пользователю называй имя файла и папку, не весь путь.";
+    }
+
+    private async Task<string> ProgramFilesToolAsync(JsonObject args)
+    {
+        string name = args["name"]?.ToString() ?? "";
+        List<FileFinder.Found> folders = await FileFinder.ProgramFoldersAsync(name);
+        _lastFilesAt = DateTime.Now;
+        if (folders.Count == 0) return $"Папок «{name}» не найдено.";
+        if (args["open"]?.GetValue<bool>() == true) foreach (FileFinder.Found f in folders.Take(3)) FileFinder.OpenFolder(f.Path);
+        return $"Папки «{name}» ({folders.Count}):\n" + FileFinder.Describe(folders, 10) + "\nОткрыть — open_found с номером.";
+    }
+
+    private static string OpenFound(JsonObject args)
+    {
+        int n = args["number"] is JsonNode v && double.TryParse(v.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double x) ? (int)Math.Round(x) : 1;
+        if (FileFinder.Last.Count == 0) return "Сначала найди файлы (find_files или program_files).";
+        if (n < 1 || n > FileFinder.Last.Count) return $"Номера {n} нет, найдено {FileFinder.Last.Count}.";
+        FileFinder.Found f = FileFinder.Last[n - 1];
+        if (args["how"]?.ToString() == "file" && !f.IsFolder) FileFinder.OpenFile(f.Path);
+        else FileFinder.ShowInFolder(f.Path);
+        return "Открыто: " + f.Path;
+    }
+
+    private static string OpenFolderTool(JsonObject args)
+    {
+        string target = args["folder"]?.ToString() ?? "";
+        string? path = FileFinder.KnownFolder(target);
+        if (path == null && (Directory.Exists(target) || File.Exists(target))) path = target;
+        if (path == null) return $"Не знаю папку «{target}». Найди её через find_files с kind=folder.";
+        if (File.Exists(path)) FileFinder.ShowInFolder(path);
+        else FileFinder.OpenFolder(path);
+        return "Открыта папка: " + path;
+    }
+
     /// <summary>Инструменты, которые ждут результата: музыка и запуск программы (ждём окно, чтобы следующий шаг его нашёл).</summary>
     private async Task<string> RunToolAsync(string name, JsonObject args) => name switch
     {
         "play_music" => await PlayMusicToolAsync(args),
         "open_app" => await OpenAppToolAsync(args["name"]?.ToString() ?? ""),
+        "find_files" => await FindFilesToolAsync(args),
+        "program_files" => await ProgramFilesToolAsync(args),
         _ => RunTool(name, args),
     };
 
@@ -719,7 +884,7 @@ public sealed class AssistantService
     /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса); музыка — с ожиданием и проверкой.</summary>
     public async Task<string> RunLiveToolAsync(string name, JsonObject args)
     {
-        string result = name is "play_music" or "open_app" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
+        string result = name is "play_music" or "open_app" or "find_files" or "program_files" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
         App.LogVoice($"  Live → {name}({args.ToJsonString()}) = {result[..Math.Min(result.Length, 300)]}");
         return result;
     }
@@ -764,6 +929,8 @@ public sealed class AssistantService
             "Никогда не говори, что что-то запущено, открыто или включено, если ты не вызвал для этого инструмент и он не подтвердил успех. " +
             "Что открыто на компьютере — list_windows. " +
             "Игры Battle.net (World of Warcraft, Diablo, Overwatch, Hearthstone) open_app запускает сразу, без кнопки «Играть». " +
+            "Файлы: find_files (сразу с open=folder, если просят показать, где лежит), program_files — все папки программы, " +
+            "open_found — открыть найденное по номеру, open_folder — загрузки, документы и т. п. " +
             "«Освободи память» — free_memory, «закрой всё, кроме …» — close_all_except: оба сначала спрашивают «да». " +
             "В Discord и Slack к каналу, серверу или чату переходи через go_to_chat (голосовой канал так и подключается), " +
             "сообщение — app_type с enter=true. " +
@@ -813,6 +980,22 @@ public sealed class AssistantService
                     ["service"] = Enum("Сервис", "yandex", "youtube_music", "spotify"),
                     ["query"] = Str("Что включить: исполнитель, трек, альбом или плейлист (пусто — просто музыку)"),
                 }, "service"),
+            Fn("find_files", "Найти файлы или папки на компьютере по словам из названия (индекс поиска Windows, потом все диски). " +
+                    "Можно сразу открыть папку с первым найденным или сам файл.",
+                new JsonObject
+                {
+                    ["query"] = Str("Слова из названия файла или папки, без слов «файл», «документ»"),
+                    ["kind"] = Enum("Тип: document, table, presentation, pdf, image, video, audio, archive, program, folder или any",
+                        "any", "document", "table", "presentation", "pdf", "image", "video", "audio", "archive", "program", "folder"),
+                    ["open"] = Enum("Что открыть: none — только найти, folder — папку с первым найденным (файл выделен), file — сам файл",
+                        "none", "folder", "file"),
+                }, "query"),
+            Fn("program_files", "Найти все папки программы или игры: установка, настройки и сохранения (AppData, ProgramData, Документы, Saved Games, Steam), с размером.",
+                new JsonObject { ["name"] = Str("Название программы или игры"), ["open"] = Bool("Сразу открыть найденные папки (до трёх)") }, "name"),
+            Fn("open_found", "Открыть результат последнего поиска файлов по номеру.",
+                new JsonObject { ["number"] = Num("Номер из списка, с 1"), ["how"] = Enum("folder — папку с файлом, file — сам файл", "folder", "file") }, "number"),
+            Fn("open_folder", "Открыть папку: загрузки, документы, рабочий стол, изображения, видео, музыка, скриншоты, корзина, этот компьютер, диск D или полный путь.",
+                new JsonObject { ["folder"] = Str("Название известной папки или полный путь") }, "folder"),
             Fn("go_to_chat", "Перейти к каналу, серверу или чату по названию в Discord или Slack (быстрый переход Ctrl+K: название и Enter). " +
                     "Голосовой канал при этом подключается. Потом пиши сообщение через app_type с enter=true.",
                 new JsonObject { ["app"] = Str("Программа: Discord или Slack"), ["name"] = Str("Название канала, сервера или собеседника") }, "app", "name"),
@@ -909,6 +1092,10 @@ public sealed class AssistantService
                 WindowControl.Close(found, B("force"));
                 return $"Закрыто: {shown}";
             }
+            case "open_found":
+                return OpenFound(args);
+            case "open_folder":
+                return OpenFolderTool(args);
             case "go_to_chat":
                 return AppAutomation.GoToChat(S("app"), S("name"));
             case "free_memory":

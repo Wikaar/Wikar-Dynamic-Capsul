@@ -27,10 +27,20 @@ public sealed class SpeechService
         ("en-US-BrianMultilingualNeural", "Брайан (мужской, мультиязычный — чисто читает английские слова)"),
         ("en-US-AndrewMultilingualNeural", "Эндрю (мужской, мультиязычный)"),
         ("en-US-AvaMultilingualNeural", "Ава (женский, мультиязычный)"),
+        (FishVoice, "Свой голос (Fish Audio)"),
     };
 
+    /// <summary>Значение VoiceName для своего голоса через Fish Audio.</summary>
+    public const string FishVoice = "fish-audio";
+
+    public static bool IsFish(string voice) => voice == FishVoice;
+
+    /// <summary>Если Fish Audio не ответил — этот голос Edge (мультиязычный, как и модели Fish).</summary>
+    private const string FishFallbackVoice = "en-US-BrianMultilingualNeural";
+
     /// <summary>Мультиязычные голоса сами переключаются между русским и английским.</summary>
-    public static bool IsMultilingual(string voice) => voice.Contains("Multilingual", StringComparison.OrdinalIgnoreCase);
+    public static bool IsMultilingual(string voice) =>
+        IsFish(voice) || voice.Contains("Multilingual", StringComparison.OrdinalIgnoreCase);
 
     private const string WssUrl = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1";
 
@@ -72,7 +82,7 @@ public sealed class SpeechService
         {
             List<string> parts = SplitForSpeech(text);
             // Edge недавно не отвечал — не ждём его таймаутов, сразу говорим голосом Windows
-            Task<byte[]?>? next = DateTime.Now >= _edgeDownUntil ? TrySynthesizeAsync(parts[0], token) : null;
+            Task<byte[]?>? next = CanSynthesize() ? TrySynthesizeAsync(parts[0], token) : null;
             for (int i = 0; i < parts.Count; i++)
             {
                 byte[]? mp3 = next != null ? await next : null;
@@ -100,12 +110,42 @@ public sealed class SpeechService
     }
 
     private DateTime _edgeDownUntil = DateTime.MinValue;
+    private DateTime _fishDownUntil = DateTime.MinValue;
+
+    /// <summary>Есть ли смысл пробовать нейронный голос (Fish Audio или Edge), или сразу говорить голосом Windows.</summary>
+    private bool CanSynthesize() =>
+        DateTime.Now >= _edgeDownUntil || (IsFish(App.Settings.VoiceName) && FishAudioTts.Configured && DateTime.Now >= _fishDownUntil);
 
     private async Task<byte[]?> TrySynthesizeAsync(string text, CancellationToken token)
     {
+        string voice = App.Settings.VoiceName;
+        if (IsFish(voice))
+        {
+            if (FishAudioTts.Configured && DateTime.Now >= _fishDownUntil)
+            {
+                try
+                {
+                    byte[] fish = await FishAudioTts.SynthesizeAsync(text, token);
+                    LastError = null;
+                    return fish;
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    LastError = ex.Message;
+                    _fishDownUntil = DateTime.Now.AddSeconds(30);
+                    App.LogError(new InvalidOperationException("Fish Audio не ответил, говорю голосом Edge", ex));
+                }
+            }
+            voice = FishFallbackVoice;
+            if (DateTime.Now < _edgeDownUntil) return null;
+        }
         try
         {
-            byte[] mp3 = await SynthesizeAsync(text, App.Settings.VoiceName, App.Settings.VoiceRate, token);
+            byte[] mp3 = await SynthesizeAsync(text, voice, App.Settings.VoiceRate, token);
             LastError = null;
             return mp3;
         }
@@ -172,7 +212,7 @@ public sealed class SpeechService
                 if (!sentences.TryRead(out string? raw)) continue;
                 string text = Prepare(raw);
                 if (text.Length == 0) continue;
-                Task<byte[]?>? audio = DateTime.Now >= _edgeDownUntil ? TrySynthesizeAsync(text, token) : null;
+                Task<byte[]?>? audio = CanSynthesize() ? TrySynthesizeAsync(text, token) : null;
                 return (text, audio);
             }
             return null;
@@ -204,6 +244,27 @@ public sealed class SpeechService
         finally
         {
             if (_cts == cts && started) SetSpeaking(false);
+        }
+    }
+
+    /// <summary>Проиграть готовый mp3 (прослушивание голоса в настройках).</summary>
+    public async Task PlayClipAsync(byte[] mp3)
+    {
+        Stop();
+        var cts = new CancellationTokenSource();
+        _cts = cts;
+        SetSpeaking(true);
+        try
+        {
+            await PlayAsync(mp3, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // перебили
+        }
+        finally
+        {
+            if (_cts == cts) SetSpeaking(false);
         }
     }
 

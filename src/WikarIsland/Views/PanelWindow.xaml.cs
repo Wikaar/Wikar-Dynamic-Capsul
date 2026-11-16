@@ -1146,6 +1146,7 @@ public partial class PanelWindow : Window
     {
         _loadingSettings = true;
         AppSettings s = App.Settings;
+        RestoreSettingsSection();
         AutoStartBox.IsChecked = s.AutoStart;
         AutoStartAdminBox.IsChecked = s.AutoStartElevated;
         AutoStartAdminBox.IsEnabled = s.AutoStart;
@@ -2615,7 +2616,11 @@ public partial class PanelWindow : Window
         {
             App.Settings.VoiceName = id;
             App.Settings.Save();
+            LoadFishSettings();
+            if (SpeechService.IsFish(id) && !FishAudioTts.Configured)
+                FishStatus.Text = "Вставьте ключ API и ID голоса ниже и нажмите «Сохранить и выбрать». Пока говорит Брайан.";
         });
+        LoadFishSettings();
 
         LiveEnabledBox.IsChecked = s.LiveEnabled;
         LiveBargeInBox.IsChecked = s.LiveBargeIn;
@@ -2707,8 +2712,10 @@ public partial class PanelWindow : Window
     {
         VoiceStatus.Text = "Говорю…";
         await App.Speech.SpeakAsync("Добрый день, сэр. Капсулка на связи и готова помочь.");
+        bool fish = SpeechService.IsFish(App.Settings.VoiceName);
         VoiceStatus.Text = App.Speech.LastError != null
-            ? "Нейронный голос не ответил, звучал голос Windows: " + App.Speech.LastError
+            ? (fish ? "Fish Audio не ответил, звучал запасной голос: " : "Нейронный голос не ответил, звучал голос Windows: ") + App.Speech.LastError
+            : fish ? (FishAudioTts.Configured ? "Это ваш голос Fish Audio." : "Ключа Fish Audio нет — звучал Брайан.")
             : "Это нейронный голос Microsoft.";
     }
 

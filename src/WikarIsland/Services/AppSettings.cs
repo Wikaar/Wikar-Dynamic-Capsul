@@ -122,6 +122,12 @@ public sealed class AppSettings
     public string GeminiKeyProtected { get; set; } = "";
     public string GroqKeyProtected { get; set; } = ""; // ключ Groq для распознавания речи (Whisper) — не зависит от выбранного «мозга»
 
+    // свой голос через Fish Audio: ключ и ID голоса задаёт сам пользователь
+    public string FishKeyProtected { get; set; } = "";
+    public string FishVoiceId { get; set; } = "";
+    public string FishModel { get; set; } = "s2.1-pro-free";
+    public string SettingsSection { get; set; } = "general"; // последний открытый раздел настроек
+
     // встроенная музыка: Яндекс Музыка, YouTube Music, Spotify
     public string MusicProvider { get; set; } = "yandex";
     public bool MusicVoiceBuiltIn { get; set; } = true; // Капсулка включает музыку во встроенном плеере, если в сервис вошли
@@ -142,6 +148,13 @@ public sealed class AppSettings
     {
         get => Unprotect(SpotifyRefreshProtected);
         set => SpotifyRefreshProtected = Protect(value);
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string FishKey
+    {
+        get => Unprotect(FishKeyProtected);
+        set => FishKeyProtected = Protect(value);
     }
 
     [System.Text.Json.Serialization.JsonIgnore]

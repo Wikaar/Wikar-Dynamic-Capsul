@@ -64,7 +64,9 @@ public static class AppIndex
     }
 
     /// <summary>Названия игр для подсказки ИИ (чтобы он угадывал искажённые распознаванием).</summary>
-    public static IEnumerable<string> GameNames => Entries.Where(e => e.Kind is "Steam" or "Epic").Select(e => e.Name);
+    public static IEnumerable<string> GameNames => Entries.Where(e => IsGame(e)).Select(e => e.Name);
+
+    public static bool IsGame(AppEntry e) => e.Kind is "Steam" or "Epic" or "Battle.net";
 
     public static void Build()
     {
@@ -84,6 +86,13 @@ public static class AppIndex
 
         foreach ((string name, string uri) in EpicGames())
             Add(name, "Epic", () => OpenUri(uri));
+
+        // игры Battle.net — сразу в игру, без кнопки «Играть» в клиенте
+        foreach (BattleNetService.Game g in BattleNetService.InstalledGames())
+        {
+            BattleNetService.Game game = g;
+            Add(g.Name, "Battle.net", () => BattleNetService.Launch(game));
+        }
 
         foreach (LauncherItem l in App.Settings.Launcher)
         {

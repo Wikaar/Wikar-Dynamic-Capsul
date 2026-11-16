@@ -78,6 +78,14 @@ public sealed class AssistantService
         ["телеграм"] = "Telegram", ["телеграмм"] = "Telegram", ["ворд"] = "Word", ["эксель"] = "Excel", ["повер поинт"] = "PowerPoint",
         ["фотошоп"] = "Photoshop", ["обс"] = "OBS Studio", ["вс код"] = "Visual Studio Code", ["вскод"] = "Visual Studio Code",
         ["яндекс музыку"] = "Яндекс Музыка", ["музыку яндекс"] = "Яндекс Музыка", ["ватсап"] = "WhatsApp", ["вотсап"] = "WhatsApp",
+        ["вов"] = "World of Warcraft", ["варкрафт"] = "World of Warcraft", ["ворлд оф варкрафт"] = "World of Warcraft",
+        ["вов классик"] = "World of Warcraft Classic", ["варкрафт классик"] = "World of Warcraft Classic",
+        ["дьябло"] = "Diablo IV", ["диабло"] = "Diablo IV", ["дьябло 4"] = "Diablo IV", ["диабло 4"] = "Diablo IV",
+        ["дьябло четыре"] = "Diablo IV", ["диабло четыре"] = "Diablo IV", ["дьябло 3"] = "Diablo III", ["диабло 3"] = "Diablo III",
+        ["овервотч"] = "Overwatch 2", ["овервоч"] = "Overwatch 2", ["овер"] = "Overwatch 2", ["овервотч 2"] = "Overwatch 2",
+        ["хартстоун"] = "Hearthstone", ["хартстон"] = "Hearthstone", ["хс"] = "Hearthstone",
+        ["старкрафт"] = "StarCraft II", ["старкрафт 2"] = "StarCraft II", ["хотс"] = "Heroes of the Storm",
+        ["батлнет"] = "Battle.net", ["батл нет"] = "Battle.net", ["близзард"] = "Battle.net",
         ["спотифай"] = "Spotify", ["дискорд"] = "Discord", ["вайбер"] = "Viber", ["зум"] = "Zoom", ["тимс"] = "Microsoft Teams",
     };
 
@@ -333,6 +341,22 @@ public sealed class AssistantService
             AppIndex.OpenUri("https://www.google.com");
             return new AssistantReply("", Silent: true);
         }
+        // --- память и «закрой всё, кроме …» (всегда с подтверждением) ---
+        if (Regex.IsMatch(t, @"^(освободи|почисти|очисти|разгрузи|высвободи)\s+(?:мне\s+)?(оперативн\w+\s+)?(память|оперативку|озу|ram)\b|^(мало|не хватает)\s+(оперативной\s+)?памяти"))
+        {
+            ProcessCleanup.Plan? plan = ProcessCleanup.FreeMemoryPlan(out string nothing);
+            if (plan == null) return new AssistantReply(nothing);
+            return ConfirmPlan(plan);
+        }
+        if ((m = Regex.Match(t, @"^(?:закрой|закрыть|позакрывай)\s+(?:все|всё)(?:\s+(?:программы|окна|приложения|лишнее))?(?:\s*,?\s*(?:и|включая|вместе с)\s+игр\w*(?:\s+тоже)?)?(?:\s*,?\s*кроме\s+(.+))?$")).Success)
+        {
+            string except = m.Groups[1].Value;
+            bool games = Regex.IsMatch(t, @"\b(и|включая|вместе с)\s+игр");
+            except = Regex.Replace(except, @"\s*,?\s*(?:и|включая|вместе с)\s+игр\w*.*$", "");
+            ProcessCleanup.Plan? plan = ProcessCleanup.CloseAllExceptPlan(ProcessCleanup.SplitNames(except), games, out string nothing);
+            if (plan == null) return new AssistantReply(nothing);
+            return ConfirmPlan(plan);
+        }
         if (Regex.IsMatch(t, @"^(закрой|закрыть) (окно|это|программу|вкладку)$"))
         {
             CloseForeground(t.Contains("вкладк"));
@@ -432,7 +456,7 @@ public sealed class AssistantService
             if (entry != null)
             {
                 entry.Launch();
-                return new AssistantReply(entry.Kind is "Steam" or "Epic" ? $"Запускаю {entry.Name}. Приятной игры, сэр." : $"Открываю {entry.Name}.", Silent: true);
+                return new AssistantReply(AppIndex.IsGame(entry) ? $"Запускаю {entry.Name}. Приятной игры, сэр." : $"Открываю {entry.Name}.", Silent: true);
             }
             if (!AiConfigured) return new AssistantReply($"Не нашёл «{name}» среди игр и программ.");
             return null; // пусть ИИ угадает по списку игр
@@ -511,6 +535,32 @@ public sealed class AssistantService
         while (i == _lastAck && Acks.Length > 1);
         _lastAck = i;
         return Acks[i];
+    }
+
+    /// <summary>Закрытие программ: озвучить план и ждать «да» чуть дольше обычного — список бывает длинным.</summary>
+    private AssistantReply ConfirmPlan(ProcessCleanup.Plan plan)
+    {
+        _pending = () =>
+        {
+            ProcessCleanup.Execute(plan);
+            return plan.Done;
+        };
+        _pendingUntil = DateTime.Now.AddSeconds(30);
+        return new AssistantReply(plan.Question, ExpectReply: true);
+    }
+
+    /// <summary>То же для ИИ и Gemini Live: план запоминается, модель спрашивает «да» и вызывает confirm_pending.</summary>
+    private string PlanForAi(ProcessCleanup.Plan? plan, string nothing)
+    {
+        if (plan == null) return nothing;
+        _pending = () =>
+        {
+            ProcessCleanup.Execute(plan);
+            return plan.Done;
+        };
+        _pendingUntil = DateTime.Now.AddSeconds(40);
+        _askedConfirmation = true;
+        return "Ничего ещё не закрыто. Нужно подтверждение: перескажи пользователю коротко и спроси, закрыть ли: " + plan.Question;
     }
 
     private AssistantReply Confirm(string question, Func<string> action)
@@ -640,7 +690,9 @@ public sealed class AssistantService
             "если он вернул «НЕ получилось» — так и скажи, никогда не утверждай, что музыка играет. " +
             "Никогда не говори, что что-то запущено, открыто или включено, если ты не вызвал для этого инструмент и он не подтвердил успех. " +
             "Что открыто на компьютере — list_windows. " +
-            "Другие действия внутри программ (нажать Играть в Battle.net) делай так: " +
+            "Игры Battle.net (World of Warcraft, Diablo, Overwatch, Hearthstone) open_app запускает сразу, без кнопки «Играть». " +
+            "«Освободи память» — free_memory, «закрой всё, кроме …» — close_all_except: оба сначала спрашивают «да». " +
+            "Другие действия внутри программ делай так: " +
             "если программа не открыта — open_app; затем app_click по надписи кнопки; не нашлось — возьми точное название из списка в ответе; " +
             "для поиска — app_keys ctrl+f (или клик по полю поиска), app_type с текстом и enter. Музыку на паузу и следующий трек — media-команды. " +
             "Выключение и перезагрузку без задержки делай только через инструмент power — он сам спросит подтверждение. " +
@@ -698,6 +750,16 @@ public sealed class AssistantService
                 new JsonObject { ["app"] = Str("Программа"), ["text"] = Str("Текст"), ["enter"] = Bool("Нажать Enter после текста") }, "app", "text"),
             Fn("close_app", "Закрыть открытую программу или игру по названию.",
                 new JsonObject { ["name"] = Str("Название программы или игры"), ["force"] = Bool("Завершить принудительно, если не закрывается") }, "name"),
+            Fn("free_memory", "Освободить оперативную память: находит открытые программы, которые занимают больше всего памяти " +
+                    "(без системных процессов, острова и запущенной игры), и готовит их закрытие. Сам ничего не закрывает — нужно «да» и confirm_pending.",
+                new JsonObject()),
+            Fn("close_all_except", "Закрыть все программы на панели задач, кроме названных. Игру не трогает, если не попросили явно. " +
+                    "Сам ничего не закрывает — нужно «да» и confirm_pending.",
+                new JsonObject
+                {
+                    ["keep"] = Str("Что оставить открытым, через запятую (пусто — закрыть всё)"),
+                    ["include_games"] = Bool("Закрыть и игру — только если пользователь прямо попросил"),
+                }),
             Fn("window", "Свернуть или развернуть окна программ и игр.",
                 new JsonObject
                 {
@@ -768,6 +830,16 @@ public sealed class AssistantService
                 if (found.Count == 0) return $"Не открыто: {S("name")}";
                 WindowControl.Close(found, B("force"));
                 return $"Закрыто: {shown}";
+            }
+            case "free_memory":
+            {
+                ProcessCleanup.Plan? plan = ProcessCleanup.FreeMemoryPlan(out string nothing);
+                return PlanForAi(plan, nothing);
+            }
+            case "close_all_except":
+            {
+                ProcessCleanup.Plan? plan = ProcessCleanup.CloseAllExceptPlan(ProcessCleanup.SplitNames(S("keep")), B("include_games"), out string nothing);
+                return PlanForAi(plan, nothing);
             }
             case "window":
             {

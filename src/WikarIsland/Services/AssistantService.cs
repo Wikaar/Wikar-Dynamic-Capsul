@@ -418,6 +418,27 @@ public sealed class AssistantService
             string verb = m.Groups[1].Value;
             string name = m.Groups[3].Value.Trim();
             bool force = verb == "убей" || m.Groups[2].Success || m.Groups[4].Success;
+            // «закрой яндекс музыку и дискорд» — закрываем каждую
+            List<string> several = ProcessCleanup.SplitNames(name);
+            if (several.Count > 1)
+            {
+                var closed = new List<string>();
+                var missing = new List<string>();
+                foreach (string one in several)
+                {
+                    List<OpenWindow> w = WindowControl.Find(ProcessCleanup.Variants(one), out string oneShown);
+                    if (w.Count == 0)
+                    {
+                        missing.Add(one);
+                        continue;
+                    }
+                    WindowControl.Close(w, force);
+                    closed.Add(oneShown);
+                }
+                if (closed.Count > 0)
+                    return new AssistantReply($"Закрываю {string.Join(" и ", closed.Distinct())}." +
+                                              (missing.Count > 0 ? $" «{string.Join("», «", missing)}» не нашёл." : ""), Silent: true);
+            }
             List<OpenWindow> found = WindowControl.Find(NameVariants(name), out string shown);
             if (found.Count > 0)
             {
@@ -433,7 +454,11 @@ public sealed class AssistantService
         {
             string name = m.Groups[1].Value.Trim();
             // «открой Яндекс Музыку и запусти плейлист дня» — две просьбы; целиком отдаём ИИ, иначе вторая теряется
-            if (AiConfigured && Regex.IsMatch(name, @"\s+и\s+(?:запусти|включи|открой|поставь|найди|нажми|сверни|закрой)\b")) return null;
+            if (AiConfigured && HasSecondStep(name))
+            {
+                App.LogVoice("  несколько действий в одной фразе → ИИ");
+                return null;
+            }
             if (Sites.TryGetValue(name, out string? url))
             {
                 AppIndex.OpenUri(url);
@@ -500,9 +525,18 @@ public sealed class AssistantService
         return null;
     }
 
+    /// <summary>
+    /// В названии спрятано ещё одно действие: «дискорд, зайди в канал…», «дискорд и напиши…», «дискорд, потом…».
+    /// Такую фразу целиком отдаём ИИ — быстрая команда выполнила бы только первую часть.
+    /// </summary>
+    private static bool HasSecondStep(string name) =>
+        (Regex.IsMatch(name, @",|\s(?:потом|затем|после чего|а также)\s|\s+и\s+(?:\w+(?:и|й|ь|ись|йся|те))\b")
+        && !Regex.IsMatch(name, @"^[^,]+\s+и\s+[^,\s]+$")) // «король и шут», «дискорд и телеграм» — не второе действие
+        || Regex.IsMatch(name, @"\b(зайди|напиши|отправь|перейди|подключись|войди|выйди|отключись|нажми|найди|включи|поставь|запусти|открой)\b");
+
     /// <summary>Просьба что-то сделать на компьютере (а не вопрос) — по первому слову.</summary>
     private static bool IsActionRequest(string t) =>
-        Regex.IsMatch(t, @"^(открой|запусти|включи|поставь|закрой|выключи|сверни|разверни|нажми|найди|переключи|сыграй|играй|удали|создай)\b");
+        Regex.IsMatch(t, @"^(открой|запусти|включи|поставь|закрой|выключи|сверни|разверни|нажми|найди|переключи|переключись|сыграй|играй|удали|создай|зайди|войди|выйди|напиши|отправь|перейди|подключись|отключись|напечатай|освободи)\b");
 
     /// <summary>Как ещё может называться программа: русское сокращение и название из списка игр и программ.</summary>
     internal static List<string> NameVariants(string name)
@@ -615,6 +649,45 @@ public sealed class AssistantService
 
     // ---------- ИИ ----------
 
+    /// <summary>Инструменты, которые ждут результата: музыка и запуск программы (ждём окно, чтобы следующий шаг его нашёл).</summary>
+    private async Task<string> RunToolAsync(string name, JsonObject args) => name switch
+    {
+        "play_music" => await PlayMusicToolAsync(args),
+        "open_app" => await OpenAppToolAsync(args["name"]?.ToString() ?? ""),
+        _ => RunTool(name, args),
+    };
+
+    private static async Task<string> OpenAppToolAsync(string name)
+    {
+        AppEntry? e = AppIndex.FindConfident(name);
+        if (e == null)
+        {
+            (AppEntry? guess, double score) = AppIndex.Find(name);
+            if (guess == null || score < 0.55) return $"Не найдено: {name}";
+            e = guess;
+        }
+        List<string> variants = NameVariants(e.Name);
+        variants.Add(e.Name);
+        // уже открыто — просто показываем окно
+        List<OpenWindow> open = WindowControl.Find(variants, out string shown);
+        if (open.Count > 0 && !AppIndex.IsGame(e))
+        {
+            WindowControl.Restore(open);
+            return $"{shown} уже открыт, окно на переднем плане";
+        }
+        e.Launch();
+        if (AppIndex.IsGame(e)) return $"Запускается игра {e.Name}";
+        for (int i = 0; i < 20; i++) // до 10 секунд
+        {
+            await Task.Delay(500);
+            open = WindowControl.Find(variants, out shown);
+            if (open.Count == 0) continue;
+            await Task.Delay(1200); // окно появилось — даём программе дорисовать содержимое
+            return $"Открыто: {shown}, окно готово";
+        }
+        return $"Запущено: {e.Name}, но окно пока не появилось — подожди и проверь list_windows";
+    }
+
     private static async Task<string> PlayMusicToolAsync(JsonObject args)
     {
         string service = args["service"]?.ToString() switch
@@ -646,7 +719,7 @@ public sealed class AssistantService
     /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса); музыка — с ожиданием и проверкой.</summary>
     public async Task<string> RunLiveToolAsync(string name, JsonObject args)
     {
-        string result = name == "play_music" ? await PlayMusicToolAsync(args) : RunLiveTool(name, args);
+        string result = name is "play_music" or "open_app" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
         App.LogVoice($"  Live → {name}({args.ToJsonString()}) = {result[..Math.Min(result.Length, 300)]}");
         return result;
     }
@@ -692,6 +765,8 @@ public sealed class AssistantService
             "Что открыто на компьютере — list_windows. " +
             "Игры Battle.net (World of Warcraft, Diablo, Overwatch, Hearthstone) open_app запускает сразу, без кнопки «Играть». " +
             "«Освободи память» — free_memory, «закрой всё, кроме …» — close_all_except: оба сначала спрашивают «да». " +
+            "В Discord и Slack к каналу, серверу или чату переходи через go_to_chat (голосовой канал так и подключается), " +
+            "сообщение — app_type с enter=true. " +
             "Другие действия внутри программ делай так: " +
             "если программа не открыта — open_app; затем app_click по надписи кнопки; не нашлось — возьми точное название из списка в ответе; " +
             "для поиска — app_keys ctrl+f (или клик по полю поиска), app_type с текстом и enter. Музыку на паузу и следующий трек — media-команды. " +
@@ -738,6 +813,9 @@ public sealed class AssistantService
                     ["service"] = Enum("Сервис", "yandex", "youtube_music", "spotify"),
                     ["query"] = Str("Что включить: исполнитель, трек, альбом или плейлист (пусто — просто музыку)"),
                 }, "service"),
+            Fn("go_to_chat", "Перейти к каналу, серверу или чату по названию в Discord или Slack (быстрый переход Ctrl+K: название и Enter). " +
+                    "Голосовой канал при этом подключается. Потом пиши сообщение через app_type с enter=true.",
+                new JsonObject { ["app"] = Str("Программа: Discord или Slack"), ["name"] = Str("Название канала, сервера или собеседника") }, "app", "name"),
             Fn("list_windows", "Какие программы и игры сейчас открыты (окна на панели задач), какие из них свёрнуты.", new JsonObject()),
             Fn("app_click", "Нажать кнопку, пункт меню, вкладку или ссылку внутри открытой программы по её названию " +
                     "(например «Играть» в Battle.net, «Моя волна» в Яндекс Музыке). Если не найдено — в ответе список видимых элементов, выбери из него и вызови снова.",
@@ -831,6 +909,8 @@ public sealed class AssistantService
                 WindowControl.Close(found, B("force"));
                 return $"Закрыто: {shown}";
             }
+            case "go_to_chat":
+                return AppAutomation.GoToChat(S("app"), S("name"));
             case "free_memory":
             {
                 ProcessCleanup.Plan? plan = ProcessCleanup.FreeMemoryPlan(out string nothing);
@@ -983,17 +1063,36 @@ public sealed class AssistantService
         messages.Add(user.DeepClone());
 
         string answer = "";
+        bool nudged = false;
+        App.LogVoice($"  → ИИ ({Preset.Name}, {App.Settings.AiModel})" + (action ? ", просьба-действие" : ""));
         try
         {
-            for (int step = 0; step < 6; step++) // действия в программах бывают в несколько шагов: открыть → найти → нажать
+            for (int step = 0; step < 12; step++) // действия в программах бывают в несколько шагов: открыть → найти → нажать → написать
             {
                 JsonObject message = await CompleteAsync(messages, tools: true, onContent: splitter == null ? null : splitter.Push);
                 var calls = message["tool_calls"] as JsonArray;
                 if (calls == null || calls.Count == 0)
                 {
                     answer = message["content"]?.ToString() ?? "";
+                    // маленькие модели отвечают на «зайди в канал» текстом, ничего не сделав, — один раз просим сделать по-настоящему
+                    if (action && toolCalls == 0 && !nudged && !answer.TrimEnd().EndsWith('?'))
+                    {
+                        nudged = true;
+                        App.LogVoice($"  ИИ ответил без действия («{answer[..Math.Min(answer.Length, 120)]}») — прошу вызвать инструмент");
+                        messages.Add(new JsonObject { ["role"] = "assistant", ["content"] = answer });
+                        messages.Add(new JsonObject
+                        {
+                            ["role"] = "user",
+                            ["content"] = "Ты ничего не сделал — ответ текстом не выполняет действие. Выполни мою просьбу вызовом инструментов " +
+                                          "(open_app, list_windows, app_buttons, app_click, go_to_chat, app_type и других) и только потом коротко ответь.",
+                        });
+                        answer = "";
+                        continue;
+                    }
+                    App.LogVoice($"  шаг {step + 1}: ИИ закончил, вызовов инструментов: {toolCalls}");
                     break;
                 }
+                if (step == 11) App.LogVoice("  ИИ дошёл до предела в 12 шагов");
 
                 // назад отдаём только то, что понимают все совместимые API
                 messages.Add(new JsonObject
@@ -1019,7 +1118,7 @@ public sealed class AssistantService
                     toolCalls++;
                     try
                     {
-                        result = fn == "play_music" ? await PlayMusicToolAsync(args) : RunTool(fn, args);
+                        result = await RunToolAsync(fn, args);
                     }
                     catch (Exception ex)
                     {
@@ -1048,10 +1147,11 @@ public sealed class AssistantService
 
         answer = answer.Trim();
         // маленькие модели любят отвечать «запущено» вообще без действия — такой ответ не пропускаем
-        if (action && toolCalls == 0 && Regex.IsMatch(answer, @"запущ|включ|открыл|открыва|найден|нашёл|нашел|готово|сделано|выполн|закрыл|свернул|играет", RegexOptions.IgnoreCase))
+        // просили действие, а ИИ так ничего и не вызвал: любой ответ, кроме вопроса-уточнения («какой канал?»), — неправда
+        if (action && toolCalls == 0 && answer.Length > 0 && !answer.TrimEnd().EndsWith('?'))
         {
             App.LogVoice($"  ИИ сказал «{answer}», но ничего не сделал — заменяю ответ");
-            answer = "Не вышло, сэр: я ничего не сделал. Скажите иначе — например, «включи Яндекс Музыку» или «открой Discord».";
+            answer = "Не вышло, сэр: я ничего не сделал. Скажите короче, по одному действию, — или подключите мозг Groq или Gemini, они лучше справляются с цепочками.";
         }
         App.LogVoice($"  ИИ ответ: {answer[..Math.Min(answer.Length, 300)]}");
         splitter?.Flush();

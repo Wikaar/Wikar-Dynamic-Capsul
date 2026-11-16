@@ -256,7 +256,7 @@ public sealed class YandexMusicProvider : IMusicProvider
         string host, path, ts, s;
         if (body.TrimStart().StartsWith('{'))
         {
-            JsonNode? j = JsonNode.Parse(body);
+            JsonNode? j = JsonSafe.Parse(body);
             host = j?["host"]?.ToString() ?? "";
             path = j?["path"]?.ToString() ?? "";
             ts = j?["ts"]?.ToString() ?? "";
@@ -346,7 +346,7 @@ public sealed class YandexMusicProvider : IMusicProvider
             if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                 throw new MusicException("Вход в Яндекс Музыку устарел — войди заново.");
             if (!resp.IsSuccessStatusCode) throw new MusicException($"Яндекс Музыка ответила ошибкой {(int)resp.StatusCode}.");
-            return JsonNode.Parse(body)?["result"];
+            return JsonSafe.Parse(body)?["result"];
         }
     }
 

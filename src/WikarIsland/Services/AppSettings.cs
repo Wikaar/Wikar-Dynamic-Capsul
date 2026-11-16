@@ -119,6 +119,7 @@ public sealed class AppSettings
     public string LiveVoice { get; set; } = "Charon";
     public bool LiveBargeIn { get; set; } // перебивать голосом (с колонками модель услышит сама себя)
     public bool LiveGoogleSearch { get; set; } // поиск Google внутри Live — только на платном тарифе
+    public bool LiveOwnVoice { get; set; } // в Live говорить голосом Капсулки (Edge или Fish Audio), а не голосом Gemini
     public string GeminiKeyProtected { get; set; } = "";
     public string GroqKeyProtected { get; set; } = ""; // ключ Groq для распознавания речи (Whisper) — не зависит от выбранного «мозга»
 

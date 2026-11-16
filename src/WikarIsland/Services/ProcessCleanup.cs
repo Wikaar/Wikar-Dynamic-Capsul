@@ -180,7 +180,7 @@ public static class ProcessCleanup
 
     private static bool IsLauncher(string name) => Launchers.Contains(name, StringComparer.OrdinalIgnoreCase);
 
-    private static List<string> Variants(string name)
+    public static List<string> Variants(string name)
     {
         var list = new List<string>(AssistantService.NameVariants(name));
         // «дискорда», «телеграму», «хрома» — без падежного окончания

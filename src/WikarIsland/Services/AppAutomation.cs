@@ -97,6 +97,25 @@ public static class AppAutomation
         return $"Напечатано в {shown}: {text}";
     }
 
+    /// <summary>
+    /// Быстрый переход Ctrl+K (Discord, Slack): открыть окно, Ctrl+K, напечатать название, подождать подсказки, Enter.
+    /// В Discord выбранный так голосовой канал сразу подключается.
+    /// </summary>
+    public static string GoToChat(string app, string name)
+    {
+        if (name.Trim().Length == 0) return "Не сказано, куда перейти.";
+        List<OpenWindow> windows = WindowControl.Find(AssistantService.NameVariants(app), out string shown);
+        if (windows.Count == 0) return $"Программа «{app}» не открыта — сначала open_app.";
+        WindowControl.Restore(windows);
+        Thread.Sleep(400);
+        SendCombo("ctrl+k");
+        Thread.Sleep(450);
+        foreach (char c in name.Trim()) SendChar(c);
+        Thread.Sleep(700); // список совпадений появляется не сразу
+        SendCombo("enter");
+        return $"Перешёл в {shown} к «{name.Trim()}» через быстрый переход. Если открылось не то — посмотри app_buttons.";
+    }
+
     // ---------- музыка ----------
 
     private sealed record MusicService(string Name, string[] Apps, string Web, string SearchUrl, string[] PlayWords, string[] StartTargets);

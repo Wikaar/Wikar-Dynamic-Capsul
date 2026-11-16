@@ -63,12 +63,18 @@ public sealed class GeminiLiveService : IDisposable
 
     private volatile bool _turnActive; // модель отвечает: от первого звука ответа до turnComplete
 
+    // «голос Капсулки вместо голоса Gemini»: звук модели не играем, а её текст озвучиваем своим голосом (Edge или Fish Audio)
+    private readonly bool _ownVoice = App.Settings.LiveOwnVoice;
+    private Channel<string>? _sentences;
+    private readonly StringBuilder _pendingSpeech = new();
+    private volatile Task? _speechTask;
+
     /// <summary>
     /// Ответ ещё идёт: модель продолжает присылать звук или он ещё не доигран. Раньше смотрели только на буфер,
     /// а он на миг пустеет между пакетами из сети — микрофон включался посреди ответа, шум и эхо колонок
     /// Gemini принимал за речь и обрывал сам себя.
     /// </summary>
-    public bool IsSpeaking => _turnActive || _play is { BufferedBytes: > 0 };
+    public bool IsSpeaking => _turnActive || _play is { BufferedBytes: > 0 } || _speechTask is { IsCompleted: false };
 
     public event Action<string>? UserSaid;    // распознанная речь пользователя (накопительно за ход)
     public event Action<string>? ModelSaid;   // текст ответа (накопительно за ход)
@@ -126,13 +132,61 @@ public sealed class GeminiLiveService : IDisposable
     }
 
     /// <summary>Замолчать (клик по капсуле): обрываем воспроизведение.</summary>
-    public void StopSpeaking() => _play?.ClearBuffer();
+    public void StopSpeaking()
+    {
+        _play?.ClearBuffer();
+        StopOwnVoice();
+    }
+
+    // ---------- свой голос ----------
+
+    /// <summary>Кусок текста ответа: целые предложения сразу уходят в озвучку, хвост ждёт продолжения.</summary>
+    private void QueueSpeech(string chunk)
+    {
+        if (_sentences == null)
+        {
+            Channel<string> channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
+            _sentences = channel;
+            _speechTask = _ui.InvokeAsync(() => App.Speech.SpeakStreamAsync(channel.Reader)).Task.Unwrap();
+        }
+        _pendingSpeech.Append(chunk);
+        string text = _pendingSpeech.ToString();
+        int cut = -1;
+        for (int i = 0; i < text.Length - 1; i++)
+            if (".!?…".IndexOf(text[i]) >= 0 && char.IsWhiteSpace(text[i + 1])) cut = i + 1;
+        // расшифровка бывает без точек — длинный кусок режем по пробелу
+        if (cut < 0 && text.Length > 160) cut = text.LastIndexOf(' ') > 40 ? text.LastIndexOf(' ') : -1;
+        if (cut <= 0) return;
+        _sentences.Writer.TryWrite(text[..cut].Trim());
+        _pendingSpeech.Remove(0, cut);
+    }
+
+    /// <summary>Ход модели закончился: досказываем хвост и закрываем очередь.</summary>
+    private void FlushSpeech()
+    {
+        if (_sentences == null) return;
+        string rest = _pendingSpeech.ToString().Trim();
+        if (rest.Length > 0) _sentences.Writer.TryWrite(rest);
+        _pendingSpeech.Clear();
+        _sentences.Writer.TryComplete();
+        _sentences = null;
+    }
+
+    private void StopOwnVoice()
+    {
+        if (!_ownVoice) return;
+        _sentences?.Writer.TryComplete();
+        _sentences = null;
+        _pendingSpeech.Clear();
+        _ui.InvokeAsync(() => App.Speech.Stop());
+    }
 
     public void Close()
     {
         if (_closed) return;
         _closed = true;
         _audioIn.Writer.TryComplete();
+        _sentences?.Writer.TryComplete();
         _cts.Cancel();
         try
         {
@@ -399,6 +453,7 @@ public sealed class GeminiLiveService : IDisposable
             if (content["interrupted"]?.GetValue<bool>() == true)
             {
                 _play?.ClearBuffer();
+                StopOwnVoice();
                 _turnActive = false;
             }
 
@@ -418,6 +473,11 @@ public sealed class GeminiLiveService : IDisposable
                 foreach (JsonNode? part in parts)
                 {
                     if (part?["inlineData"]?["data"]?.ToString() is not { Length: > 0 } b64) continue;
+                    if (_ownVoice)
+                    {
+                        _turnActive = true; // звук Gemini не играем — говорит голос Капсулки по тексту ответа
+                        continue;
+                    }
                     byte[] pcm = Convert.FromBase64String(b64);
                     if (_play == null) continue;
                     // начало ответа: 200 мс тишины в запас, чтобы неровная доставка пакетов не давала «заиканий»
@@ -431,10 +491,12 @@ public sealed class GeminiLiveService : IDisposable
             {
                 _modelText.Append(said);
                 ModelSaid?.Invoke(_modelText.ToString().Trim());
+                if (_ownVoice) QueueSpeech(said);
             }
 
             if (content["turnComplete"]?.GetValue<bool>() == true)
             {
+                if (_ownVoice) FlushSpeech();
                 _turnActive = false;
                 _userText.Clear();
                 TurnDone?.Invoke();

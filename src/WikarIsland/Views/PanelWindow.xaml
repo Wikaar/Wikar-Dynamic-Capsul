@@ -1566,6 +1566,12 @@
                                 </Border>
                             </Popup>
                         </Grid>
+                        <CheckBox x:Name="LiveOwnVoiceBox" Style="{StaticResource SetCheck}" Click="Live_Changed">
+                            <StackPanel>
+                                <TextBlock Text="Говорить голосом Капсулки вместо голоса Gemini" TextWrapping="Wrap"/>
+                                <TextBlock Text="Голос из раздела «Голос» выше, в том числе Fish Audio. Ответ звучит на 1–2 секунды позже" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </CheckBox>
                         <CheckBox x:Name="LiveBargeInBox" Style="{StaticResource SetCheck}" Click="Live_Changed">
                             <StackPanel>
                                 <TextBlock Text="Перебивать голосом, пока он говорит" TextWrapping="Wrap"/>

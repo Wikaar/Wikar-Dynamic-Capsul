@@ -2624,6 +2624,7 @@ public partial class PanelWindow : Window
 
         LiveEnabledBox.IsChecked = s.LiveEnabled;
         LiveBargeInBox.IsChecked = s.LiveBargeIn;
+        LiveOwnVoiceBox.IsChecked = s.LiveOwnVoice;
         LiveKeyBox.Password = s.GeminiKey;
         FillVoicePicker(LiveVoicePickButton, LiveVoicePopup, LiveVoicesPanel, GeminiLiveService.Voices, s.LiveVoice, id =>
         {
@@ -2831,6 +2832,7 @@ public partial class PanelWindow : Window
         AppSettings s = App.Settings;
         s.LiveEnabled = LiveEnabledBox.IsChecked == true;
         s.LiveBargeIn = LiveBargeInBox.IsChecked == true;
+        s.LiveOwnVoice = LiveOwnVoiceBox.IsChecked == true; // со следующего разговора
         if (LiveKeyBox.Password.Length > 0) s.GeminiKey = LiveKeyBox.Password;
         s.Save();
         LiveStatus.Text = !s.LiveEnabled ? "Выключено: Капсулка работает в обычном режиме."

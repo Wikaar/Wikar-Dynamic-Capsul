@@ -9,8 +9,11 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/Wikaar/Wikar-DynamicIsland/build.yml?style=for-the-badge&label=build)](../../actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/Wikaar/Wikar-DynamicIsland?style=for-the-badge&color=8A2BE2&label=версия)](../../releases/latest)
 
-<!-- Сюда отлично встанет GIF или скриншот пилюли: -->
-<!-- <img src="docs/preview.gif" width="720" alt="Капсула в работе"> -->
+<img src="docs/pill.png" width="406" alt="Свёрнутая пилюля: глаза, погода и часы">
+
+<br><br>
+
+<img src="docs/home.png" width="780" alt="Главный экран Капсулы">
 
 **Скажи «Капсулка», и она уже слушает.**
 
@@ -27,6 +30,17 @@
 У пилюли есть характер: глаза следят за курсором, моргают и засыпают. Нижний край тянется каплей к мыши, рябит в такт музыке и вздрагивает от уведомлений.
 
 Проект написан с нуля на **C# + WPF + WebView2**.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/control-center.png" width="400" alt="Центр управления"><br><sub><b>Центр</b>: Wi-Fi, VPN, zapret, нагрузка, «Не беспокоить», уведомления</sub></td>
+    <td align="center"><img src="docs/system.png" width="400" alt="Показатели системы"><br><sub><b>Система</b>: температуры, нагрузка и частоты CPU и GPU</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/weather.png" width="400" alt="Погода"><br><sub><b>Погода</b>: по часам и на неделю</sub></td>
+    <td align="center"><img src="docs/music.png" width="400" alt="Встроенный плеер"><br><sub><b>Музыка</b>: Яндекс Музыка, YouTube Music и Spotify</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -54,6 +68,8 @@
 - **ChatGPT, Claude, Gemini, DeepSeek** и переводчик **DeepL** во вкладках, без платного API: вход в свои аккаунты сохраняется
 - Любой чат можно открыть в отдельном окне
 
+<p align="center"><img src="docs/ai-chats.png" width="720" alt="ChatGPT во вкладке Капсулы"></p>
+
 ### 🎵 Музыка
 - Что играет сейчас (Яндекс Музыка, Spotify, YouTube и др.): управление, перемотка, значок источника
 - Свечение пилюли и эквалайзер в цвет обложки
@@ -78,6 +94,13 @@
 - **zapret**: Discord и YouTube без VPN. Остров сам скачивает и обновляет [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube), подбирает рабочую стратегию и умеет всё из `service.bat`
 - **VPN (VLESS)** на встроенном ядре Xray: Reality/TLS, транспорты tcp, ws, grpc, xhttp и httpupgrade, системный прокси, пресеты DNS и DoH. Ссылки хранятся зашифрованными
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/vpn.png" width="400" alt="VPN (VLESS)"><br><sub>VPN на ядре Xray</sub></td>
+    <td align="center"><img src="docs/zapret.png" width="400" alt="zapret"><br><sub>zapret с автоподбором стратегии</sub></td>
+  </tr>
+</table>
+
 ### 🖥️ Система и инструменты
 - **Показатели ПК**: CPU и GPU (температура, нагрузка, частота, мощность), видеопамять, RAM, все датчики (LibreHardwareMonitor)
 - **Звук**: громкость колёсиком над пилюлей, mute, смена аудиовыхода в один клик
@@ -93,6 +116,8 @@
 - **7 стилей глаз**: классические, кошачьи, робот, мультяшные, сонные, сердитые, пиксельные
 - Автоскрытие за верхний край, срастание с рамкой монитора, как у выреза
 - Настройки по разделам: Основные, Внешний вид, Голос, ИИ, Погода, Уведомления, Игры, Фокус, Данные
+
+<p align="center"><img src="docs/settings.png" width="560" alt="Настройки"></p>
 
 ---
 

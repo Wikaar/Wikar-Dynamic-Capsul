@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 namespace WikarIsland.Services;
 
 /// <summary>
-/// Очистка корзины по команде «Капсула, очисти корзину». Системный вопрос «Удалить все объекты безвозвратно?»
-/// Капсула подтверждает сама: команда пользователя и есть согласие, окно не всплывает.
+/// Очистка корзины по команде «Капсула, очисти корзину». Капсула сначала переспрашивает голосом,
+/// а после «да» сама подтверждает системный вопрос «Удалить все объекты безвозвратно?» — окно не всплывает.
 /// </summary>
 public static class RecycleBin
 {
@@ -31,6 +31,16 @@ public static class RecycleBin
     {
         var info = new SHQUERYRBINFO { cbSize = Marshal.SizeOf<SHQUERYRBINFO>() };
         return SHQueryRecycleBin(null, ref info) == 0 ? (info.i64NumItems, info.i64Size) : (-1, 0);
+    }
+
+    /// <summary>Вопрос перед очисткой («Очистить корзину, сэр? Там 12 файлов, 1,4 ГБ.») или null, если корзина пуста.</summary>
+    public static string? Question(out string emptyReply)
+    {
+        emptyReply = "Корзина уже пуста, сэр.";
+        (long items, long bytes) = Query();
+        if (items == 0) return null;
+        return items < 0 ? "Очистить корзину, сэр? Восстановить файлы будет нельзя."
+            : $"Очистить корзину, сэр? Там {Files(items)}, {Size(bytes)}. Восстановить их будет нельзя.";
     }
 
     /// <summary>Очистить корзину на всех дисках. Возвращает фразу для ответа (со «сэр» — заменится на обращение пользователя).</summary>

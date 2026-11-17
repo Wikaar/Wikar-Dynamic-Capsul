@@ -526,7 +526,7 @@ public partial class PanelWindow : Window
     {
         var view = new WebView2
         {
-            DefaultBackgroundColor = System.Drawing.Theme.Argb(255, 20, 20, 23),
+            DefaultBackgroundColor = Theme.DrawingArgb(255, 20, 20, 23),
         };
         _views[key] = view;
         AiHost.Children.Add(view);

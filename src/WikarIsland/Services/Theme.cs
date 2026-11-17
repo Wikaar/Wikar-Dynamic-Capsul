@@ -32,6 +32,13 @@ public static class Theme
 
     public static Color Map(Color c) => IsLight ? ToLight(c) : c;
 
+    /// <summary>То же для WinForms/WebView2 (System.Drawing.Color).</summary>
+    public static System.Drawing.Color DrawingArgb(byte a, byte r, byte g, byte b)
+    {
+        Color c = Argb(a, r, g, b);
+        return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+    }
+
     public static SolidColorBrush Brush(Color c)
     {
         var b = new SolidColorBrush(Map(c));

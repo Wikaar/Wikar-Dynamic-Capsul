@@ -18,7 +18,7 @@ public partial class AiWindow : Window
     public AiWindow(string? url)
     {
         InitializeComponent();
-        Web.DefaultBackgroundColor = System.Drawing.Theme.Argb(255, 20, 20, 23);
+        Web.DefaultBackgroundColor = Theme.DrawingArgb(255, 20, 20, 23);
         _url = url;
         if (url != null)
             Loaded += async (_, _) => await InitAsync();

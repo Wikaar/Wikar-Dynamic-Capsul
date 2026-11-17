@@ -358,7 +358,11 @@ public sealed class YandexMusicProvider : IMusicProvider
         if (items == null) return list;
         foreach (JsonNode? t in items)
         {
-            MusicTrack? track = ParseTrack(t);
+            // у Яндекса бывают треки с повторяющимся полем в JSON (например, два "albums"):
+            // JsonNode на таком падает, поэтому пропускаем только этот трек, а не весь поиск
+            MusicTrack? track;
+            try { track = ParseTrack(t); }
+            catch (ArgumentException) { continue; }
             if (track != null) list.Add(track);
         }
         return list;

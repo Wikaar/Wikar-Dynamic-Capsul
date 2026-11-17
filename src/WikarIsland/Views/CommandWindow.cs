@@ -17,8 +17,8 @@ public sealed class CommandWindow : Window
     private readonly TextBlock _status;
     private bool _closing;
 
-    private static readonly Brush Dim = new SolidColorBrush(Theme.Rgb(0x8A, 0x8A, 0x94));
-    private static readonly Brush Main = new SolidColorBrush(Theme.Rgb(0xF2, 0xF2, 0xF5));
+    private static readonly Brush Dim = new SolidColorBrush(Theme.FgRgb(0x8A, 0x8A, 0x94));
+    private static readonly Brush Main = new SolidColorBrush(Theme.FgRgb(0xF2, 0xF2, 0xF5));
     private static readonly FontFamily Ui = new("Segoe UI Variable Text, Segoe UI");
 
     public CommandWindow()

@@ -389,7 +389,7 @@ public partial class PillWindow : Window
             UpdateContent();
             return;
         }
-        Color color = f.Paused ? Theme.Rgb(0x8A, 0x8A, 0x94)
+        Color color = f.Paused ? Theme.FgRgb(0x8A, 0x8A, 0x94)
             : f.Pomodoro && f.IsBreak ? Theme.Rgb(0x6E, 0xE0, 0x9A)
             : f.Pomodoro ? Theme.Rgb(0xFF, 0x7A, 0x6B)
             : Theme.Rgb(0x9C, 0xB0, 0xFF);
@@ -623,19 +623,19 @@ public partial class PillWindow : Window
                 VoiceIcon.Text = "\uE720"; // микрофон
                 VoiceHalo.Fill = new SolidColorBrush(Theme.Rgb(0x5E, 0x5C, 0xE6));
                 VoiceText.Text = v.Text.Length > 0 ? v.Text : "Слушаю…";
-                VoiceText.Foreground = new SolidColorBrush(v.Text.Length > 0 ? Theme.Rgb(0xF2, 0xF2, 0xF5) : Theme.Rgb(0x9C, 0x9C, 0xA8));
+                VoiceText.Foreground = new SolidColorBrush(v.Text.Length > 0 ? Theme.FgRgb(0xF2, 0xF2, 0xF5) : Theme.FgRgb(0x9C, 0x9C, 0xA8));
                 break;
             case VoiceState.Thinking:
                 VoiceIcon.Text = "\uE9F5"; // обработка
                 VoiceHalo.Fill = new SolidColorBrush(Theme.Rgb(0x0A, 0x84, 0xFF));
                 VoiceText.Text = v.Text;
-                VoiceText.Foreground = new SolidColorBrush(Theme.Rgb(0x9C, 0x9C, 0xA8));
+                VoiceText.Foreground = new SolidColorBrush(Theme.FgRgb(0x9C, 0x9C, 0xA8));
                 break;
             case VoiceState.Speaking:
                 VoiceIcon.Text = "\uE767"; // динамик
                 VoiceHalo.Fill = new SolidColorBrush(Theme.Rgb(0x30, 0xD1, 0x58));
                 VoiceText.Text = v.Text;
-                VoiceText.Foreground = new SolidColorBrush(Theme.Rgb(0xF2, 0xF2, 0xF5));
+                VoiceText.Foreground = new SolidColorBrush(Theme.FgRgb(0xF2, 0xF2, 0xF5));
                 break;
         }
         VoicePart.ToolTip = v.Text.Length > 0 ? v.Text + "\n\nНажми, чтобы остановить" : "Нажми, чтобы остановить";
@@ -681,7 +681,7 @@ public partial class PillWindow : Window
             else
             {
                 GameFps.Text = "—";
-                GameFps.Foreground = new SolidColorBrush(Theme.Rgb(0x8A, 0x8A, 0x94));
+                GameFps.Foreground = new SolidColorBrush(Theme.FgRgb(0x8A, 0x8A, 0x94));
             }
 
             SystemSnapshot? snap = App.SystemMonitor.Current;
@@ -690,7 +690,7 @@ public partial class PillWindow : Window
             double? temp = snap?.Gpu?.Temperature ?? snap?.Cpu?.Temperature;
             GameTemp.Text = temp is double t ? $"{t:0}°" : "";
             GameTemp.Foreground = new SolidColorBrush(temp is >= 85 ? Theme.Rgb(0xFF, 0x6B, 0x61)
-                : temp is >= 75 ? Theme.Rgb(0xF5, 0xC8, 0x5A) : Theme.Rgb(0xF2, 0xF2, 0xF5));
+                : temp is >= 75 ? Theme.Rgb(0xF5, 0xC8, 0x5A) : Theme.FgRgb(0xF2, 0xF2, 0xF5));
 
             GamePart.ToolTip = g.Name + (g.FpsProblem != null ? $"\nFPS: {g.FpsProblem}" : "")
                                + (snap?.Gpu != null ? $"\n{snap.Gpu.Name}" : "");
@@ -703,7 +703,7 @@ public partial class PillWindow : Window
         VpnService vpn = App.Vpn;
         Color color = vpn.IsBusy ? Theme.Rgb(0xF5, 0xC8, 0x5A)
             : vpn.IsConnected ? Theme.Rgb(0x6E, 0xE0, 0x9A)
-            : Theme.Rgb(0x8A, 0x8A, 0x94);
+            : Theme.FgRgb(0x8A, 0x8A, 0x94);
         var brush = new SolidColorBrush(color);
         VpnIcon.Foreground = brush;
         VpnText.Foreground = brush;
@@ -721,7 +721,7 @@ public partial class PillWindow : Window
         ZapretService z = App.Zapret;
         Color color = z.IsBusy ? Theme.Rgb(0xF5, 0xC8, 0x5A)
             : z.IsRunning ? Theme.Rgb(0x7C, 0x9C, 0xFF)
-            : Theme.Rgb(0x8A, 0x8A, 0x94);
+            : Theme.FgRgb(0x8A, 0x8A, 0x94);
         var brush = new SolidColorBrush(color);
         ZapretIcon.Foreground = brush;
         ZapretText.Foreground = brush;

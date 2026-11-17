@@ -6,8 +6,8 @@
 
         <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
         <SolidColorBrush x:Key="Accent" Color="{DynamicResource ThC_FF8EA2FF}"/>
-        <SolidColorBrush x:Key="TextMain" Color="{DynamicResource ThC_FFF2F2F5}"/>
-        <SolidColorBrush x:Key="TextDim" Color="{DynamicResource ThC_FFA0A0AA}"/>
+        <SolidColorBrush x:Key="TextMain" Color="{DynamicResource ThFC_FFF2F2F5}"/>
+        <SolidColorBrush x:Key="TextDim" Color="{DynamicResource ThFC_FFA0A0AA}"/>
 
         <!-- Вкладки в верхней строке панели -->
         <Style x:Key="TabButton" TargetType="RadioButton">

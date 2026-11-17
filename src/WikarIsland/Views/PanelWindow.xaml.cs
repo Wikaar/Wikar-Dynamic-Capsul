@@ -588,7 +588,7 @@ public partial class PanelWindow : Window
         PlayerEmpty.Visibility = m == null ? Visibility.Visible : Visibility.Collapsed;
         PlayerContent.Visibility = m == null ? Visibility.Collapsed : Visibility.Visible;
 
-        Color accent = m?.Accent ?? Theme.Rgb(0xF2, 0xF2, 0xF5);
+        Color accent = m?.Accent ?? Theme.FgRgb(0xF2, 0xF2, 0xF5);
         PlayerCard.Background = m?.Accent is Color a
             ? new LinearGradientBrush(Theme.Map(Color.FromRgb((byte)(a.R * 0.42), (byte)(a.G * 0.42), (byte)(a.B * 0.42))),
                                       Theme.Rgb(0x17, 0x17, 0x1D), new Point(0, 0), new Point(1, 1))
@@ -2029,7 +2029,7 @@ public partial class PanelWindow : Window
         {
             Text = chip.Temperature is double t ? $"{t:0}°" : "—°",
             FontSize = 34, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0),
-            Foreground = new SolidColorBrush(chip.Temperature is double tc ? TempColor(tc) : Theme.Rgb(0xA0, 0xA0, 0xAA)),
+            Foreground = new SolidColorBrush(chip.Temperature is double tc ? TempColor(tc) : Theme.FgRgb(0xA0, 0xA0, 0xAA)),
             FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
             ToolTip = chip.Temperature == null ? "Нужны права администратора" : null,
         };
@@ -2602,7 +2602,7 @@ public partial class PanelWindow : Window
         Padding = new Thickness(6, 3, 6, 3),
         FontSize = 12.5,
         Background = new SolidColorBrush(Theme.Rgb(0x1F, 0x1F, 0x24)),
-        Foreground = new SolidColorBrush(Theme.Rgb(0xF2, 0xF2, 0xF5)),
+        Foreground = new SolidColorBrush(Theme.FgRgb(0xF2, 0xF2, 0xF5)),
         BorderBrush = new SolidColorBrush(Theme.Argb(0x44, 0xFF, 0xFF, 0xFF)),
         CaretBrush = Theme.Brush(Colors.White),
         FontFamily = new FontFamily("Cascadia Mono, Consolas"),

@@ -46,7 +46,7 @@ public partial class PanelWindow
         {
             bool on = (string)chip.Tag == p.Key;
             chip.Background = on ? ChipSelected : Brushes.Transparent;
-            chip.Foreground = on ? (Brush)FindResource("TextMain") : new SolidColorBrush(Theme.Rgb(0xD8, 0xD8, 0xDE));
+            chip.Foreground = on ? (Brush)FindResource("TextMain") : new SolidColorBrush(Theme.FgRgb(0xD8, 0xD8, 0xDE));
         }
 
         bool needsClientId = p.Key == "spotify" && App.Settings.SpotifyClientId.Length == 0;

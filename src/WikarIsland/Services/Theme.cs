@@ -6,8 +6,8 @@ namespace WikarIsland.Services;
 
 /// <summary>
 /// Тёмная и светлая тема. Все цвета острова нарисованы под тёмный фон; в светлой теме каждый цвет
-/// пересчитывается: серые и фоны выворачиваются по яркости (чёрное ↔ белое), яркие акценты темнеют,
-/// чтобы читаться на светлом. Разметка берёт цвета из ресурсов ThB_/ThC_, код — через Rgb/Argb/Map.
+/// пересчитывается: фоны выворачиваются по яркости (чёрное ↔ белое), яркие акценты темнеют,
+/// чтобы читаться на светлом. Текст и значки — через Fg: белые в тёмной теме, чёрные в светлой. Разметка берёт цвета из ресурсов ThB_/ThC_ (фоны) и ThF_/ThFC_ (текст), код — через Rgb/Argb/Map.
 /// Смена темы применяется после перезапуска острова.
 /// </summary>
 public static class Theme
@@ -31,6 +31,22 @@ public static class Theme
     public static Color Argb(byte a, byte r, byte g, byte b) => Map(Color.FromArgb(a, r, g, b));
 
     public static Color Map(Color c) => IsLight ? ToLight(c) : c;
+
+    public static Color FgRgb(byte r, byte g, byte b) => Fg(Color.FromRgb(r, g, b));
+
+    public static Color FgArgb(byte a, byte r, byte g, byte b) => Fg(Color.FromArgb(a, r, g, b));
+
+    /// <summary>
+    /// Цвет текста и значков: серые — белые в тёмной теме и чёрные в светлой (прозрачность сохраняется).
+    /// Цветные (статусы, акценты) и тёмный текст на светлых кнопках пересчитываются как обычные цвета.
+    /// </summary>
+    public static Color Fg(Color c)
+    {
+        if (c.A == 0) return c;
+        ToHsl(c, out _, out double s, out double l);
+        if (s >= 0.22 || l < 0.3) return Map(c);
+        return IsLight ? Color.FromArgb(c.A, 0x11, 0x11, 0x11) : Color.FromArgb(c.A, 0xFF, 0xFF, 0xFF);
+    }
 
     /// <summary>То же для WinForms/WebView2 (System.Drawing.Color).</summary>
     public static System.Drawing.Color DrawingArgb(byte a, byte r, byte g, byte b)
@@ -57,6 +73,12 @@ public static class Theme
             var b = new SolidColorBrush(c);
             b.Freeze();
             res["ThB_" + hex] = b;
+            Color raw = Color.FromArgb((byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v);
+            Color fg = Fg(raw);
+            res["ThFC_" + hex] = fg;
+            var fb = new SolidColorBrush(fg);
+            fb.Freeze();
+            res["ThF_" + hex] = fb;
         }
     }
 

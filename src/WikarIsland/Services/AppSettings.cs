@@ -76,6 +76,24 @@ public sealed class AppSettings
     /// <summary>Слегка окрашивать саму капсулу в цвет обложки.</summary>
     public bool MusicTint { get; set; } = true;
     public string PillTheme { get; set; } = "black";
+
+    /// <summary>Тема острова: dark или light (применяется после перезапуска).</summary>
+    public string UiTheme { get; set; } = "dark";
+
+    /// <summary>Неоновая окантовка: цвет #RRGGBB, пусто — выключена.</summary>
+    public string NeonColor { get; set; } = "";
+    public bool NeonPill { get; set; } = true;   // у свёрнутой капсулы (со свечением)
+    public bool NeonPanel { get; set; } = true;  // у раскрытой
+
+    // профиль: как Капсулка обращается к пользователю
+    public string UserName { get; set; } = "";
+
+    /// <summary>m — мужчина, f — женщина, пусто — не указан.</summary>
+    public string UserGender { get; set; } = "";
+
+    /// <summary>sir — сэр/мэм, title — мистер/мисс + имя, gos — господин/госпожа + имя, name — по имени, custom — своё.</summary>
+    public string AddressStyle { get; set; } = "sir";
+    public string AddressCustom { get; set; } = "";
     public double PillOpacity { get; set; } = 1.0;
 
     // быстрая строка, Pomodoro

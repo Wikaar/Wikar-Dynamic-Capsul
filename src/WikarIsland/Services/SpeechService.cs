@@ -188,7 +188,7 @@ public sealed class SpeechService
     /// <summary>Подготовить фразу к озвучке: без знаков, которые голос читает вслух, английское — по-русски (для русских голосов).</summary>
     public static string Prepare(string text)
     {
-        text = SpeechText.Clean(text);
+        text = UserAddress.Apply(SpeechText.Clean(text));
         if (!IsMultilingual(App.Settings.VoiceName)) text = SpeechText.EnglishForRussianVoice(text);
         return text;
     }

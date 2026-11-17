@@ -304,6 +304,13 @@ public sealed class AssistantService
             return new AssistantReply("", Silent: true);
         }
 
+        // --- корзина: системное подтверждение Капсула нажимает сама ---
+        if (Regex.IsMatch(t, @"^((очисти|очистить|опустоши|почисти|вычисти|освободи)( мою| всю)? корзину|очистка корзины)$"))
+        {
+            string? question = RecycleBin.Question(out string empty);
+            return question == null ? new AssistantReply(empty, Silent: true) : Confirm(question, RecycleBin.Empty);
+        }
+
         // --- питание ---
         if ((m = Regex.Match(t, @"^(выключи|перезагрузи|усыпи)\s*(компьютер|комп|пк)?\s+через\s+(.+)$")).Success
             && CommandService.TryParseDuration(UnitsToShort(m.Groups[3].Value), out TimeSpan delay, out _))
@@ -916,7 +923,10 @@ public sealed class AssistantService
         }
     }
 
-    private static string SystemPrompt()
+    /// <summary>Подсказка с выбранным обращением вместо «сэр», плюс имя и пол пользователя.</summary>
+    private static string SystemPrompt() => (UserAddress.Apply(SystemPromptCore()) + " " + UserAddress.PromptRule()).TrimEnd();
+
+    private static string SystemPromptCore()
     {
         // коротко: бесплатный Groq считает токены в минуту, длинные списки съедали лимит за пару команд
         string games = string.Join(", ", AppIndex.GameNames.Take(40));
@@ -937,7 +947,7 @@ public sealed class AssistantService
             "Игры Battle.net (World of Warcraft, Diablo, Overwatch, Hearthstone) open_app запускает сразу, без кнопки «Играть». " +
             "Файлы: find_files (сразу с open=folder, если просят показать, где лежит), program_files — все папки программы, " +
             "open_found — открыть найденное по номеру, open_folder — загрузки, документы и т. п. " +
-            "«Освободи память» — free_memory, «закрой всё, кроме …» — close_all_except: оба сначала спрашивают «да». " +
+            "«Очисти корзину» — empty_recycle_bin: сначала спрашивает «да». «Освободи память» — free_memory, «закрой всё, кроме …» — close_all_except: оба сначала спрашивают «да». " +
             "В Discord и Slack к каналу, серверу или чату переходи через go_to_chat (голосовой канал так и подключается), " +
             "сообщение — app_type с enter=true. " +
             "Другие действия внутри программ делай так: " +
@@ -1017,6 +1027,8 @@ public sealed class AssistantService
                 new JsonObject { ["app"] = Str("Программа"), ["text"] = Str("Текст"), ["enter"] = Bool("Нажать Enter после текста") }, "app", "text"),
             Fn("close_app", "Закрыть открытую программу или игру по названию.",
                 new JsonObject { ["name"] = Str("Название программы или игры"), ["force"] = Bool("Завершить принудительно, если не закрывается") }, "name"),
+            Fn("empty_recycle_bin", "Очистить корзину Windows на всех дисках. Сам ничего не удаляет — сначала спрашивает «да», потом confirm_pending.",
+                new JsonObject()),
             Fn("free_memory", "Освободить оперативную память: находит открытые программы, которые занимают больше всего памяти " +
                     "(без системных процессов, острова и запущенной игры), и готовит их закрытие. Сам ничего не закрывает — нужно «да» и confirm_pending.",
                 new JsonObject()),
@@ -1109,6 +1121,15 @@ public sealed class AssistantService
                 return OpenFolderTool(args);
             case "go_to_chat":
                 return AppAutomation.GoToChat(S("app"), S("name"));
+            case "empty_recycle_bin":
+            {
+                string? question = RecycleBin.Question(out string empty);
+                if (question == null) return empty;
+                _pending = RecycleBin.Empty;
+                _pendingUntil = DateTime.Now.AddSeconds(40);
+                _askedConfirmation = true;
+                return "Корзина ещё НЕ очищена. Нужно подтверждение: спроси пользователя «" + question + "» и только после «да» вызови confirm_pending.";
+            }
             case "free_memory":
             {
                 ProcessCleanup.Plan? plan = ProcessCleanup.FreeMemoryPlan(out string nothing);

@@ -17,8 +17,8 @@ public sealed class CommandWindow : Window
     private readonly TextBlock _status;
     private bool _closing;
 
-    private static readonly Brush Dim = new SolidColorBrush(Color.FromRgb(0x8A, 0x8A, 0x94));
-    private static readonly Brush Main = new SolidColorBrush(Color.FromRgb(0xF2, 0xF2, 0xF5));
+    private static readonly Brush Dim = new SolidColorBrush(Theme.FgRgb(0x8A, 0x8A, 0x94));
+    private static readonly Brush Main = new SolidColorBrush(Theme.FgRgb(0xF2, 0xF2, 0xF5));
     private static readonly FontFamily Ui = new("Segoe UI Variable Text, Segoe UI");
 
     public CommandWindow()
@@ -63,7 +63,7 @@ public sealed class CommandWindow : Window
             Text = "",
             FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
             FontSize = 16,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xB0, 0xFF)),
+            Foreground = new SolidColorBrush(Theme.Rgb(0x9C, 0xB0, 0xFF)),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 12, 0),
         };
@@ -79,7 +79,7 @@ public sealed class CommandWindow : Window
         {
             FontSize = 12.5,
             FontFamily = Ui,
-            Foreground = new SolidColorBrush(Color.FromRgb(0xF5, 0xC8, 0x5A)),
+            Foreground = new SolidColorBrush(Theme.Rgb(0xF5, 0xC8, 0x5A)),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(28, 6, 0, 0),
             Visibility = Visibility.Collapsed,
@@ -93,8 +93,8 @@ public sealed class CommandWindow : Window
 
         Content = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x16, 0x16, 0x1A)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+            Background = new SolidColorBrush(Theme.Argb(0xF5, 0x16, 0x16, 0x1A)),
+            BorderBrush = new SolidColorBrush(Theme.Argb(0x33, 0xFF, 0xFF, 0xFF)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(18),
             Padding = new Thickness(18, 10, 18, 12),

@@ -16,7 +16,7 @@ public partial class PanelWindow
     private readonly Dictionary<string, string> _sectionText = new();
 
     private IEnumerable<StackPanel> SettingsSections =>
-        new[] { SetSec_general, SetSec_look, SetSec_voice, SetSec_ai, SetSec_weather, SetSec_notify, SetSec_games, SetSec_focus, SetSec_data };
+        new[] { SetSec_general, SetSec_profile, SetSec_look, SetSec_voice, SetSec_ai, SetSec_weather, SetSec_notify, SetSec_games, SetSec_focus, SetSec_data };
 
     private IEnumerable<RadioButton> SettingsNavItems => SettingsNavPanel.Children.OfType<RadioButton>();
 
@@ -161,7 +161,7 @@ public partial class PanelWindow
         FishStatus.Text = "Синтезирую…";
         try
         {
-            byte[] mp3 = await FishAudioTts.SynthesizeAsync("Добрый день, сэр. Капсулка на связи и готова помочь.",
+            byte[] mp3 = await FishAudioTts.SynthesizeAsync(UserAddress.Apply("Добрый день, сэр. Капсулка на связи и готова помочь."),
                 s.FishKey, s.FishVoiceId, s.FishModel, s.VoiceRate, CancellationToken.None);
             FishStatus.Text = SpeechService.IsFish(s.VoiceName)
                 ? "Это ваш голос Fish Audio."

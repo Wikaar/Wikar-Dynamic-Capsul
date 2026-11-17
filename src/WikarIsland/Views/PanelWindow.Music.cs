@@ -18,10 +18,10 @@ public partial class PanelWindow
     private IMusicProvider? _musicTracksFrom;
     private CancellationTokenSource? _musicCts;
 
-    private static readonly Brush ChipSelected = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
-    private static readonly Brush RowNormal = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22));
-    private static readonly Brush RowHover = new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2E));
-    private static readonly Brush RowPlaying = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x36));
+    private static readonly Brush ChipSelected = new SolidColorBrush(Theme.Argb(0x33, 0xFF, 0xFF, 0xFF));
+    private static readonly Brush RowNormal = new SolidColorBrush(Theme.Rgb(0x1C, 0x1C, 0x22));
+    private static readonly Brush RowHover = new SolidColorBrush(Theme.Rgb(0x26, 0x26, 0x2E));
+    private static readonly Brush RowPlaying = new SolidColorBrush(Theme.Rgb(0x2A, 0x2A, 0x36));
 
     /// <summary>Сервис что-то сообщил (трек, вход, ошибка) — перерисовать вкладку, если она открыта.</summary>
     public void UpdateMusic()
@@ -46,7 +46,7 @@ public partial class PanelWindow
         {
             bool on = (string)chip.Tag == p.Key;
             chip.Background = on ? ChipSelected : Brushes.Transparent;
-            chip.Foreground = on ? (Brush)FindResource("TextMain") : new SolidColorBrush(Color.FromRgb(0xD8, 0xD8, 0xDE));
+            chip.Foreground = on ? (Brush)FindResource("TextMain") : new SolidColorBrush(Theme.Rgb(0xD8, 0xD8, 0xDE));
         }
 
         bool needsClientId = p.Key == "spotify" && App.Settings.SpotifyClientId.Length == 0;

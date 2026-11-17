@@ -666,7 +666,7 @@ public sealed partial class VoiceService : IDisposable
     private void Set(VoiceState state, string text)
     {
         State = state;
-        Text = text;
+        Text = UserAddress.Apply(text);
         _ui.BeginInvoke(() => Changed?.Invoke());
     }
 }

@@ -28,7 +28,7 @@ public sealed class LiquidPill : FrameworkElement
     private bool _flushTop;
     private double _cornerRadius = 17;
 
-    public Brush Fill { get; set; } = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E));
+    public Brush Fill { get; set; } = new SolidColorBrush(Theme.Rgb(0x0B, 0x0B, 0x0E));
     public Pen? Outline { get; set; }
 
     /// <summary>Тень/свечение пилюли — окрашиваем её под обложку, пока играет музыка.</summary>
@@ -39,6 +39,9 @@ public sealed class LiquidPill : FrameworkElement
     /// <summary>Свечение вокруг капсулы цветом обложки, пока играет музыка.</summary>
     public bool GlowEnabled { get; set; } = true;
     public Func<float>? AudioLevel { get; set; }
+
+    /// <summary>Неоновая окантовка: обводка этим цветом и свечение вокруг (кроме моментов, когда светит обложка).</summary>
+    public Color? NeonColor { get; set; }
 
     public bool FlushTop
     {
@@ -121,11 +124,18 @@ public sealed class LiquidPill : FrameworkElement
             Glow.BlurRadius = 10 + _level * 18;
             Glow.Opacity = 0.35 + _level * 0.55;
         }
+        else if (NeonColor is Color neon)
+        {
+            // неон слегка «дышит» в такт звуку
+            Glow.Color = neon;
+            Glow.BlurRadius = 16 + _level * 10;
+            Glow.Opacity = 0.9;
+        }
         else
         {
             Glow.Color = Colors.Black;
             Glow.BlurRadius = 10;
-            Glow.Opacity = 0.45;
+            Glow.Opacity = Theme.IsLight ? 0.25 : 0.45;
         }
     }
 
@@ -201,6 +211,7 @@ public sealed class LiquidPill : FrameworkElement
         }
         geometry.Freeze();
 
-        dc.DrawGeometry(Fill, _flushTop ? null : Outline, geometry);
+        // у рамки экрана обычную обводку не рисуем (верх уходит за экран), а неон — рисуем: видны бока и низ
+        dc.DrawGeometry(Fill, _flushTop && NeonColor == null ? null : Outline, geometry);
     }
 }

@@ -4,7 +4,7 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Wikar Island"
         Width="980" Height="760"
-        Background="#FF141417"
+        Background="{DynamicResource ThB_FF141417}"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <wv2:WebView2 x:Name="Web"/>

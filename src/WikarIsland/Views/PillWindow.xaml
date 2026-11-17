@@ -29,46 +29,46 @@
             <controls:LiquidPill x:Name="Liquid"/>
             <StackPanel Orientation="Horizontal" Margin="12,0" HorizontalAlignment="Center">
                 <!-- таймер / Pomodoro: клик — пауза, правый клик — стоп -->
-                <Border x:Name="FocusChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="6,3,8,3"
+                <Border x:Name="FocusChip" Visibility="Collapsed" Background="{DynamicResource ThB_1EFFFFFF}" CornerRadius="10" Padding="6,3,8,3"
                         Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"
                         MouseLeftButtonDown="FocusChip_MouseLeftButtonDown" MouseRightButtonUp="FocusChip_MouseRightButtonUp">
                     <StackPanel Orientation="Horizontal">
                         <Grid Width="16" Height="16" VerticalAlignment="Center">
-                            <Ellipse Stroke="#30FFFFFF" StrokeThickness="2"/>
+                            <Ellipse Stroke="{DynamicResource ThB_30FFFFFF}" StrokeThickness="2"/>
                             <!-- длина окружности ≈ 3.14 × 14 ≈ 44 px; StrokeDashArray задаётся в толщинах линии -->
-                            <Ellipse x:Name="FocusRing" StrokeThickness="2" Stroke="#9CB0FF" RenderTransformOrigin="0.5,0.5" StrokeDashArray="0 1000">
+                            <Ellipse x:Name="FocusRing" StrokeThickness="2" Stroke="{DynamicResource ThB_FF9CB0FF}" RenderTransformOrigin="0.5,0.5" StrokeDashArray="0 1000">
                                 <Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform>
                             </Ellipse>
                             <TextBlock x:Name="FocusIcon" Text="&#xE916;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="7"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#9CB0FF"/>
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FF9CB0FF}"/>
                         </Grid>
-                        <TextBlock x:Name="FocusText" Margin="6,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="#9CB0FF"
+                        <TextBlock x:Name="FocusText" Margin="6,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource ThB_FF9CB0FF}"
                                    VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="0:00"/>
                     </StackPanel>
                 </Border>
                 <!-- «Не беспокоить» -->
                 <TextBlock x:Name="DndIcon" Visibility="Collapsed" Text="&#xE708;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                           FontSize="12.5" Foreground="#B9A6FF" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand"
+                           FontSize="12.5" Foreground="{DynamicResource ThB_FFB9A6FF}" VerticalAlignment="Center" Margin="0,0,10,0" Cursor="Hand"
                            ToolTip="Не беспокоить — нажми, чтобы выключить" MouseLeftButtonDown="DndIcon_MouseLeftButtonDown"/>
                 <!-- VPN: один клик — подключить / отключить -->
-                <Border x:Name="VpnChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="7,3"
+                <Border x:Name="VpnChip" Visibility="Collapsed" Background="{DynamicResource ThB_1EFFFFFF}" CornerRadius="10" Padding="7,3"
                         Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"
                         MouseLeftButtonDown="VpnChip_MouseLeftButtonDown">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="VpnIcon" Text="&#xEA18;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
-                                   Foreground="#8A8A94" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="VpnText" Margin="5,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="#8A8A94"
+                                   Foreground="{DynamicResource ThB_FF8A8A94}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="VpnText" Margin="5,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource ThB_FF8A8A94}"
                                    VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="VPN"/>
                     </StackPanel>
                 </Border>
                 <!-- zapret: один клик — включить / выключить обход -->
-                <Border x:Name="ZapretChip" Visibility="Collapsed" Background="#1EFFFFFF" CornerRadius="10" Padding="7,3"
+                <Border x:Name="ZapretChip" Visibility="Collapsed" Background="{DynamicResource ThB_1EFFFFFF}" CornerRadius="10" Padding="7,3"
                         Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"
                         MouseLeftButtonDown="ZapretChip_MouseLeftButtonDown">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="ZapretIcon" Text="&#xE945;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
-                                   Foreground="#8A8A94" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="ZapretText" Margin="5,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="#8A8A94"
+                                   Foreground="{DynamicResource ThB_FF8A8A94}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ZapretText" Margin="5,0,0,0" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource ThB_FF8A8A94}"
                                    VerticalAlignment="Center" FontFamily="Segoe UI Variable Text, Segoe UI" Text="zapret"/>
                     </StackPanel>
                 </Border>
@@ -79,17 +79,17 @@
                     <Grid x:Name="DiscordBadge" Visibility="Collapsed" Margin="2,0,10,0" VerticalAlignment="Center"
                           ToolTip="Новые сообщения в Discord">
                         <Image x:Name="DiscordIcon" Width="18" Height="18"/>
-                        <Border Background="#F23F43" CornerRadius="7" MinWidth="14" Height="14" Padding="3,0"
+                        <Border Background="{DynamicResource ThB_FFF23F43}" CornerRadius="7" MinWidth="14" Height="14" Padding="3,0"
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,-8,0">
-                            <TextBlock x:Name="DiscordCount" Text="1" Foreground="White" FontSize="9.5" FontWeight="Bold"
+                            <TextBlock x:Name="DiscordCount" Text="1" Foreground="{DynamicResource ThB_FFFFFFFF}" FontSize="9.5" FontWeight="Bold"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                     <StackPanel x:Name="TimerChip" Orientation="Horizontal" Visibility="Collapsed" Margin="2,0,10,0"
                                 VerticalAlignment="Center" ToolTip="Таймер выключения">
                         <TextBlock Text="&#xE7E8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
-                                   Foreground="#FF8A80" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="TimerChipText" Margin="5,0,0,0" Foreground="#FFB4AD" FontSize="13"
+                                   Foreground="{DynamicResource ThB_FFFF8A80}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="TimerChipText" Margin="5,0,0,0" Foreground="{DynamicResource ThB_FFFFB4AD}" FontSize="13"
                                    FontWeight="SemiBold" VerticalAlignment="Center"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"/>
                     </StackPanel>
@@ -97,11 +97,11 @@
                     <StackPanel x:Name="PillWeather" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
                         <controls:WeatherIcon x:Name="PillWeatherIcon" Width="18" Height="18" VerticalAlignment="Center"/>
                         <TextBlock x:Name="PillWeatherText" Margin="4,0,0,0" VerticalAlignment="Center"
-                                   Foreground="#D8D8E0" FontSize="13"
+                                   Foreground="{DynamicResource ThB_FFD8D8E0}" FontSize="13"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"/>
                     </StackPanel>
                     <TextBlock x:Name="TimeText" Text="00:00" VerticalAlignment="Center" Margin="10,0,2,0"
-                               Foreground="#F2F2F5" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="14" FontWeight="SemiBold"
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
                 </StackPanel>
 
@@ -118,7 +118,7 @@
                     </Grid>
                     <TextBlock x:Name="PillTrack" MaxWidth="190" Margin="10,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
-                               Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13" FontWeight="SemiBold"
                                FontFamily="Segoe UI Variable Text, Segoe UI"/>
                     <controls:EqualizerControl x:Name="Eq" Margin="0,0,2,0"/>
                 </StackPanel>
@@ -132,15 +132,15 @@
                     </Grid.ColumnDefinitions>
                     <Button x:Name="NotifyClose" Grid.Column="2" Content="&#xE711;" ToolTip="Закрыть уведомление"
                             Click="NotifyClose_Click" Cursor="Hand" Width="26" Height="26" VerticalAlignment="Center"
-                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="#B8B8C2">
+                            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource ThB_FFB8B8C2}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" CornerRadius="13" Background="#1FFFFFFF">
+                                <Border x:Name="Bd" CornerRadius="13" Background="{DynamicResource ThB_1FFFFFFF}">
                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#40FFFFFF"/>
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_40FFFFFF}"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -149,10 +149,10 @@
                     <Image x:Name="NotifyIcon" Width="30" Height="30" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Width="300">
                         <TextBlock x:Name="NotifyTitle" TextTrimming="CharacterEllipsis"
-                                   Foreground="#F2F2F5" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13.5" FontWeight="SemiBold"
                                    FontFamily="Segoe UI Variable Text, Segoe UI"/>
                         <TextBlock x:Name="NotifyBody" TextTrimming="CharacterEllipsis"
-                                   Foreground="#B8B8C2" FontSize="12.5"
+                                   Foreground="{DynamicResource ThB_FFB8B8C2}" FontSize="12.5"
                                    FontFamily="Segoe UI Variable Text, Segoe UI"/>
                     </StackPanel>
                 </Grid>
@@ -164,11 +164,11 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="&#xE7E8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="24"
-                               Foreground="#FF6B61" VerticalAlignment="Center"/>
+                               Foreground="{DynamicResource ThB_FFFF6B61}" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Margin="12,0,4,0" VerticalAlignment="Center" Width="300">
-                        <TextBlock x:Name="TimerTitle" Foreground="#F2F2F5" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock x:Name="TimerTitle" Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13.5" FontWeight="SemiBold"
                                    FontFamily="Segoe UI Variable Text, Segoe UI"/>
-                        <TextBlock Text="Нажми, чтобы отменить" Foreground="#B8B8C2" FontSize="12.5"
+                        <TextBlock Text="Нажми, чтобы отменить" Foreground="{DynamicResource ThB_FFB8B8C2}" FontSize="12.5"
                                    FontFamily="Segoe UI Variable Text, Segoe UI"/>
                     </StackPanel>
                 </Grid>
@@ -176,85 +176,85 @@
                 <!-- Идёт запись экрана -->
                 <StackPanel x:Name="RecordPart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed"
                             ToolTip="Идёт запись экрана — нажми, чтобы остановить">
-                    <Ellipse x:Name="RecordDot" Width="10" Height="10" Fill="#FF453A" VerticalAlignment="Center"/>
+                    <Ellipse x:Name="RecordDot" Width="10" Height="10" Fill="{DynamicResource ThB_FFFF453A}" VerticalAlignment="Center"/>
                     <TextBlock x:Name="RecordLabel" Text="Запись" Margin="8,0,8,0" VerticalAlignment="Center"
-                               Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold" FontFamily="Segoe UI Variable Text, Segoe UI"/>
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13" FontWeight="SemiBold" FontFamily="Segoe UI Variable Text, Segoe UI"/>
                     <TextBlock x:Name="RecordTime" Text="0:00" VerticalAlignment="Center"
-                               Foreground="#FFB4AD" FontSize="13" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                               Foreground="{DynamicResource ThB_FFFFB4AD}" FontSize="13" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                     <TextBlock Text="&#xE71A;" Margin="10,0,0,0" VerticalAlignment="Center"
-                               Foreground="#F2F2F5" FontSize="12" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="12" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </StackPanel>
 
                 <!-- Загрузки: Steam, браузеры, лаунчеры, торренты -->
                 <StackPanel x:Name="DownloadPart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
                     <Grid Width="18" Height="18" VerticalAlignment="Center">
                         <TextBlock x:Name="DownloadGlyph" Text="&#xE896;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"
-                                   Foreground="#D8D8E0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource ThB_FFD8D8E0}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Image x:Name="DownloadIcon" Width="18" Height="18"/>
                     </Grid>
                     <TextBlock x:Name="DownloadName" MaxWidth="150" Margin="9,0,10,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
-                               Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13" FontWeight="SemiBold"
                                FontFamily="Segoe UI Variable Text, Segoe UI"/>
                     <Grid x:Name="DownloadBar" Width="60" Height="5" VerticalAlignment="Center" ClipToBounds="True">
-                        <Border Background="#33FFFFFF" CornerRadius="2.5"/>
-                        <Border x:Name="DownloadFill" Background="#66C0F4" CornerRadius="2.5" HorizontalAlignment="Left" Width="0">
+                        <Border Background="{DynamicResource ThB_33FFFFFF}" CornerRadius="2.5"/>
+                        <Border x:Name="DownloadFill" Background="{DynamicResource ThB_FF66C0F4}" CornerRadius="2.5" HorizontalAlignment="Left" Width="0">
                             <Border.RenderTransform>
                                 <TranslateTransform x:Name="DownloadShift"/>
                             </Border.RenderTransform>
                         </Border>
                     </Grid>
                     <TextBlock x:Name="DownloadText" Margin="8,0,2,0" VerticalAlignment="Center"
-                               Foreground="#F2F2F5" FontSize="12.5" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="12.5" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                 </StackPanel>
 
                 <!-- Игра на весь экран: FPS и нагрузка -->
                 <StackPanel x:Name="GamePart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
-                    <TextBlock x:Name="GameFps" Text="—" VerticalAlignment="Center" Foreground="#6EE09A"
+                    <TextBlock x:Name="GameFps" Text="—" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FF6EE09A}"
                                FontSize="15" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
-                    <TextBlock x:Name="GameFpsLabel" Text="FPS" Margin="4,1,0,0" VerticalAlignment="Center" Foreground="#8A8A94"
+                    <TextBlock x:Name="GameFpsLabel" Text="FPS" Margin="4,1,0,0" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FF8A8A94}"
                                FontSize="10.5" FontWeight="SemiBold" FontFamily="Segoe UI Variable Text, Segoe UI"/>
-                    <Border Width="1" Height="14" Background="#26FFFFFF" Margin="11,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="CPU" VerticalAlignment="Center" Margin="0,1,4,0" Foreground="#8A8A94" FontSize="10.5"
+                    <Border Width="1" Height="14" Background="{DynamicResource ThB_26FFFFFF}" Margin="11,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="CPU" VerticalAlignment="Center" Margin="0,1,4,0" Foreground="{DynamicResource ThB_FF8A8A94}" FontSize="10.5"
                                FontWeight="SemiBold" FontFamily="Segoe UI Variable Text, Segoe UI"/>
-                    <TextBlock x:Name="GameCpu" Text="—" VerticalAlignment="Center" Foreground="#F2F2F5" FontSize="13"
+                    <TextBlock x:Name="GameCpu" Text="—" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13"
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
-                    <TextBlock Text="GPU" VerticalAlignment="Center" Margin="10,1,4,0" Foreground="#8A8A94" FontSize="10.5"
+                    <TextBlock Text="GPU" VerticalAlignment="Center" Margin="10,1,4,0" Foreground="{DynamicResource ThB_FF8A8A94}" FontSize="10.5"
                                FontWeight="SemiBold" FontFamily="Segoe UI Variable Text, Segoe UI"/>
-                    <TextBlock x:Name="GameGpu" Text="—" VerticalAlignment="Center" Foreground="#F2F2F5" FontSize="13"
+                    <TextBlock x:Name="GameGpu" Text="—" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13"
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
-                    <TextBlock x:Name="GameTemp" Margin="10,0,2,0" VerticalAlignment="Center" Foreground="#F2F2F5" FontSize="13"
+                    <TextBlock x:Name="GameTemp" Margin="10,0,2,0" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13"
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
                 </StackPanel>
 
                 <!-- Голосовой помощник: слушаю / думаю / отвечаю -->
                 <StackPanel x:Name="VoicePart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
                     <Grid Width="22" Height="22" VerticalAlignment="Center">
-                        <Ellipse x:Name="VoiceHalo" Fill="#5E5CE6" Opacity="0.35" RenderTransformOrigin="0.5,0.5">
+                        <Ellipse x:Name="VoiceHalo" Fill="{DynamicResource ThB_FF5E5CE6}" Opacity="0.35" RenderTransformOrigin="0.5,0.5">
                             <Ellipse.RenderTransform>
                                 <ScaleTransform x:Name="VoiceHaloScale" ScaleX="0.6" ScaleY="0.6"/>
                             </Ellipse.RenderTransform>
                         </Ellipse>
                         <TextBlock x:Name="VoiceIcon" Text="&#xE720;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
-                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource ThB_FFFFFFFF}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
                     <TextBlock x:Name="VoiceText" MaxWidth="330" Margin="10,0,4,0" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" Foreground="#F2F2F5" FontSize="13"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13"
                                FontFamily="Segoe UI Variable Text, Segoe UI"/>
                 </StackPanel>
 
                 <!-- Громкость (колёсико мыши над пилюлей) -->
                 <StackPanel x:Name="VolumePart" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock x:Name="VolumeIcon" Text="&#xE767;" VerticalAlignment="Center"
-                               Foreground="#F2F2F5" FontSize="15"
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="15"
                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                     <Grid Width="90" Height="5" Margin="10,0" VerticalAlignment="Center">
-                        <Border Background="#33FFFFFF" CornerRadius="2.5"/>
-                        <Border x:Name="VolumeFill" Background="#F2F2F5" CornerRadius="2.5"
+                        <Border Background="{DynamicResource ThB_33FFFFFF}" CornerRadius="2.5"/>
+                        <Border x:Name="VolumeFill" Background="{DynamicResource ThB_FFF2F2F5}" CornerRadius="2.5"
                                 HorizontalAlignment="Left" Width="45"/>
                     </Grid>
                     <TextBlock x:Name="VolumeText" Text="50" Width="26" VerticalAlignment="Center"
-                               Foreground="#F2F2F5" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThB_FFF2F2F5}" FontSize="13" FontWeight="SemiBold"
                                FontFamily="Segoe UI Variable Display, Segoe UI"/>
                 </StackPanel>
                 </Grid>

@@ -916,7 +916,10 @@ public sealed class AssistantService
         }
     }
 
-    private static string SystemPrompt()
+    /// <summary>Подсказка с выбранным обращением вместо «сэр», плюс имя и пол пользователя.</summary>
+    private static string SystemPrompt() => (UserAddress.Apply(SystemPromptCore()) + " " + UserAddress.PromptRule()).TrimEnd();
+
+    private static string SystemPromptCore()
     {
         // коротко: бесплатный Groq считает токены в минуту, длинные списки съедали лимит за пару команд
         string games = string.Join(", ", AppIndex.GameNames.Take(40));

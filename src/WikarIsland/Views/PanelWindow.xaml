@@ -6,14 +6,14 @@
         Width="530" Height="600"
         WindowStyle="None" ResizeMode="NoResize"
         ShowInTaskbar="False" Topmost="True" ShowActivated="False"
-        Background="#FF0B0B0E"
+        Background="{DynamicResource ThB_FF0B0B0E}"
         WindowStartupLocation="Manual">
     <Window.Resources>
         <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
         <Style x:Key="Card" TargetType="Border">
-            <Setter Property="Background" Value="#17171D"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF17171D}"/>
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="Padding" Value="14"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
@@ -37,20 +37,20 @@
             <Setter Property="Margin" Value="10,0"/>
             <Setter Property="FontFamily" Value="{StaticResource Icons}"/>
             <Setter Property="FontSize" Value="16"/>
-            <Setter Property="Foreground" Value="#0B0B0E"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FF0B0B0E}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid>
-                            <Ellipse x:Name="Circle" Fill="#F5F5F7"/>
+                            <Ellipse x:Name="Circle" Fill="{DynamicResource ThB_FFF5F5F7}"/>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Circle" Property="Fill" Value="White"/>
+                                <Setter TargetName="Circle" Property="Fill" Value="{DynamicResource ThB_FFFFFFFF}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Circle" Property="Fill" Value="#D8D8DE"/>
+                                <Setter TargetName="Circle" Property="Fill" Value="{DynamicResource ThB_FFD8D8DE}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -62,7 +62,7 @@
         <Style x:Key="Tile" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
-            <Setter Property="Background" Value="#1E1E25"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF1E1E25}"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
             <Setter Property="Width" Value="152"/>
             <Setter Property="Height" Value="76"/>
@@ -87,7 +87,7 @@
         <Style x:Key="ActionTile" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
-            <Setter Property="Background" Value="#17171D"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF17171D}"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
             <Setter Property="Height" Value="56"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -99,7 +99,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#222229"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_FF222229}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -122,14 +122,14 @@
         </Style>
         <Style x:Key="ActionSub" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11.5"/>
-            <Setter Property="Foreground" Value="#A0A0AA"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFA0A0AA}"/>
             <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
 
         <!-- Центр управления: подпись секции капслоком -->
         <Style x:Key="CapsLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#8A8A94"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FF8A8A94}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -138,8 +138,8 @@
 
         <!-- Блок центра управления: чуть светлее фона, мягкие углы -->
         <Style x:Key="CcCard" TargetType="Border">
-            <Setter Property="Background" Value="#141418"/>
-            <Setter Property="BorderBrush" Value="#0FFFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF141418}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThB_0FFFFFFF}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="18"/>
             <Setter Property="Padding" Value="16,12"/>
@@ -173,13 +173,13 @@
             <Setter Property="Width" Value="50"/>
             <Setter Property="Height" Value="50"/>
             <Setter Property="CornerRadius" Value="25"/>
-            <Setter Property="Background" Value="#2A2A31"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF2A2A31}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
         <Style x:Key="CircleIcon" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
             <Setter Property="FontSize" Value="18"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFFFFFFF}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -193,7 +193,7 @@
         </Style>
         <Style x:Key="CircleState" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Foreground" Value="#7C7C86"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FF7C7C86}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="MaxWidth" Value="96"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
@@ -202,7 +202,7 @@
         <!-- Текстовая кнопка со значком (строка питания) -->
         <Style x:Key="LinkButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Foreground" Value="#C8C8D0"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFC8C8D0}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="Template">
@@ -213,8 +213,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#14FFFFFF"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_14FFFFFF}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ThB_FFFFFFFF}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -225,12 +225,12 @@
         <!-- Маленькая кнопка-пилюля с обводкой: «30 мин», «1 ч» -->
         <Style x:Key="Chip" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Foreground" Value="#D8D8DE"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFD8D8DE}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,0,6,0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThB_33FFFFFF}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -240,7 +240,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#1AFFFFFF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_1AFFFFFF}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -259,10 +259,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#1FFFFFFF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_1FFFFFFF}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#2EFFFFFF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_2EFFFFFF}"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -273,7 +273,7 @@
         <!-- ===== Настройки: меню разделов слева и карточки справа ===== -->
         <Style x:Key="SetNav" TargetType="RadioButton">
             <Setter Property="GroupName" Value="SettingsNav"/>
-            <Setter Property="Foreground" Value="#C9C9D2"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFC9C9D2}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="Height" Value="34"/>
@@ -287,11 +287,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#14FFFFFF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_14FFFFFF}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#248EA2FF"/>
-                                <Setter Property="Foreground" Value="#8EA2FF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_248EA2FF}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ThB_FF8EA2FF}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -313,22 +313,22 @@
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style x:Key="SetSubtitle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#8C8C97"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FF8C8C97}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="Margin" Value="0,3,0,4"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style x:Key="SetGroup" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#8C8C97"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FF8C8C97}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style x:Key="SetCard" TargetType="Border">
-            <Setter Property="Background" Value="#17171D"/>
-            <Setter Property="BorderBrush" Value="#22222A"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF17171D}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThB_FF22222A}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="12,6,12,8"/>
@@ -336,7 +336,7 @@
         </Style>
         <Style x:Key="SetHint" TargetType="TextBlock" BasedOn="{StaticResource Hint}">
             <Setter Property="FontSize" Value="11.5"/>
-            <Setter Property="Foreground" Value="#8C8C97"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FF8C8C97}"/>
         </Style>
         <!-- переключатель: подпись слева (с переносом), тумблер справа -->
         <Style x:Key="SetCheck" TargetType="CheckBox">
@@ -360,14 +360,14 @@
                                     </Style>
                                 </ContentPresenter.Resources>
                             </ContentPresenter>
-                            <Border x:Name="Track" Grid.Column="1" Width="34" Height="18" CornerRadius="9" Background="#2E2E38" VerticalAlignment="Center">
-                                <Ellipse x:Name="Knob" Width="12" Height="12" Fill="#A0A0AA" HorizontalAlignment="Left" Margin="3,0"/>
+                            <Border x:Name="Track" Grid.Column="1" Width="34" Height="18" CornerRadius="9" Background="{DynamicResource ThB_FF2E2E38}" VerticalAlignment="Center">
+                                <Ellipse x:Name="Knob" Width="12" Height="12" Fill="{DynamicResource ThB_FFA0A0AA}" HorizontalAlignment="Left" Margin="3,0"/>
                             </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Track" Property="Background" Value="#8EA2FF"/>
-                                <Setter TargetName="Knob" Property="Fill" Value="#0B0B0E"/>
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource ThB_FF8EA2FF}"/>
+                                <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource ThB_FF0B0B0E}"/>
                                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
@@ -385,18 +385,18 @@
         <Style x:Key="SetBox" TargetType="TextBox">
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Background" Value="#1F1F24"/>
-            <Setter Property="Foreground" Value="#F2F2F5"/>
-            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
-            <Setter Property="CaretBrush" Value="#F2F2F5"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF1F1F24}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFF2F2F5}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThB_44FFFFFF}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource ThB_FFF2F2F5}"/>
         </Style>
         <Style x:Key="SetPassword" TargetType="PasswordBox">
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Background" Value="#1F1F24"/>
-            <Setter Property="Foreground" Value="#F2F2F5"/>
-            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
-            <Setter Property="CaretBrush" Value="#F2F2F5"/>
+            <Setter Property="Background" Value="{DynamicResource ThB_FF1F1F24}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThB_FFF2F2F5}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThB_44FFFFFF}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource ThB_FFF2F2F5}"/>
         </Style>
         <Style x:Key="SetButton" TargetType="Button" BasedOn="{StaticResource FlatButton}">
             <Setter Property="FontSize" Value="12"/>
@@ -413,16 +413,16 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="Bd" CornerRadius="9" Background="#22222A" BorderBrush="#33FFFFFF" BorderThickness="1">
-                            <TextBlock Text="?" FontSize="11" FontWeight="SemiBold" Foreground="#A0A0AA"
+                        <Border x:Name="Bd" CornerRadius="9" Background="{DynamicResource ThB_FF22222A}" BorderBrush="{DynamicResource ThB_33FFFFFF}" BorderThickness="1">
+                            <TextBlock Text="?" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThB_FFA0A0AA}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#34343C"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_FF34343C}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#3A4580"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThB_FF3A4580}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -440,7 +440,7 @@
 
         <!-- Мини-капсула: в неё «свернулась» пилюля. Клик — свернуть остров обратно -->
         <Border x:Name="Capsule" HorizontalAlignment="Center" Margin="0,8,0,4" Padding="14,5"
-                CornerRadius="14" Background="#16161C" Cursor="Hand" ToolTip="Свернуть остров"
+                CornerRadius="14" Background="{DynamicResource ThB_FF16161C}" Cursor="Hand" ToolTip="Свернуть остров"
                 MouseLeftButtonDown="Capsule_Down" MouseLeftButtonUp="Capsule_Click">
             <StackPanel Orientation="Horizontal">
                 <controls:EyesControl x:Name="CapsuleEyes" VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -457,7 +457,7 @@
                         Content="&#xE72C;" ToolTip="Обновить страницу" Click="Reload_Click"/>
                 <Button x:Name="PopOutButton" Style="{StaticResource RoundIcon}" Width="30" Margin="1,0" FontSize="13"
                         Content="&#xE8A7;" ToolTip="Открыть в отдельном окне" Click="PopOut_Click"/>
-                <Border Width="1" Height="16" Background="#26FFFFFF" Margin="5,0,6,0" VerticalAlignment="Center"/>
+                <Border Width="1" Height="16" Background="{DynamicResource ThB_26FFFFFF}" Margin="5,0,6,0" VerticalAlignment="Center"/>
                 <RadioButton x:Name="TabVpn" Tag="vpn" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="VPN">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
@@ -588,8 +588,8 @@
                                                        FontFamily="{StaticResource UiFont}"/>
                                             <Grid x:Name="ProgressArea" Height="12" Margin="0,12,0,0" Background="Transparent"
                                                   Cursor="Hand" MouseLeftButtonDown="Progress_Click">
-                                                <Border Height="4" CornerRadius="2" Background="#33FFFFFF"/>
-                                                <Border x:Name="ProgressFill" Height="4" CornerRadius="2" Background="#F2F2F5"
+                                                <Border Height="4" CornerRadius="2" Background="{DynamicResource ThB_33FFFFFF}"/>
+                                                <Border x:Name="ProgressFill" Height="4" CornerRadius="2" Background="{DynamicResource ThB_FFF2F2F5}"
                                                         HorizontalAlignment="Left" Width="0"/>
                                             </Grid>
                                             <DockPanel Margin="0,2,0,0">
@@ -631,7 +631,7 @@
                                     <Popup x:Name="DevicePopup" PlacementTarget="{Binding ElementName=DeviceButton}" Placement="Bottom"
                                            HorizontalOffset="-140" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True"
                                            PopupAnimation="Fade">
-                                        <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
+                                        <Border Background="{DynamicResource ThB_FF24242C}" CornerRadius="10" Padding="6" BorderBrush="{DynamicResource ThB_33FFFFFF}" BorderThickness="1">
                                             <StackPanel x:Name="DevicesPanel" MinWidth="290"/>
                                         </Border>
                                     </Popup>
@@ -672,7 +672,7 @@
                                     <TextBlock x:Name="RecordTileIcon" Text="&#xE714;" Style="{StaticResource ActionIcon}"/>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock x:Name="RecordTileText" Text="Запись экрана" Style="{StaticResource ActionText}"/>
-                                        <TextBlock x:Name="RecordTileState" Text="идёт запись" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="RecordTileState" Text="идёт запись" Style="{StaticResource ActionSub}" Foreground="{DynamicResource ThB_FFFF8A80}" Visibility="Collapsed"/>
                                     </StackPanel>
                                 </DockPanel>
                             </Button>
@@ -682,7 +682,7 @@
                                     <TextBlock x:Name="AudioTileIcon" Text="&#xE720;" Style="{StaticResource ActionIcon}"/>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock x:Name="AudioTileText" Text="Запись звука" Style="{StaticResource ActionText}"/>
-                                        <TextBlock x:Name="AudioTileState" Style="{StaticResource ActionSub}" Foreground="#FF8A80" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="AudioTileState" Style="{StaticResource ActionSub}" Foreground="{DynamicResource ThB_FFFF8A80}" Visibility="Collapsed"/>
                                     </StackPanel>
                                 </DockPanel>
                             </Button>
@@ -754,7 +754,7 @@
                                 <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="2 ч" Tag="120" Click="TimerPreset_Click"/>
                                 <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="После трека" Click="TimerAfterTrack_Click"/>
                                 <TextBox x:Name="TimerCustomBox" Width="70" Padding="6,4" FontSize="13" Margin="0,0,6,6"
-                                         Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"
+                                         Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_44FFFFFF}" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                                          ToolTip="Минуты (45) или время (01:30)" KeyDown="TimerCustomBox_KeyDown"/>
                                 <Button Style="{StaticResource FlatButton}" Margin="0,0,6,6" Content="Старт" Click="TimerCustom_Click"/>
                             </WrapPanel>
@@ -763,7 +763,7 @@
                                     <Button Style="{StaticResource FlatButton}" Content="+15" Click="TimerPlus_Click"/>
                                     <Button Style="{StaticResource FlatButton}" Content="Отменить" Click="TimerCancel_Click"/>
                                 </StackPanel>
-                                <TextBlock x:Name="TimerStatus" VerticalAlignment="Center" Foreground="#FFB4AD" FontSize="13.5"
+                                <TextBlock x:Name="TimerStatus" VerticalAlignment="Center" Foreground="{DynamicResource ThB_FFFFB4AD}" FontSize="13.5"
                                            FontWeight="SemiBold" FontFamily="{StaticResource UiFont}" TextWrapping="Wrap"/>
                             </DockPanel>
                             <TextBlock x:Name="TimerHint" Style="{StaticResource Hint}" Margin="0,2,0,0"
@@ -805,7 +805,7 @@
                 <TextBox x:Name="NoteEditor" Grid.Row="1" Visibility="Collapsed"
                          AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                          Padding="12,10" FontSize="14.5" FontFamily="{StaticResource UiFont}"
-                         Background="#17171D" Foreground="#F2F2F5" BorderThickness="0" CaretBrush="#F2F2F5"
+                         Background="{DynamicResource ThB_FF17171D}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderThickness="0" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                          TextChanged="NoteEditor_TextChanged"/>
             </Grid>
 
@@ -909,11 +909,11 @@
 
                             <!-- Подтверждение выключения/перезагрузки -->
                             <Border x:Name="PowerConfirm" Visibility="Collapsed" Margin="0,6,0,6" Padding="12,8"
-                                    CornerRadius="12" Background="#2A1A1C">
+                                    CornerRadius="12" Background="{DynamicResource ThB_FF2A1A1C}">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                         <Button Style="{StaticResource FlatButton}" Content="Отмена" Click="PowerCancel_Click"/>
-                                        <Button x:Name="PowerConfirmButton" Style="{StaticResource FlatButton}" Background="#B3261E" Click="PowerConfirm_Click"/>
+                                        <Button x:Name="PowerConfirmButton" Style="{StaticResource FlatButton}" Background="{DynamicResource ThB_FFB3261E}" Click="PowerConfirm_Click"/>
                                     </StackPanel>
                                     <TextBlock x:Name="PowerConfirmText" VerticalAlignment="Center" TextWrapping="Wrap"
                                                Foreground="{StaticResource TextMain}" FontSize="13" FontFamily="{StaticResource UiFont}"/>
@@ -960,7 +960,7 @@
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Не беспокоить" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"/>
-                                        <TextBlock x:Name="CcDndState" Foreground="#8A8A94" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock x:Name="CcDndState" Foreground="{DynamicResource ThB_FF8A8A94}" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </DockPanel>
                                 <WrapPanel Margin="0,12,0,0">
@@ -979,7 +979,7 @@
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Таймер выключения" Foreground="{StaticResource TextMain}" FontSize="13.5" FontWeight="SemiBold"/>
-                                        <TextBlock x:Name="CcTimerState" Text="Выключен" Foreground="#8A8A94" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock x:Name="CcTimerState" Text="Выключен" Foreground="{DynamicResource ThB_FF8A8A94}" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </DockPanel>
                                 <WrapPanel Margin="0,12,0,0">
@@ -1018,7 +1018,7 @@
                             </Button>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="VPN (VLESS)" Foreground="{StaticResource TextMain}" FontSize="16" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="VpnHeaderState" Foreground="#8A8A94" FontSize="12.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                <TextBlock x:Name="VpnHeaderState" Foreground="{DynamicResource ThB_FF8A8A94}" FontSize="12.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -1029,7 +1029,7 @@
                             <StackPanel x:Name="VpnServersList"/>
                             <TextBox x:Name="VpnLinkBox" Height="58" Padding="8,5" Margin="0,10,0,0" FontSize="12.5" TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" FontFamily="Cascadia Mono, Consolas"
-                                     Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF" CaretBrush="#F2F2F5"
+                                     Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_33FFFFFF}" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                                      ToolTip="Одна или несколько ссылок vless://, каждая с новой строки"/>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Style="{StaticResource FlatButton}" Margin="0" Content="Добавить" Click="VpnAdd_Click"/>
@@ -1046,7 +1046,7 @@
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Сохранить" Click="VpnDnsSave_Click"/>
                                 <TextBox x:Name="VpnDnsBox" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
-                                         Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF" CaretBrush="#F2F2F5"
+                                         Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_33FFFFFF}" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                                          ToolTip="Через запятую: 1.1.1.1 или https://…/dns-query. Пусто — как в системе"/>
                             </DockPanel>
                             <WrapPanel Margin="0,10,0,0">
@@ -1077,7 +1077,7 @@
                             </Button>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="zapret" Foreground="{StaticResource TextMain}" FontSize="16" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="ZapretStatusText" Foreground="#8A8A94" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock x:Name="ZapretStatusText" Foreground="{DynamicResource ThB_FF8A8A94}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -1139,7 +1139,7 @@
                     <TextBlock Text="&#xE721;" DockPanel.Dock="Left" FontFamily="{StaticResource Icons}" FontSize="15"
                                Foreground="{StaticResource TextDim}" VerticalAlignment="Center" Margin="4,0,8,0"/>
                     <TextBox x:Name="ClipSearch" Padding="8,5" FontSize="14"
-                             Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"
+                             Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_44FFFFFF}" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                              ToolTip="Поиск по истории" TextChanged="ClipSearch_TextChanged"/>
                 </DockPanel>
                 <ScrollViewer Grid.Row="1" Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
@@ -1178,12 +1178,12 @@
                         <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap"
                                    Text="Spotify пускает сторонние программы только через своё приложение разработчика (бесплатно, один раз): developer.spotify.com → Dashboard → Create app. В Redirect URI впиши адрес ниже, отметь Web API, сохрани и скопируй сюда Client ID. Звук играет приложение Spotify, остров им управляет; управление требует Premium."/>
                         <TextBox x:Name="MusicSpotifyRedirect" IsReadOnly="True" Margin="0,8,0,0" Padding="8,4" FontSize="12"
-                                 FontFamily="Cascadia Mono, Consolas" Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF"
+                                 FontFamily="Cascadia Mono, Consolas" Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_33FFFFFF}"
                                  ToolTip="Скопируй в Redirect URIs приложения Spotify"/>
                         <DockPanel Margin="0,8,0,0">
                             <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="Сохранить" Click="MusicSpotifyId_Click"/>
                             <TextBox x:Name="MusicSpotifyIdBox" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
-                                     Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#33FFFFFF" CaretBrush="#F2F2F5"
+                                     Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_33FFFFFF}" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                                      ToolTip="Client ID приложения Spotify"/>
                         </DockPanel>
                     </StackPanel>
@@ -1196,7 +1196,7 @@
                     <TextBlock Text="&#xE721;" DockPanel.Dock="Left" FontFamily="{StaticResource Icons}" FontSize="15"
                                Foreground="{StaticResource TextDim}" VerticalAlignment="Center" Margin="4,0,8,0"/>
                     <TextBox x:Name="MusicSearchBox" Padding="8,5" FontSize="14" VerticalContentAlignment="Center"
-                             Background="#1F1F24" Foreground="#F2F2F5" BorderBrush="#44FFFFFF" CaretBrush="#F2F2F5"
+                             Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThB_FFF2F2F5}" BorderBrush="{DynamicResource ThB_44FFFFFF}" CaretBrush="{DynamicResource ThB_FFF2F2F5}"
                              ToolTip="Исполнитель, песня, альбом — Enter" KeyDown="MusicSearch_KeyDown"/>
                 </DockPanel>
 
@@ -1220,8 +1220,8 @@
                                        FontSize="12.5" FontFamily="{StaticResource UiFont}"/>
                             <Grid x:Name="MusicProgressArea" Height="10" Margin="0,6,0,0" Background="Transparent" Cursor="Hand"
                                   MouseLeftButtonDown="MusicProgress_Click">
-                                <Border Height="3" CornerRadius="1.5" Background="#33FFFFFF"/>
-                                <Border x:Name="MusicProgressFill" Height="3" CornerRadius="1.5" Background="#F2F2F5"
+                                <Border Height="3" CornerRadius="1.5" Background="{DynamicResource ThB_33FFFFFF}"/>
+                                <Border x:Name="MusicProgressFill" Height="3" CornerRadius="1.5" Background="{DynamicResource ThB_FFF2F2F5}"
                                         HorizontalAlignment="Left" Width="0"/>
                             </Grid>
                         </StackPanel>
@@ -1253,19 +1253,19 @@
                     <ColumnDefinition Width="172"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Border Background="#0F0F13" BorderBrush="#22222A" BorderThickness="0,0,1,0">
+                <Border Background="{DynamicResource ThB_FF0F0F13}" BorderBrush="{DynamicResource ThB_FF22222A}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="8,10,8,10">
-                        <Border DockPanel.Dock="Top" Background="#1A1A21" CornerRadius="9" Height="32" Margin="0,0,0,8">
+                        <Border DockPanel.Dock="Top" Background="{DynamicResource ThB_FF1A1A21}" CornerRadius="9" Height="32" Margin="0,0,0,8">
                             <Grid Margin="10,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="&#xE721;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#8C8C97" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="SettingsSearchHint" Grid.Column="1" Text="Поиск настроек" FontSize="12" Foreground="#6F6F7A"
+                                <TextBlock Text="&#xE721;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="{DynamicResource ThB_FF8C8C97}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock x:Name="SettingsSearchHint" Grid.Column="1" Text="Поиск настроек" FontSize="12" Foreground="{DynamicResource ThB_FF6F6F7A}"
                                            FontFamily="{StaticResource UiFont}" VerticalAlignment="Center" IsHitTestVisible="False"/>
                                 <TextBox x:Name="SettingsSearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0" FontSize="12"
-                                         Foreground="#F2F2F5" CaretBrush="#F2F2F5" VerticalAlignment="Center" Padding="0"
+                                         Foreground="{DynamicResource ThB_FFF2F2F5}" CaretBrush="{DynamicResource ThB_FFF2F2F5}" VerticalAlignment="Center" Padding="0"
                                          TextChanged="SettingsSearch_Changed" KeyDown="SettingsSearch_KeyDown"/>
                             </Grid>
                         </Border>
@@ -1277,6 +1277,12 @@
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE713;" Style="{StaticResource SetIcon}"/>
                                         <TextBlock Text="Основные"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="SetNav_profile" Style="{StaticResource SetNav}" Tag="profile" Checked="SettingsNav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE77B;" Style="{StaticResource SetIcon}"/>
+                                        <TextBlock Text="Профиль"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="SetNav_look" Style="{StaticResource SetNav}" Tag="look" Checked="SettingsNav_Checked">
@@ -1343,13 +1349,13 @@
                         <CheckBox x:Name="AutoStartAdminBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">
                             <StackPanel>
                                 <TextBlock Text="С правами администратора" TextWrapping="Wrap"/>
-                                <TextBlock Text="Нужно для температуры процессора" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Нужно для температуры процессора" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <CheckBox x:Name="OpenOnHoverBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">
                             <StackPanel>
                                 <TextBlock Text="Раскрывать при наведении" TextWrapping="Wrap"/>
-                                <TextBlock Text="Иначе — по клику" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Иначе — по клику" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <CheckBox x:Name="AutoHideBox" Content="Прятать остров за верхний край" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
@@ -1371,13 +1377,13 @@
                         <TextBlock x:Name="UpdateStatusText" Style="{StaticResource SetHint}" Margin="0,4,0,4" TextWrapping="Wrap"/>
                         <WrapPanel>
                             <Button x:Name="UpdateCheckButton" Style="{StaticResource SetButton}" Content="Проверить обновления" Click="UpdateCheck_Click"/>
-                            <Button x:Name="UpdateInstallButton" Style="{StaticResource SetButton}" Content="Обновить" Visibility="Collapsed" Click="UpdateInstall_Click" Background="#3A4580"/>
+                            <Button x:Name="UpdateInstallButton" Style="{StaticResource SetButton}" Content="Обновить" Visibility="Collapsed" Click="UpdateInstall_Click" Background="{DynamicResource ThB_FF3A4580}"/>
                             <Button x:Name="UpdateNotesButton" Style="{StaticResource SetButton}" Content="Что нового" Visibility="Collapsed" Click="UpdateNotes_Click"/>
                         </WrapPanel>
                         <CheckBox x:Name="AutoUpdateBox" Style="{StaticResource SetCheck}" Click="AutoUpdate_Click">
                             <StackPanel>
                                 <TextBlock Text="Проверять автоматически" TextWrapping="Wrap"/>
-                                <TextBlock Text="Раз в сутки" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Раз в сутки" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                             </StackPanel>
@@ -1387,13 +1393,74 @@
                             <TextBlock x:Name="VersionText" Style="{StaticResource SetHint}" VerticalAlignment="Center"/>
                         </DockPanel>
                         </StackPanel>
+                        <StackPanel x:Name="SetSec_profile" Tag="profile" Visibility="Collapsed">
+                        <TextBlock Text="Профиль" Style="{StaticResource SetTitle}"/>
+                        <TextBlock Text="Как Капсулка к вам обращается" Style="{StaticResource SetSubtitle}"/>
+                        <TextBlock Text="ИМЯ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
+                        <Border Style="{StaticResource SetCard}">
+                            <StackPanel>
+                        <TextBox x:Name="UserNameBox" Style="{StaticResource SetBox}" Margin="0,4,0,4" TextChanged="Profile_TextChanged"/>
+                        <TextBlock Style="{StaticResource SetHint}" Margin="0,2,0,2" Text="Например: Илья или Олеся"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="ПОЛ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
+                        <Border Style="{StaticResource SetCard}">
+                        <WrapPanel>
+                            <RadioButton x:Name="GenderMale" Content="мужской" GroupName="UserGender" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                            <RadioButton x:Name="GenderFemale" Content="женский" GroupName="UserGender" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                            <RadioButton x:Name="GenderNone" Content="не указывать" GroupName="UserGender" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                        </WrapPanel>
+                        </Border>
+                        <TextBlock Text="ОБРАЩЕНИЕ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
+                        <Border Style="{StaticResource SetCard}">
+                            <StackPanel>
+                        <RadioButton x:Name="AddrSir" Content="сэр / мэм" GroupName="AddressStyle" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                        <RadioButton x:Name="AddrTitle" Content="мистер / мисс + имя" GroupName="AddressStyle" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                        <RadioButton x:Name="AddrGos" Content="господин / госпожа + имя" GroupName="AddressStyle" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                        <RadioButton x:Name="AddrName" Content="только по имени" GroupName="AddressStyle" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                        <RadioButton x:Name="AddrCustom" Content="своё" GroupName="AddressStyle" Style="{StaticResource SetRadio}" Click="Profile_Changed"/>
+                        <TextBox x:Name="AddressCustomBox" Style="{StaticResource SetBox}" Margin="0,4,0,4" Visibility="Collapsed" TextChanged="Profile_TextChanged"/>
+                        <TextBlock Style="{StaticResource SetHint}" Margin="0,4,0,2" TextWrapping="Wrap"
+                                   Text="Если пол не указан, Капсулка обращается по имени. Пол нужен ещё и для окончаний: «вы просили» — «вы просила»."/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="ПРЕДПРОСМОТР" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
+                        <Border Style="{StaticResource SetCard}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource SetButton}" Margin="6,0,0,0" Content="Прослушать" Click="ProfileListen_Click"/>
+                            <TextBlock x:Name="AddressPreview" FontSize="13.5" Foreground="{StaticResource TextMain}" FontFamily="{StaticResource UiFont}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"/>
+                        </DockPanel>
+                        </Border>
+                        </StackPanel>
                         <StackPanel x:Name="SetSec_look" Tag="look" Visibility="Collapsed">
                         <TextBlock Text="Внешний вид" Style="{StaticResource SetTitle}"/>
-                        <TextBlock Text="Цвет капсулы, пилюля и глаза" Style="{StaticResource SetSubtitle}"/>
+                        <TextBlock Text="Тема, цвет капсулы, неон, пилюля и глаза" Style="{StaticResource SetSubtitle}"/>
+                        <TextBlock Text="ТЕМА" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
+                        <Border Style="{StaticResource SetCard}">
+                            <StackPanel>
+                        <WrapPanel>
+                            <RadioButton x:Name="ThemeDark" Content="тёмная" GroupName="UiTheme" Style="{StaticResource SetRadio}" Click="UiTheme_Click"/>
+                            <RadioButton x:Name="ThemeLight" Content="светлая" GroupName="UiTheme" Style="{StaticResource SetRadio}" Click="UiTheme_Click"/>
+                        </WrapPanel>
+                        <DockPanel x:Name="ThemeRestartRow" Visibility="Collapsed" Margin="0,6,0,2">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource SetButton}" Margin="6,0,0,0" Content="Перезапустить" Click="ThemeRestart_Click"/>
+                            <TextBlock Style="{StaticResource SetHint}" VerticalAlignment="Center" Text="Тема применится после перезапуска острова"/>
+                        </DockPanel>
+                            </StackPanel>
+                        </Border>
                         <TextBlock Text="ЦВЕТ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
                         <Border Style="{StaticResource SetCard}">
                             <StackPanel>
                         <WrapPanel x:Name="PillThemes" Margin="0,4,0,4"/>
+                        <TextBlock Text="Неоновая окантовка" Style="{StaticResource SetHint}" Margin="0,8,0,4"/>
+                        <WrapPanel x:Name="NeonColors" Margin="0,0,0,2"/>
+                        <DockPanel Margin="0,2,0,4">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource SetButton}" Margin="6,0,0,0" Content="Свой цвет" Click="NeonCustom_Click"/>
+                            <TextBox x:Name="NeonCustomBox" Style="{StaticResource SetBox}" ToolTip="Цвет в виде #RRGGBB, например #00FFC8"/>
+                        </DockPanel>
+                        <CheckBox x:Name="NeonPillBox" Content="Неон у свёрнутой капсулы (со свечением)" Style="{StaticResource SetCheck}" Click="Neon_Changed"/>
+                        <CheckBox x:Name="NeonPanelBox" Content="Окантовка у раскрытой капсулы" Style="{StaticResource SetCheck}" Click="Neon_Changed"/>
                         <TextBlock Text="Прозрачность" Style="{StaticResource SetHint}" Margin="0,6,0,2"/>
                         <DockPanel>
                             <TextBlock x:Name="PillOpacityText" DockPanel.Dock="Right" Style="{StaticResource SetHint}" VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="34"/>
@@ -1467,7 +1534,7 @@
                                     HorizontalContentAlignment="Left" Click="VoicePicker_Click" Tag="VoicePopup"/>
                             <Popup x:Name="VoicePopup" PlacementTarget="{Binding ElementName=VoicePickButton}" Placement="Bottom"
                                    VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
-                                <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
+                                <Border Background="{DynamicResource ThB_FF24242C}" CornerRadius="10" Padding="6" BorderBrush="{DynamicResource ThB_33FFFFFF}" BorderThickness="1">
                                     <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
                                         <StackPanel x:Name="VoicesPanel" MinWidth="330"/>
                                     </ScrollViewer>
@@ -1480,13 +1547,13 @@
                         <CheckBox x:Name="VoiceFollowUpBox" Style="{StaticResource SetCheck}" Click="Voice_Changed">
                             <StackPanel>
                                 <TextBlock Text="Режим разговора" TextWrapping="Wrap"/>
-                                <TextBlock Text="После команды ещё 10 секунд слушать без слова «Капсулка»; «спасибо» или «хватит» — закончить" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="После команды ещё 10 секунд слушать без слова «Капсулка»; «спасибо» или «хватит» — закончить" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <CheckBox x:Name="VoiceAckBox" Style="{StaticResource SetCheck}" Click="Voice_Changed">
                             <StackPanel>
                                 <TextBlock Text="Подтверждать команды голосом" TextWrapping="Wrap"/>
-                                <TextBlock Text="Как Джарвис: «Есть, сэр», «Сделано»" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Как Джарвис: «Есть, сэр», «Сделано»" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                             </StackPanel>
@@ -1542,7 +1609,7 @@
                         <CheckBox x:Name="LiveEnabledBox" Style="{StaticResource SetCheck}" Click="Live_Changed">
                             <StackPanel>
                                 <TextBlock Text="Разговаривать через Gemini Live" TextWrapping="Wrap"/>
-                                <TextBlock Text="Ответ звучит сразу, без пауз на распознавание и озвучку" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Ответ звучит сразу, без пауз на распознавание и озвучку" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <Grid Margin="0,4,0,4">
@@ -1563,7 +1630,7 @@
                                     HorizontalContentAlignment="Left" Click="VoicePicker_Click" Tag="LiveVoicePopup"/>
                             <Popup x:Name="LiveVoicePopup" PlacementTarget="{Binding ElementName=LiveVoicePickButton}" Placement="Bottom"
                                    VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
-                                <Border Background="#24242C" CornerRadius="10" Padding="6" BorderBrush="#33FFFFFF" BorderThickness="1">
+                                <Border Background="{DynamicResource ThB_FF24242C}" CornerRadius="10" Padding="6" BorderBrush="{DynamicResource ThB_33FFFFFF}" BorderThickness="1">
                                     <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
                                         <StackPanel x:Name="LiveVoicesPanel" MinWidth="330"/>
                                     </ScrollViewer>
@@ -1573,13 +1640,13 @@
                         <CheckBox x:Name="LiveOwnVoiceBox" Style="{StaticResource SetCheck}" Click="Live_Changed">
                             <StackPanel>
                                 <TextBlock Text="Говорить голосом Капсулки вместо голоса Gemini" TextWrapping="Wrap"/>
-                                <TextBlock Text="Голос из раздела «Голос» выше, в том числе Fish Audio. Ответ звучит на 1–2 секунды позже" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Голос из раздела «Голос» выше, в том числе Fish Audio. Ответ звучит на 1–2 секунды позже" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <CheckBox x:Name="LiveBargeInBox" Style="{StaticResource SetCheck}" Click="Live_Changed">
                             <StackPanel>
                                 <TextBlock Text="Перебивать голосом, пока он говорит" TextWrapping="Wrap"/>
-                                <TextBlock Text="Только с гарнитурой: с колонками Gemini слышит сам себя и обрывает ответ" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Только с гарнитурой: с колонками Gemini слышит сам себя и обрывает ответ" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <TextBlock x:Name="LiveStatus" Style="{StaticResource SetHint}" Margin="0,2,0,2" TextWrapping="Wrap"/>
@@ -1740,7 +1807,7 @@
                         <CheckBox x:Name="GameHudBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">
                             <StackPanel>
                                 <TextBlock Text="FPS и нагрузка в капсуле" TextWrapping="Wrap"/>
-                                <TextBlock Text="Пока идёт игра на весь экран" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Пока идёт игра на весь экран" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <TextBlock x:Name="GameHudStatus" Style="{StaticResource SetHint}" Margin="0,0,0,4"/>
@@ -1752,7 +1819,7 @@
                         <CheckBox x:Name="DownloadsBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">
                             <StackPanel>
                                 <TextBlock Text="Загрузки в капсуле" TextWrapping="Wrap"/>
-                                <TextBlock Text="Браузеры, Steam, Epic, Battle.net, EA, Ubisoft, GOG, торренты" FontSize="11" Foreground="#8C8C97" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Браузеры, Steam, Epic, Battle.net, EA, Ubisoft, GOG, торренты" FontSize="11" Foreground="{DynamicResource ThB_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <CheckBox x:Name="DownloadCardBox" Content="Карточка, когда файл из браузера докачался" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
@@ -1823,5 +1890,8 @@
                 </ScrollViewer>
             </Grid>
         </Grid>
+        <!-- окантовка раскрытой капсулы: поверх всего, клики проходят насквозь -->
+        <Border x:Name="PanelOutline" Grid.RowSpan="3" CornerRadius="22" BorderThickness="2" IsHitTestVisible="False"
+                Panel.ZIndex="1000" Visibility="Collapsed"/>
     </Grid>
 </Window>

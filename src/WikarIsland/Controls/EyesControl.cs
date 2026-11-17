@@ -130,14 +130,14 @@ public sealed class EyesControl : FrameworkElement
 
     protected override void OnRender(DrawingContext dc) => Draw(dc, EyeStyle, _pupil, _lid, _surprise);
 
-    private static readonly Brush White = Brushes.White;
-    private static readonly Brush Pupil = Frozen(Color.FromRgb(14, 14, 18));
-    private static readonly Brush CatIris = Frozen(new RadialGradientBrush(Color.FromRgb(0xE4, 0xF0, 0x6A), Color.FromRgb(0x8C, 0xC0, 0x2A)));
-    private static readonly Brush RobotBody = Frozen(Color.FromRgb(0x0E, 0x26, 0x30));
-    private static readonly Pen RobotRim = FrozenPen(Color.FromRgb(0x3C, 0xD8, 0xF0), 1.2);
-    private static readonly Brush RobotLed = Frozen(new RadialGradientBrush(Color.FromRgb(0xC8, 0xFA, 0xFF), Color.FromRgb(0x3C, 0xD8, 0xF0)));
-    private static readonly Brush CuteBody = Frozen(Color.FromRgb(0x18, 0x18, 0x22));
-    private static readonly Brush LidBrush = Frozen(Color.FromRgb(0x0B, 0x0B, 0x0E));
+    private static readonly Brush White = Theme.Brush(Colors.White);
+    private static readonly Brush Pupil = Frozen(Theme.Rgb(14, 14, 18));
+    private static readonly Brush CatIris = Frozen(new RadialGradientBrush(Theme.Rgb(0xE4, 0xF0, 0x6A), Theme.Rgb(0x8C, 0xC0, 0x2A)));
+    private static readonly Brush RobotBody = Frozen(Theme.Rgb(0x0E, 0x26, 0x30));
+    private static readonly Pen RobotRim = FrozenPen(Theme.Rgb(0x3C, 0xD8, 0xF0), 1.2);
+    private static readonly Brush RobotLed = Frozen(new RadialGradientBrush(Theme.Rgb(0xC8, 0xFA, 0xFF), Theme.Rgb(0x3C, 0xD8, 0xF0)));
+    private static readonly Brush CuteBody = Frozen(Theme.Rgb(0x18, 0x18, 0x22));
+    private static readonly Brush LidBrush = Frozen(Theme.Rgb(0x0B, 0x0B, 0x0E));
 
     private static Brush Frozen(Color c) => Frozen(new SolidColorBrush(c));
     private static Brush Frozen(Brush b) { b.Freeze(); return b; }

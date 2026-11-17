@@ -81,6 +81,7 @@ public partial class PanelWindow : Window
             UpdateMusicProgress();
         };
         _morphTimer.Tick += (_, _) => MorphTick();
+        SizeChanged += (_, _) => RoundRegion();
 
         Deactivated += OnDeactivated;
         PreviewKeyDown += (_, e) =>
@@ -113,7 +114,7 @@ public partial class PanelWindow : Window
         IntPtr handle = new WindowInteropHelper(this).Handle;
         NativeMethods.AddExStyle(handle, NativeMethods.WS_EX_TOOLWINDOW);
         NativeMethods.SetDwmInt(handle, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, NativeMethods.DWMWCP_ROUND);
-        NativeMethods.SetDwmInt(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, 1);
+        NativeMethods.SetDwmInt(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, Theme.IsLight ? 0 : 1);
     }
 
     /// <summary>Общая среда WebView2: вход в аккаунты сохраняется между запусками.</summary>
@@ -180,7 +181,7 @@ public partial class PanelWindow : Window
         {
             // передумали закрывать — разворачиваем обратно
             _closing = false;
-            StartMorph(CurrentMorphRect(), FullRect(), 17, 22, ClearRegion);
+            StartMorph(CurrentMorphRect(), FullRect(), 17, PanelRadius, RoundRegion);
         }
 
         if (!IsVisible)
@@ -202,7 +203,7 @@ public partial class PanelWindow : Window
             _shownAt = DateTime.Now;
             _capsulePressed = false;
             Show();
-            StartMorph(from, FullRect(), 17, 22, ClearRegion);
+            StartMorph(from, FullRect(), 17, PanelRadius, RoundRegion);
         }
 
         _outsideSince = null;
@@ -220,7 +221,7 @@ public partial class PanelWindow : Window
         _closing = true;
         DevicePopup.IsOpen = false;
         PowerConfirm.Visibility = Visibility.Collapsed;
-        StartMorph(FullRect(), PillRectLocal(), 22, 17, () =>
+        StartMorph(FullRect(), PillRectLocal(), PanelRadius, 17, () =>
         {
             _closing = false;
             Hide();
@@ -288,6 +289,14 @@ public partial class PanelWindow : Window
             (int)Math.Round(r.Left * dpi.DpiScaleX), (int)Math.Round(r.Top * dpi.DpiScaleY),
             (int)Math.Round(r.Right * dpi.DpiScaleX) + 1, (int)Math.Round(r.Bottom * dpi.DpiScaleY) + 1, d, d);
         SetWindowRgn(hwnd, region, true); // окно забирает регион себе
+    }
+
+    /// <summary>Скругление раскрытой капсулы. Регион окна работает и в Windows 10, где система углы не скругляет.</summary>
+    private const double PanelRadius = 22;
+
+    private void RoundRegion()
+    {
+        if (IsVisible && !_closing && !_morphTimer.IsEnabled) ApplyRegion(FullRect(), PanelRadius);
     }
 
     private void ClearRegion()
@@ -517,7 +526,7 @@ public partial class PanelWindow : Window
     {
         var view = new WebView2
         {
-            DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 20, 20, 23),
+            DefaultBackgroundColor = System.Drawing.Theme.Argb(255, 20, 20, 23),
         };
         _views[key] = view;
         AiHost.Children.Add(view);
@@ -579,11 +588,11 @@ public partial class PanelWindow : Window
         PlayerEmpty.Visibility = m == null ? Visibility.Visible : Visibility.Collapsed;
         PlayerContent.Visibility = m == null ? Visibility.Collapsed : Visibility.Visible;
 
-        Color accent = m?.Accent ?? Color.FromRgb(0xF2, 0xF2, 0xF5);
+        Color accent = m?.Accent ?? Theme.Rgb(0xF2, 0xF2, 0xF5);
         PlayerCard.Background = m?.Accent is Color a
-            ? new LinearGradientBrush(Color.FromRgb((byte)(a.R * 0.42), (byte)(a.G * 0.42), (byte)(a.B * 0.42)),
-                                      Color.FromRgb(0x17, 0x17, 0x1D), new Point(0, 0), new Point(1, 1))
-            : (Brush)new SolidColorBrush(Color.FromRgb(0x17, 0x17, 0x1D));
+            ? new LinearGradientBrush(Theme.Map(Color.FromRgb((byte)(a.R * 0.42), (byte)(a.G * 0.42), (byte)(a.B * 0.42))),
+                                      Theme.Rgb(0x17, 0x17, 0x1D), new Point(0, 0), new Point(1, 1))
+            : (Brush)new SolidColorBrush(Theme.Rgb(0x17, 0x17, 0x1D));
         ProgressFill.Background = new SolidColorBrush(accent);
         if (m == null) return;
 
@@ -775,15 +784,15 @@ public partial class PanelWindow : Window
             var card = new Border
             {
                 Child = grid,
-                Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22)),
+                Background = new SolidColorBrush(Theme.Rgb(0x1C, 0x1C, 0x22)),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(12, 9, 8, 9),
                 Margin = new Thickness(0, 0, 0, 6),
                 Cursor = Cursors.Hand,
                 ToolTip = "Нажми, чтобы вставить",
             };
-            card.MouseEnter += (_, _) => card.Background = new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2E));
-            card.MouseLeave += (_, _) => card.Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22));
+            card.MouseEnter += (_, _) => card.Background = new SolidColorBrush(Theme.Rgb(0x26, 0x26, 0x2E));
+            card.MouseLeave += (_, _) => card.Background = new SolidColorBrush(Theme.Rgb(0x1C, 0x1C, 0x22));
             card.MouseLeftButtonUp += async (_, _) =>
             {
                 HideIsland();
@@ -835,10 +844,10 @@ public partial class PanelWindow : Window
                 ? $"{d.Name} — {d.Progress * 100:0}% ({d.Done / 1073741824.0:0.0} из {d.Total / 1073741824.0:0.0} ГБ)"
                 : $"{d.Name} — готовится к загрузке", 13.5));
             var bar = new Grid { Height = 4, Margin = new Thickness(0, 5, 0, 0) };
-            bar.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), CornerRadius = new CornerRadius(2) });
+            bar.Children.Add(new Border { Background = new SolidColorBrush(Theme.Argb(0x33, 0xFF, 0xFF, 0xFF)), CornerRadius = new CornerRadius(2) });
             bar.Children.Add(new Border
             {
-                Background = new SolidColorBrush(Color.FromRgb(0x66, 0xC0, 0xF4)),
+                Background = new SolidColorBrush(Theme.Rgb(0x66, 0xC0, 0xF4)),
                 CornerRadius = new CornerRadius(2),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Width = Math.Max(0, 560 * d.Progress),
@@ -1181,6 +1190,7 @@ public partial class PanelWindow : Window
                 : "Для FPS нужны права администратора: включи «…с правами администратора» в «Общем» и перезапусти остров. Нагрузка видна и так.";
         UpdateDnd();
         BuildPillThemes();
+        LoadProfileAndLook();
         PillOpacitySlider.Value = s.PillOpacity;
         PillOpacityText.Text = $"{Math.Round(s.PillOpacity * 100)}%";
         MusicGlowBox.IsChecked = s.MusicGlow;
@@ -1339,7 +1349,7 @@ public partial class PanelWindow : Window
             eyes.LayoutTransform = new ScaleTransform(1.4, 1.4);
             content.Children.Add(new Border
             {
-                Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E)),
+                Background = new SolidColorBrush(Theme.Rgb(0x0B, 0x0B, 0x0E)),
                 CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(10, 7, 10, 7),
                 Child = eyes,
@@ -1359,7 +1369,7 @@ public partial class PanelWindow : Window
                 Margin = new Thickness(0, 0, 8, 8),
                 CornerRadius = new CornerRadius(12),
                 Cursor = Cursors.Hand,
-                Background = new SolidColorBrush(selected ? Color.FromRgb(0x2A, 0x30, 0x52) : Color.FromRgb(0x1C, 0x1C, 0x22)),
+                Background = new SolidColorBrush(selected ? Theme.Rgb(0x2A, 0x30, 0x52) : Theme.Rgb(0x1C, 0x1C, 0x22)),
                 BorderBrush = selected ? (Brush)FindResource("Accent") : Brushes.Transparent,
                 BorderThickness = new Thickness(1.5),
             };
@@ -1389,7 +1399,7 @@ public partial class PanelWindow : Window
                 Height = 54,
                 Padding = new Thickness(0),
                 Margin = new Thickness(0, 0, 8, 8),
-                Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x25)),
+                Background = new SolidColorBrush(Theme.Rgb(0x1E, 0x1E, 0x25)),
                 Content = new Image { Source = ShellHelper.GetIcon(item.Path), Width = 34, Height = 34 },
                 ToolTip = item.Name,
             };
@@ -1423,7 +1433,7 @@ public partial class PanelWindow : Window
         var plusContent = new Grid { Width = 54, Height = 54 };
         plusContent.Children.Add(new System.Windows.Shapes.Rectangle
         {
-            Stroke = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+            Stroke = new SolidColorBrush(Theme.Argb(0x55, 0xFF, 0xFF, 0xFF)),
             StrokeDashArray = new DoubleCollection { 3, 3 },
             StrokeThickness = 1.2,
             RadiusX = 10,
@@ -1521,7 +1531,7 @@ public partial class PanelWindow : Window
 
     private static Brush Frozen(byte r, byte g, byte b)
     {
-        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        var brush = new SolidColorBrush(Theme.Rgb(r, g, b));
         brush.Freeze();
         return brush;
     }
@@ -1579,16 +1589,16 @@ public partial class PanelWindow : Window
     {
         if (snap == null) return;
         CcCpuValue.Text = snap.Cpu?.Load is double cpu ? $"{cpu:0}%" : "—";
-        CcCpuBar.Content = Bar(snap.Cpu?.Load ?? 0, Color.FromRgb(0x0A, 0x84, 0xFF), thin: true);
+        CcCpuBar.Content = Bar(snap.Cpu?.Load ?? 0, Theme.Rgb(0x0A, 0x84, 0xFF), thin: true);
 
         CcGpuTitle.Text = snap.Gpu != null ? ShortGpuName(snap.Gpu.Name) : "ВИДЕОКАРТА";
         CcGpuTitle.ToolTip = snap.Gpu?.Name;
         CcGpuValue.Text = snap.Gpu?.Load is double gpu ? $"{gpu:0}%" : "—";
-        CcGpuBar.Content = Bar(snap.Gpu?.Load ?? 0, Color.FromRgb(0x30, 0xD1, 0x58), thin: true);
+        CcGpuBar.Content = Bar(snap.Gpu?.Load ?? 0, Theme.Rgb(0x30, 0xD1, 0x58), thin: true);
 
         double ramPct = snap.RamTotalGb > 0 ? snap.RamUsedGb / snap.RamTotalGb * 100 : 0;
         CcRamValue.Text = snap.RamTotalGb > 0 ? $"{snap.RamUsedGb:0.0} / {snap.RamTotalGb:0} ГБ" : "—";
-        CcRamBar.Content = Bar(ramPct, Color.FromRgb(0xBF, 0x5A, 0xF2), thin: true);
+        CcRamBar.Content = Bar(ramPct, Theme.Rgb(0xBF, 0x5A, 0xF2), thin: true);
     }
 
     /// <summary>«NVIDIA GeForce RTX 4060 Laptop GPU» → «GEFORCE RTX 4060».</summary>
@@ -1805,7 +1815,7 @@ public partial class PanelWindow : Window
             var card = new Border
             {
                 Child = texts,
-                Background = new SolidColorBrush(Color.FromRgb(0x17, 0x17, 0x1D)),
+                Background = new SolidColorBrush(Theme.Rgb(0x17, 0x17, 0x1D)),
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(14, 10, 14, 10),
                 Margin = new Thickness(0, 0, 0, 6),
@@ -1977,7 +1987,7 @@ public partial class PanelWindow : Window
     private Border Card(UIElement child) => new()
     {
         Child = child,
-        Background = new SolidColorBrush(Color.FromRgb(0x17, 0x17, 0x1D)),
+        Background = new SolidColorBrush(Theme.Rgb(0x17, 0x17, 0x1D)),
         CornerRadius = new CornerRadius(16),
         Padding = new Thickness(14, 12, 14, 12),
         Margin = new Thickness(0, 0, 0, 10),
@@ -2019,7 +2029,7 @@ public partial class PanelWindow : Window
         {
             Text = chip.Temperature is double t ? $"{t:0}°" : "—°",
             FontSize = 34, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0),
-            Foreground = new SolidColorBrush(chip.Temperature is double tc ? TempColor(tc) : Color.FromRgb(0xA0, 0xA0, 0xAA)),
+            Foreground = new SolidColorBrush(chip.Temperature is double tc ? TempColor(tc) : Theme.Rgb(0xA0, 0xA0, 0xAA)),
             FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
             ToolTip = chip.Temperature == null ? "Нужны права администратора" : null,
         };
@@ -2066,10 +2076,10 @@ public partial class PanelWindow : Window
     }
 
     private static Color TempColor(double c) =>
-        c >= 85 ? Color.FromRgb(0xFF, 0x5A, 0x52) : c >= 70 ? Color.FromRgb(0xFF, 0xB0, 0x40) : c >= 55 ? Color.FromRgb(0xF5, 0xD7, 0x5A) : Color.FromRgb(0x6E, 0xE0, 0x9A);
+        c >= 85 ? Theme.Rgb(0xFF, 0x5A, 0x52) : c >= 70 ? Theme.Rgb(0xFF, 0xB0, 0x40) : c >= 55 ? Theme.Rgb(0xF5, 0xD7, 0x5A) : Theme.Rgb(0x6E, 0xE0, 0x9A);
 
     private static Color LoadColor(double p) =>
-        p >= 90 ? Color.FromRgb(0xFF, 0x5A, 0x52) : p >= 70 ? Color.FromRgb(0xFF, 0xB0, 0x40) : Color.FromRgb(0x7C, 0x9C, 0xFF);
+        p >= 90 ? Theme.Rgb(0xFF, 0x5A, 0x52) : p >= 70 ? Theme.Rgb(0xFF, 0xB0, 0x40) : Theme.Rgb(0x7C, 0x9C, 0xFF);
 
     // ---------- VPN ----------
 
@@ -2374,7 +2384,7 @@ public partial class PanelWindow : Window
             Padding = new Thickness(10, 5, 10, 5),
             FontSize = 12.5,
         };
-        if (accent) b.Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80));
+        if (accent) b.Background = new SolidColorBrush(Theme.Rgb(0x3A, 0x45, 0x80));
         b.Click += (_, _) => click();
         return b;
     }
@@ -2561,8 +2571,8 @@ public partial class PanelWindow : Window
                     Text = item.Level == DiagLevel.Ok ? "\uE73E" : item.Level == DiagLevel.Warning ? "\uE7BA" : "\uE711",
                     FontFamily = (FontFamily)FindResource("Icons"), FontSize = 12, Width = 22, VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(0, 2, 0, 0),
-                    Foreground = new SolidColorBrush(item.Level == DiagLevel.Ok ? Color.FromRgb(0x6E, 0xE0, 0x9A)
-                        : item.Level == DiagLevel.Warning ? Color.FromRgb(0xF5, 0xC8, 0x5A) : Color.FromRgb(0xFF, 0x5A, 0x52)),
+                    Foreground = new SolidColorBrush(item.Level == DiagLevel.Ok ? Theme.Rgb(0x6E, 0xE0, 0x9A)
+                        : item.Level == DiagLevel.Warning ? Theme.Rgb(0xF5, 0xC8, 0x5A) : Theme.Rgb(0xFF, 0x5A, 0x52)),
                 };
                 row.Children.Add(mark);
                 if (item.Fix != null && item.FixTitle != null)
@@ -2591,10 +2601,10 @@ public partial class PanelWindow : Window
         Margin = new Thickness(6, 0, 12, 6),
         Padding = new Thickness(6, 3, 6, 3),
         FontSize = 12.5,
-        Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x1F, 0x24)),
-        Foreground = new SolidColorBrush(Color.FromRgb(0xF2, 0xF2, 0xF5)),
-        BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF)),
-        CaretBrush = Brushes.White,
+        Background = new SolidColorBrush(Theme.Rgb(0x1F, 0x1F, 0x24)),
+        Foreground = new SolidColorBrush(Theme.Rgb(0xF2, 0xF2, 0xF5)),
+        BorderBrush = new SolidColorBrush(Theme.Argb(0x44, 0xFF, 0xFF, 0xFF)),
+        CaretBrush = Theme.Brush(Colors.White),
         FontFamily = new FontFamily("Cascadia Mono, Consolas"),
     };
 
@@ -3213,7 +3223,7 @@ public partial class PanelWindow : Window
             {
                 Width = 16, Height = 16, CornerRadius = new CornerRadius(8),
                 Background = new SolidColorBrush(color),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)), BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(Theme.Argb(0x55, 0xFF, 0xFF, 0xFF)), BorderThickness = new Thickness(1),
                 Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center,
             };
             var content = new StackPanel { Orientation = Orientation.Horizontal };
@@ -3226,7 +3236,7 @@ public partial class PanelWindow : Window
                 Margin = new Thickness(0, 0, 6, 6),
                 Padding = new Thickness(9, 5, 11, 5),
                 FontSize = 12.5,
-                Background = selected ? new SolidColorBrush(Color.FromRgb(0x3A, 0x45, 0x80)) : new SolidColorBrush(Color.FromRgb(0x24, 0x24, 0x2A)),
+                Background = selected ? new SolidColorBrush(Theme.Rgb(0x3A, 0x45, 0x80)) : new SolidColorBrush(Theme.Rgb(0x24, 0x24, 0x2A)),
             };
             b.Click += (_, _) =>
             {

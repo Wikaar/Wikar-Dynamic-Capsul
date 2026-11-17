@@ -151,6 +151,7 @@ public partial class App : Application
                 $"Нужна Windows 10 версии 1809 (сборка 17763) или новее, а здесь сборка {Environment.OSVersion.Version.Build}. Обнови Windows.");
 
         Settings = AppSettings.Load();
+        Theme.Install(Resources);
         MigrateAiModel();
         // ключ Groq переносим в отдельное поле слуха — чтобы смена «мозга» (Ollama, Gemini) не выключала Whisper
         if (Settings.GroqKey.Length == 0 && Settings.AiBaseUrl.Contains("groq.com", StringComparison.OrdinalIgnoreCase) && Settings.AiKey.Length > 0)

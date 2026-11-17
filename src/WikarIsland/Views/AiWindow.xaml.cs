@@ -18,7 +18,7 @@ public partial class AiWindow : Window
     public AiWindow(string? url)
     {
         InitializeComponent();
-        Web.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 20, 20, 23);
+        Web.DefaultBackgroundColor = System.Drawing.Theme.Argb(255, 20, 20, 23);
         _url = url;
         if (url != null)
             Loaded += async (_, _) => await InitAsync();
@@ -27,7 +27,7 @@ public partial class AiWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        NativeMethods.SetDwmInt(new WindowInteropHelper(this).Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, 1);
+        NativeMethods.SetDwmInt(new WindowInteropHelper(this).Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, Theme.IsLight ? 0 : 1);
     }
 
     public Task InitAsync() => _init ??= InitCoreAsync();

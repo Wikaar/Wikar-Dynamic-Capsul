@@ -17,17 +17,17 @@ namespace WikarIsland.Services;
 public static class BattleNetService
 {
     /// <summary>Код запуска, по каким словам узнаём игру в списке установленных и как называется её процесс.</summary>
-    public sealed record Game(string Code, string Name, string[] Keys, string[] Processes);
+    public sealed record Game(string Code, string Name, string[] Keys, string[] Processes, params string[] Aliases);
 
     public static readonly Game[] Known =
     {
-        new("WoWC", "World of Warcraft Classic", new[] { "world of warcraft classic", "wow classic" }, new[] { "WowClassic" }),
-        new("WoW", "World of Warcraft", new[] { "world of warcraft" }, new[] { "Wow" }),
-        new("Fen", "Diablo IV", new[] { "diablo iv", "diablo 4" }, new[] { "Diablo IV" }),
+        new("WoWC", "World of Warcraft Classic", new[] { "world of warcraft classic", "wow classic" }, new[] { "WowClassic" }, "WoW Classic", "Вов Классик"),
+        new("WoW", "World of Warcraft", new[] { "world of warcraft" }, new[] { "Wow" }, "WoW", "Вов", "Варкрафт"),
+        new("Fen", "Diablo IV", new[] { "diablo iv", "diablo 4" }, new[] { "Diablo IV" }, "Diablo 4", "Диабло 4"),
         new("D3", "Diablo III", new[] { "diablo iii", "diablo 3" }, new[] { "Diablo III64", "Diablo III" }),
         new("OSI", "Diablo II: Resurrected", new[] { "diablo ii", "diablo 2" }, new[] { "D2R" }),
         new("ANBS", "Diablo Immortal", new[] { "diablo immortal" }, new[] { "DiabloImmortal" }),
-        new("Pro", "Overwatch 2", new[] { "overwatch" }, new[] { "Overwatch" }),
+        new("Pro", "Overwatch 2", new[] { "overwatch" }, new[] { "Overwatch" }, "Овервотч"),
         new("WTCG", "Hearthstone", new[] { "hearthstone" }, new[] { "Hearthstone" }),
         new("Hero", "Heroes of the Storm", new[] { "heroes of the storm" }, new[] { "HeroesOfTheStorm_x64", "HeroesOfTheStorm" }),
         new("S2", "StarCraft II", new[] { "starcraft ii", "starcraft 2" }, new[] { "SC2_x64", "SC2" }),

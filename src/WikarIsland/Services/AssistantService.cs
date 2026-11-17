@@ -827,8 +827,14 @@ public sealed class AssistantService
         AppEntry? e = AppIndex.FindConfident(name);
         if (e == null)
         {
+            // нет в «Пуске», Steam и т. д. — ищем папку с таким названием на дисках (E:\World of Warcraft)
+            if (await Task.Run(() => GameFolders.FindProgram(name)) is (string folder, string exe))
+            {
+                ShellHelper.Open(exe);
+                return $"Запускаю {folder} из папки {Path.GetDirectoryName(exe)}";
+            }
             (AppEntry? guess, double score) = AppIndex.Find(name);
-            if (guess == null || score < 0.55) return $"Не найдено: {name}";
+            if (guess == null || score < 0.55) return $"Не найдено: {name}. Можно поискать папку через find_files с kind=folder.";
             e = guess;
         }
         List<string> variants = NameVariants(e.Name);
@@ -971,7 +977,7 @@ public sealed class AssistantService
 
         return new JsonArray
         {
-            Fn("open_app", "Запустить игру, программу или ярлык по названию (точное название из списка игр, если подходит).",
+            Fn("open_app", "Запустить игру, программу или ярлык по названию (точное название из списка игр, если подходит). Находит и игры, которые просто лежат в папке на диске.",
                 new JsonObject { ["name"] = Str("Название игры или программы") }, "name"),
             Fn("play_music", "Включить музыку в Яндекс Музыке, YouTube Music или Spotify: откроет сервис, найдёт и включит; без запроса — «Моя волна»/«Мой джем». " +
                     "Возвращает, что реально играет (по медиапульту Windows) — говори пользователю ровно это.",
@@ -990,7 +996,7 @@ public sealed class AssistantService
                     ["open"] = Enum("Что открыть: none — только найти, folder — папку с первым найденным (файл выделен), file — сам файл",
                         "none", "folder", "file"),
                 }, "query"),
-            Fn("program_files", "Найти все папки программы или игры: установка, настройки и сохранения (AppData, ProgramData, Документы, Saved Games, Steam), с размером.",
+            Fn("program_files", "Найти все папки программы или игры: установка (в том числе папки прямо на любом диске, например E:\\World of Warcraft), настройки и сохранения (AppData, ProgramData, Документы, Saved Games, Steam), с размером.",
                 new JsonObject { ["name"] = Str("Название программы или игры"), ["open"] = Bool("Сразу открыть найденные папки (до трёх)") }, "name"),
             Fn("open_found", "Открыть результат последнего поиска файлов по номеру.",
                 new JsonObject { ["number"] = Num("Номер из списка, с 1"), ["how"] = Enum("folder — папку с файлом, file — сам файл", "folder", "file") }, "number"),
@@ -1068,6 +1074,11 @@ public sealed class AssistantService
                 AppEntry? e = AppIndex.FindConfident(S("name"));
                 if (e == null)
                 {
+                    if (GameFolders.FindProgram(S("name")) is (string folder, string exe))
+                    {
+                        ShellHelper.Open(exe);
+                        return $"Запускаю {folder}";
+                    }
                     (AppEntry? guess, double score) = AppIndex.Find(S("name"));
                     if (guess == null || score < 0.55) return $"Не найдено: {S("name")}";
                     e = guess;

@@ -94,6 +94,29 @@ public static class AppIndex
             Add(g.Name, "Battle.net", () => BattleNetService.Launch(game));
         }
 
+        // игры Blizzard, которые лежат в папке на диске, но не записаны в реестр (перенесённые с другого ПК или диска)
+        try
+        {
+            foreach ((BattleNetService.Game game, string exe) in GameFolders.BlizzardGames(GameFolders.DriveFolders()))
+            {
+                string path = exe;
+                Add(game.Name, "Battle.net", () => ShellHelper.Open(path));
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
+
+        // короткие названия: «запусти вов» → World of Warcraft (иначе «WoW» похоже на WordPad)
+        foreach (AppEntry e in list.ToList())
+        {
+            if (e.Kind != "Battle.net") continue;
+            BattleNetService.Game? g = BattleNetService.Known.FirstOrDefault(x => x.Name == e.Name);
+            if (g == null) continue;
+            foreach (string alias in g.Aliases) Add(alias, e.Kind, e.Launch);
+        }
+
         foreach (LauncherItem l in App.Settings.Launcher)
         {
             string path = l.Path;

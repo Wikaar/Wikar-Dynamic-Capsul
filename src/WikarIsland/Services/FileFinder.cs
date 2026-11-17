@@ -266,6 +266,8 @@ public static class FileFinder
             ScanLevel(Path.Combine(Env(Environment.SpecialFolder.UserProfile), "Saved Games"), 2);
             foreach (string lib in App.Steam?.Libraries ?? (IReadOnlyList<string>)Array.Empty<string>())
                 ScanLevel(Path.Combine(lib, "steamapps", "common"), 1);
+            // папки прямо на дисках: E:\World of Warcraft, D:\Games\Valheim
+            foreach (string dir in GameFolders.DriveFolders()) Check(dir);
             foreach (string dir in InstallLocations(keys)) if (Directory.Exists(dir) && seen.Add(dir)) list.Add(new Found(dir, true, Directory.GetLastWriteTime(dir), 0));
 
             // размер — не дольше 4 секунд на всё
@@ -274,6 +276,9 @@ public static class FileFinder
                 if (watch.Elapsed < TimeSpan.FromSeconds(4)) list[i] = list[i] with { Size = FolderSize(list[i].Path, watch) };
             return list;
         });
+        // ничего не нашли по местам программ — обычный поиск папок по всем дискам
+        if (found.Count == 0)
+            found = (await SearchAsync(program, null)).Where(f => f.IsFolder).ToList();
         return Last = found.OrderByDescending(f => f.Size).ToList();
     }
 

@@ -1400,7 +1400,6 @@
                         <Border Style="{StaticResource SetCard}">
                             <StackPanel>
                         <TextBox x:Name="UserNameBox" Style="{StaticResource SetBox}" Margin="0,4,0,4" TextChanged="Profile_TextChanged"/>
-                        <TextBlock Style="{StaticResource SetHint}" Margin="0,2,0,2" Text="Например: Илья или Олеся"/>
                             </StackPanel>
                         </Border>
                         <TextBlock Text="ПОЛ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>

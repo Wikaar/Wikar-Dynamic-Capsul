@@ -81,6 +81,7 @@ public sealed class GeminiLiveService : IDisposable
     public event Action? TurnDone;
     public event Action<string>? Failed;      // соединение не открылось или оборвалось
     public event Action? EndRequested;        // модель решила, что разговор окончен
+    public event Action<string>? ToolCalled;  // модель вызвала инструмент — значит, услышала и действует
 
     public void Open()
     {
@@ -445,6 +446,7 @@ public sealed class GeminiLiveService : IDisposable
         if (msg["setupComplete"] != null)
         {
             Ready = true;
+            App.LogVoice($"Live: подключён ({App.Settings.LiveModel})");
             return;
         }
 
@@ -505,6 +507,7 @@ public sealed class GeminiLiveService : IDisposable
 
         if (msg["toolCall"]?["functionCalls"] is JsonArray calls)
         {
+            foreach (JsonNode? call in calls) ToolCalled?.Invoke(call?["name"]?.ToString() ?? "");
             var responses = new JsonArray();
             bool end = false;
             foreach (JsonNode? call in calls)

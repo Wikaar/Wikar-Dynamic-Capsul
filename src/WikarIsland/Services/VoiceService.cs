@@ -60,6 +60,17 @@ public sealed partial class VoiceService : IDisposable
     private volatile bool _liveEnding;
     private bool _liveWasSpeaking;
     private DateTime _liveSpokeAt, _liveUserAt;
+
+    // запасной путь: Google молчит — команду выполняем сами (Groq), не прося повторить
+    private const int LiveSilentSeconds = 7;    // за столько секунд Gemini не распознал ни слова
+    private const int LiveNoAnswerSeconds = 8;  // услышал, но так и не ответил и ничего не сделал
+    private readonly MemoryStream _liveAudio = new(); // звук сеанса (16 кГц моно) — чтобы распознать самим
+    private DateTime _liveStartedAt;
+    private volatile bool _liveAnyUser;       // Gemini хоть раз распознал речь в этом сеансе
+    private volatile bool _liveAnswered;      // на последнюю фразу модель ответила или вызвала инструмент
+    private volatile string _liveUserText = "";
+    private volatile bool _liveFallingBack;
+    private volatile bool _liveVoiceAfterWake; // после слова в микрофоне был голос — значит, команду сказали
     private DateTime _liveOffUntil = DateTime.MinValue; // после сбоя — обычный режим на 10 минут
     private string _liveModelText = "";
     private const int LiveIdleSeconds = 12;
@@ -477,18 +488,41 @@ public sealed partial class VoiceService : IDisposable
         if (Problem?.StartsWith("Gemini Live", StringComparison.Ordinal) == true) Problem = null;
         _liveWasSpeaking = false;
         _liveModelText = "";
-        _liveSpokeAt = _liveUserAt = DateTime.Now;
+        // звук сразу после слова не отбрасываем: «Капсуль, открой Discord» на одном дыхании
+        _liveSpokeAt = DateTime.MinValue;
+        _liveUserAt = _liveStartedAt = DateTime.Now;
+        _liveAnyUser = false;
+        _liveAnswered = false;
+        _liveUserText = "";
+        _liveFallingBack = false;
+        _liveVoiceAfterWake = false;
+        lock (_lock)
+        {
+            _liveAudio.SetLength(0);
+            if (head.Length > 0) _liveAudio.Write(head, 0, head.Length);
+        }
 
         var live = new GeminiLiveService();
         live.UserSaid += text =>
         {
             _liveUserAt = DateTime.Now;
+            if (!_liveAnyUser || _liveAnswered) App.LogVoice("Live: слышу речь");
+            _liveAnyUser = true;
+            _liveAnswered = false;
+            _liveUserText = text;
             if (!live.IsSpeaking) Set(VoiceState.Listening, text);
         };
         live.ModelSaid += text =>
         {
+            if (!_liveAnswered) App.LogVoice($"Live: услышал «{_liveUserText}», отвечает");
+            _liveAnswered = true;
             _liveModelText = text;
             Set(VoiceState.Speaking, text);
+        };
+        live.ToolCalled += name =>
+        {
+            _liveAnswered = true;
+            App.LogVoice($"Live: услышал «{_liveUserText}», вызывает {name}");
         };
         live.EndRequested += () => _liveEnding = true;
         live.Failed += message => _ui.BeginInvoke(() => OnLiveFailed(live, message));
@@ -505,6 +539,7 @@ public sealed partial class VoiceService : IDisposable
         }
         _live = live;
         _liveMode = true;
+        App.LogVoice("Live: сеанс начат");
         if (head.Length > 0) live.SendAudio(head, head.Length);
         Chime.Play();
         Set(VoiceState.Listening, "");
@@ -519,7 +554,25 @@ public sealed partial class VoiceService : IDisposable
         bool speaking = live.IsSpeaking;
         if (speaking) _liveSpokeAt = DateTime.Now;
         if (App.Settings.LiveBargeIn || (!speaking && (DateTime.Now - _liveSpokeAt).TotalMilliseconds > 500))
+        {
             live.SendAudio(_pcm, bytes);
+            if (!speaking)
+            {
+                if (MicLevel > 0.2f && (DateTime.Now - _liveStartedAt).TotalMilliseconds > 1200) _liveVoiceAfterWake = true;
+                lock (_lock)
+                {
+                    if (_liveAudio.Length + bytes > MaxUtteranceBytes)
+                    {
+                        // храним последние ~10 секунд
+                        byte[] all = _liveAudio.ToArray();
+                        int keep = MaxUtteranceBytes / 2;
+                        _liveAudio.SetLength(0);
+                        _liveAudio.Write(all, all.Length - keep, keep);
+                    }
+                    _liveAudio.Write(_pcm, 0, bytes);
+                }
+            }
+        }
     }
 
     /// <summary>Состояние капсулы и конец разговора: прощание, молчание 12 секунд или режим «одна команда».</summary>
@@ -536,9 +589,32 @@ public sealed partial class VoiceService : IDisposable
             else Set(VoiceState.Listening, "");
         }
         _liveWasSpeaking = speaking;
-        if (speaking) return;
+        if (speaking)
+        {
+            _liveAnswered = true;
+            return;
+        }
 
         DateTime now = DateTime.Now;
+        if (!_liveFallingBack)
+        {
+            // Google молчит: соединение открыто, но речь так и не распознана — выполняем сами
+            // (молчали после слова — фразы нет, Gemini и не должен отвечать: как раньше, просто ждём и закрываем)
+            if (!_liveAnyUser && !_liveAnswered && _liveVoiceAfterWake && (now - _liveStartedAt).TotalSeconds > LiveSilentSeconds)
+            {
+                _liveFallingBack = true;
+                _ui.BeginInvoke(() => FallbackFromLive(live, "Gemini ничего не распознал", null, TimeSpan.FromMinutes(10)));
+                return;
+            }
+            // распознал, но не ответил и ничего не сделал
+            if (_liveAnyUser && !_liveAnswered && _liveUserText.Length > 0 && (now - _liveUserAt).TotalSeconds > LiveNoAnswerSeconds)
+            {
+                _liveFallingBack = true;
+                string heard = _liveUserText;
+                _ui.BeginInvoke(() => FallbackFromLive(live, "Gemini услышал, но не ответил", heard, TimeSpan.FromMinutes(10)));
+                return;
+            }
+        }
         if (_liveEnding && (now - _liveSpokeAt).TotalMilliseconds > 400)
         {
             EndLive();
@@ -552,6 +628,7 @@ public sealed partial class VoiceService : IDisposable
     {
         GeminiLiveService? live = Interlocked.Exchange(ref _live, null);
         if (live == null) return;
+        App.LogVoice("Live: сеанс закрыт" + (_liveAnyUser ? "" : " (речь не распознана)"));
         _liveMode = false;
         _liveEnding = false;
         live.Close();
@@ -559,26 +636,103 @@ public sealed partial class VoiceService : IDisposable
         if (!silent && State != VoiceState.Off) Set(VoiceState.Waiting, "");
     }
 
-    /// <summary>Gemini Live не открылся или оборвался: 10 минут работаем по-старому, команду можно повторить сразу.</summary>
-    private async void OnLiveFailed(GeminiLiveService live, string message)
+    /// <summary>Gemini Live не открылся или оборвался: 10 минут работаем по-старому, уже сказанную команду выполняем сами.</summary>
+    private void OnLiveFailed(GeminiLiveService live, string message)
     {
-        if (!ReferenceEquals(_live, live)) return;
-        EndLive(silent: true);
-        bool quota = message.Contains("quota", StringComparison.OrdinalIgnoreCase) || message.Contains("billing", StringComparison.OrdinalIgnoreCase);
-        // нет квоты — это не на минуту: не мучаем пользователя каждые 10 минут, ждём до перезапуска или 6 часов
-        _liveOffUntil = DateTime.Now.Add(quota ? TimeSpan.FromMinutes(30) : TimeSpan.FromMinutes(10));
+        if (!ReferenceEquals(_live, live) || _liveFallingBack) return;
+        _liveFallingBack = true;
+        bool quota = message.Contains("quota", StringComparison.OrdinalIgnoreCase) || message.Contains("billing", StringComparison.OrdinalIgnoreCase)
+                     || message.Contains("exhausted", StringComparison.OrdinalIgnoreCase);
+        // нет квоты — это не на минуту: не мучаем пользователя каждые 10 минут
+        TimeSpan off = quota ? TimeSpan.FromMinutes(30) : TimeSpan.FromMinutes(10);
         Problem = quota
             ? "Gemini Live: Google ответил «нет квоты» (бесплатный лимит на сегодня исчерпан или модель доступна только с оплатой в AI Studio). 30 минут работаю в обычном режиме."
             : "Gemini Live недоступен (" + message + "). 10 минут работаю в обычном режиме.";
         Changed?.Invoke();
+        string heard = _liveUserText;
+        FallbackFromLive(live, "ошибка: " + message, heard.Length > 0 ? heard : null, off, failed: true);
+    }
+
+    /// <summary>
+    /// Запасной путь вместо Gemini Live: распознаём сказанное сами (Whisper в Groq, без него — офлайн Vosk)
+    /// и выполняем обычным путём, голосом Капсулы. Ничего не сказали — молча ждём слово (или, после ошибки, просим повторить).
+    /// </summary>
+    private void FallbackFromLive(GeminiLiveService live, string reason, string? heardText, TimeSpan off, bool failed = false)
+    {
+        if (!ReferenceEquals(_live, live)) return;
+        byte[] audio;
+        lock (_lock)
+        {
+            audio = _liveAudio.ToArray();
+            _liveAudio.SetLength(0);
+        }
+        App.LogVoice($"Live → запасной режим: {reason}");
+        EndLive(silent: true);
         if (State == VoiceState.Off) return;
         _deaf = true;
-        Set(VoiceState.Speaking, "Gemini Live недоступен");
-        await App.Speech.SpeakAsync("Живой режим недоступен, сэр. Повторите команду, я выполню её по-старому.");
-        await Task.Delay(250);
-        ResetRecognizer();
-        _deaf = false;
-        if (State != VoiceState.Off) BeginCommand(chime: true, seconds: 8);
+        Set(VoiceState.Thinking, heardText ?? "");
+
+        Task.Run(async () =>
+        {
+            string text = heardText ?? "";
+            if (text.Length == 0 && audio.Length > SampleRate) // меньше полсекунды — там только слово «Капсуль»
+            {
+                if (CloudStt.Available) text = await CloudStt.TranscribeAsync(audio) ?? "";
+                if (text.Trim().Length == 0) text = OfflineText(audio);
+            }
+            string command = AfterWake(text.ToLowerInvariant());
+            App.LogVoice($"  распознал сам: «{command}»");
+            _ = _ui.BeginInvoke(async () =>
+            {
+                if (State == VoiceState.Off) return;
+                if (command.Length < 2)
+                {
+                    if (failed)
+                    {
+                        _liveOffUntil = DateTime.Now.Add(off);
+                        Set(VoiceState.Speaking, "Gemini Live недоступен");
+                        await App.Speech.SpeakAsync("Живой режим недоступен, сэр. Скажите команду, я выполню её по-старому.");
+                        await Task.Delay(250);
+                        ResetRecognizer();
+                        _deaf = false;
+                        if (State != VoiceState.Off) BeginCommand(chime: true, seconds: 8);
+                        return;
+                    }
+                    // сказали только «Капсуль» — Gemini и не должен был отвечать
+                    ResetRecognizer();
+                    _deaf = false;
+                    Set(VoiceState.Waiting, "");
+                    return;
+                }
+                // Google подвёл — 10 минут работаем без него, чтобы следующая команда не ждала зря
+                _liveOffUntil = DateTime.Now.Add(off);
+                if (!failed)
+                {
+                    Problem = $"Gemini Live не ответил — {(int)off.TotalMinutes} минут работаю в обычном режиме.";
+                    Changed?.Invoke();
+                }
+                Set(VoiceState.Speaking, "Gemini не отвечает — выполняю по-старому");
+                await App.Speech.SpeakAsync("Gemini не отвечает, сэр. Выполняю по-старому.");
+                Dispatch(command);
+            });
+        });
+    }
+
+    /// <summary>Офлайн-распознавание записанной фразы (когда нет ключа Groq или он не ответил).</summary>
+    private string OfflineText(byte[] audio)
+    {
+        try
+        {
+            if (_model == null) return "";
+            using var rec = new VoskRecognizer(_model, SampleRate);
+            rec.AcceptWaveform(audio, audio.Length);
+            return TextOf(rec.FinalResult(), "text");
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            return "";
+        }
     }
 
     private bool _followUp;

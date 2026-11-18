@@ -117,8 +117,13 @@ public sealed class VlessLink
     }
 
     /// <summary>Конфиг Xray: локальные HTTP- и SOCKS-входы, выход VLESS, локальные адреса — напрямую.</summary>
-    public string ToXrayConfig(int httpPort, int socksPort, IReadOnlyList<string>? dnsServers = null)
+    /// <param name="address">IP сервера вместо имени (режим TUN: имя узнаём заранее, пока туннеля ещё нет).</param>
+    /// <param name="tun">Режим TUN: адреса уже узнал sing-box, свой DNS Xray не нужен.</param>
+    public string ToXrayConfig(int httpPort, int socksPort, IReadOnlyList<string>? dnsServers = null, string? address = null, bool tun = false)
     {
+        // сервер задан IP — заголовки Host и SNI всё равно должны нести имя из ссылки
+        string hostHeader = Q("host", address != null && address != Host ? Host : "");
+        if (tun) dnsServers = null;
         string network = Q("type", "tcp").ToLowerInvariant();
         if (network == "raw") network = "tcp";
         if (network == "splithttp") network = "xhttp";
@@ -153,17 +158,32 @@ public sealed class VlessLink
         switch (network)
         {
             case "ws":
-                stream["wsSettings"] = new JsonObject { ["path"] = Q("path", "/"), ["headers"] = new JsonObject { ["Host"] = Q("host") } };
+                stream["wsSettings"] = new JsonObject { ["path"] = Q("path", "/"), ["headers"] = new JsonObject { ["Host"] = hostHeader } };
                 break;
             case "grpc":
                 stream["grpcSettings"] = new JsonObject { ["serviceName"] = Q("serviceName"), ["multiMode"] = Q("mode") == "multi" };
                 break;
             case "httpupgrade":
-                stream["httpupgradeSettings"] = new JsonObject { ["path"] = Q("path", "/"), ["host"] = Q("host") };
+                stream["httpupgradeSettings"] = new JsonObject { ["path"] = Q("path", "/"), ["host"] = hostHeader };
                 break;
             case "xhttp":
-                stream["xhttpSettings"] = new JsonObject { ["path"] = Q("path", "/"), ["host"] = Q("host"), ["mode"] = Q("mode", "auto") };
+            {
+                var xhttp = new JsonObject { ["path"] = Q("path", "/"), ["host"] = hostHeader, ["mode"] = Q("mode", "auto") };
+                // дополнительные настройки из ссылки (xmux, паддинг, отдельный адрес загрузки) — как в v2rayN
+                if (Q("extra").Length > 0)
+                {
+                    try
+                    {
+                        if (JsonNode.Parse(Q("extra")) is JsonObject extra) xhttp["extra"] = extra;
+                    }
+                    catch (JsonException)
+                    {
+                        // кривой extra — без него
+                    }
+                }
+                stream["xhttpSettings"] = xhttp;
                 break;
+            }
             case "h2":
             case "http":
                 stream["network"] = "http";
@@ -202,7 +222,7 @@ public sealed class VlessLink
                     {
                         ["vnext"] = new JsonArray(new JsonObject
                         {
-                            ["address"] = Host, ["port"] = Port, ["users"] = new JsonArray(user),
+                            ["address"] = address ?? Host, ["port"] = Port, ["users"] = new JsonArray(user),
                         }),
                     },
                     ["streamSettings"] = stream,
@@ -216,7 +236,9 @@ public sealed class VlessLink
                 new JsonObject { ["tag"] = "block", ["protocol"] = "blackhole" }),
             ["routing"] = new JsonObject
             {
-                ["domainStrategy"] = "IPIfNonMatch",
+                // как в v2rayN: имя сайта уходит на сервер, адрес узнаёт сервер. С IPIfNonMatch Xray сам спрашивал местный DNS —
+                // медленно, а в России провайдер подсовывает заблокированным сайтам «локальные» адреса, и они шли мимо VPN
+                ["domainStrategy"] = "AsIs",
                 ["rules"] = new JsonArray(
                     new JsonObject { ["type"] = "field", ["ip"] = new JsonArray("geoip:private"), ["outboundTag"] = "direct" },
                     new JsonObject { ["type"] = "field", ["domain"] = new JsonArray("localhost"), ["outboundTag"] = "direct" }),
@@ -238,7 +260,8 @@ public sealed record VpnExit(string Ip, string Country, string CountryCode);
 
 /// <summary>
 /// Встроенный VPN на ядре Xray (то же ядро, что у v2rayN): запускает xray.exe с конфигом из ссылки VLESS
-/// и включает системный прокси Windows. При выключении возвращает прежние настройки прокси.
+/// и включает системный прокси Windows (при выключении возвращает прежние настройки) — или, в режиме TUN,
+/// весь трафик компьютера через sing-box (см. <see cref="VpnTun"/>).
 /// </summary>
 public sealed class VpnService
 {
@@ -246,7 +269,17 @@ public sealed class VpnService
     private const string Bypass = "localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.2*;172.30.*;172.31.*;192.168.*;<local>";
 
     private Process? _xray;
+    private Process? _singBox;
     private int _httpPort;
+
+    /// <summary>Сейчас подключён в режиме TUN (весь трафик), а не через системный прокси.</summary>
+    public bool IsTun { get; private set; }
+
+    /// <summary>Выбран режим TUN.</summary>
+    public static bool TunSelected => App.Settings.VpnMode == "tun";
+
+    /// <summary>Для TUN нужны права администратора, а остров запущен без них — спросить, перезапустить ли.</summary>
+    public event Action? AdminRequired;
 
     public bool IsConnected { get; private set; }
     public bool IsBusy { get; private set; }
@@ -285,16 +318,55 @@ public sealed class VpnService
             App.Settings.VpnProxyWasSet = false;
             App.Settings.Save();
         }
-        foreach (Process p in Process.GetProcessesByName("xray"))
+        foreach ((string name, string exe) in new[] { ("xray", XrayExe), ("sing-box", VpnTun.Exe) })
         {
-            try
+            foreach (Process p in Process.GetProcessesByName(name))
             {
-                if (string.Equals(p.MainModule?.FileName, XrayExe, StringComparison.OrdinalIgnoreCase)) p.Kill();
+                try
+                {
+                    if (string.Equals(p.MainModule?.FileName, exe, StringComparison.OrdinalIgnoreCase)) p.Kill();
+                }
+                catch
+                {
+                    // чужой xray или sing-box (например, от v2rayN) не трогаем
+                }
             }
-            catch
-            {
-                // чужой xray (например, от v2rayN) не трогаем
-            }
+        }
+
+        // перезапустились с правами администратора ради TUN — сразу подключаемся
+        if (App.Settings.VpnResumeAfterRestart)
+        {
+            App.Settings.VpnResumeAfterRestart = false;
+            App.Settings.Save();
+            // чуть позже — когда пилюля и панель уже созданы и подписаны на события
+            if (SystemMonitorService.IsAdmin)
+                _ = Task.Delay(2500).ContinueWith(_ => ConnectAsync(), TaskScheduler.FromCurrentSynchronizationContext());
+        }
+    }
+
+    /// <summary>Перезапуск острова от администратора; после него VPN включится сам.</summary>
+    public static bool RestartForTun()
+    {
+        App.Settings.VpnResumeAfterRestart = true;
+        App.Settings.Save();
+        if (SystemMonitorService.RestartAsAdmin()) return true;
+        App.Settings.VpnResumeAfterRestart = false;
+        App.Settings.Save();
+        return false;
+    }
+
+    /// <summary>Сменить режим (прокси или TUN); если VPN включён — переподключиться в новом.</summary>
+    public async Task SetModeAsync(string mode)
+    {
+        mode = mode == "tun" ? "tun" : "proxy";
+        if (App.Settings.VpnMode == mode && (!IsConnected || IsTun == (mode == "tun"))) return;
+        App.Settings.VpnMode = mode;
+        App.Settings.Save();
+        StateChanged?.Invoke();
+        if (IsConnected)
+        {
+            Disconnect();
+            await ConnectAsync();
         }
     }
 
@@ -318,6 +390,18 @@ public sealed class VpnService
             Connected?.Invoke(null, "Не найден xray\\xray.exe рядом с программой — скачай сборку заново");
             return;
         }
+        bool tun = TunSelected;
+        if (tun && !VpnTun.Available)
+        {
+            Connected?.Invoke(null, "Не найден sing-box\\sing-box.exe рядом с программой — скачай сборку заново");
+            return;
+        }
+        if (tun && !SystemMonitorService.IsAdmin)
+        {
+            Connected?.Invoke(null, "Для режима TUN нужны права администратора");
+            AdminRequired?.Invoke();
+            return;
+        }
 
         IsBusy = true;
         StateChanged?.Invoke();
@@ -327,9 +411,18 @@ public sealed class VpnService
             _httpPort = FreePort(10809);
             int socksPort = FreePort(_httpPort == 10809 ? 10808 : _httpPort + 1);
 
+            // TUN: адрес сервера узнаём сейчас, пока туннеля нет, — потом Xray не придётся спрашивать DNS (иначе петля)
+            string? address = null;
+            if (tun && !IPAddress.TryParse(link.Host, out _))
+            {
+                IPAddress[] ips = await Dns.GetHostAddressesAsync(link.Host);
+                IPAddress? v4 = ips.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? ips.FirstOrDefault();
+                address = v4?.ToString() ?? throw new InvalidOperationException($"Не удалось узнать адрес сервера {link.Host}");
+            }
+
             string configPath = Path.Combine(AppSettings.DataDir, "xray-config.json");
             Directory.CreateDirectory(AppSettings.DataDir);
-            File.WriteAllText(configPath, link.ToXrayConfig(_httpPort, socksPort, ParseDns(App.Settings.VpnDns)));
+            File.WriteAllText(configPath, link.ToXrayConfig(_httpPort, socksPort, ParseDns(App.Settings.VpnDns), address, tun));
 
             var info = new ProcessStartInfo(XrayExe, $"run -c \"{configPath}\"")
             {
@@ -353,15 +446,24 @@ public sealed class VpnService
             if (_xray.HasExited)
                 throw new InvalidOperationException("Xray сразу завершился — проверь ссылку (подробности в xray.log)");
 
-            SetProxy($"127.0.0.1:{_httpPort}");
-            App.Settings.VpnProxyWasSet = true;
-            App.Settings.Save();
+            if (tun)
+            {
+                await StartSingBoxAsync(socksPort);
+            }
+            else
+            {
+                SetProxy($"127.0.0.1:{_httpPort}");
+                App.Settings.VpnProxyWasSet = true;
+                App.Settings.Save();
+            }
 
             IsConnected = true;
+            IsTun = tun;
             ServerName = link.Name;
             StateChanged?.Invoke();
 
-            Exit = await CheckExitAsync(_httpPort);
+            // в TUN проверяем без прокси — так, как пойдёт трафик любой программы
+            Exit = await CheckExitAsync(tun ? null : _httpPort);
             if (Exit == null)
             {
                 Disconnect();
@@ -391,18 +493,96 @@ public sealed class VpnService
             App.Settings.VpnProxyWasSet = false;
             App.Settings.Save();
         }
+        foreach (Process? p in new[] { _singBox, _xray })
+        {
+            try
+            {
+                if (p is { HasExited: false })
+                {
+                    p.Kill();
+                    p.WaitForExit(3000); // sing-box снимает адаптер и маршруты — дождёмся
+                }
+            }
+            catch
+            {
+                // уже закрылся
+            }
+        }
+        _singBox = null;
+        _xray = null;
+        IsConnected = false;
+        IsTun = false;
+        Exit = null;
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>Запустить sing-box с TUN и дождаться адаптера.</summary>
+    private async Task StartSingBoxAsync(int socksPort)
+    {
+        string logPath = Path.Combine(AppSettings.DataDir, "sing-box.log");
+        File.WriteAllText(logPath, "");
+        string configPath = Path.Combine(AppSettings.DataDir, "sing-box-config.json");
+        File.WriteAllText(configPath, VpnTun.Config(socksPort, ParseDns(App.Settings.VpnDns)));
+
+        var info = new ProcessStartInfo(VpnTun.Exe, $"run -c \"{configPath}\" -D \"{AppSettings.DataDir}\"")
+        {
+            WorkingDirectory = VpnTun.Dir,
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        _singBox = Process.Start(info) ?? throw new InvalidOperationException("sing-box не запустился");
+        _singBox.OutputDataReceived += (_, e) => AppendLog(logPath, e.Data);
+        _singBox.ErrorDataReceived += (_, e) => AppendLog(logPath, e.Data);
+        _singBox.BeginOutputReadLine();
+        _singBox.BeginErrorReadLine();
+        Process started = _singBox;
+        System.Windows.Threading.Dispatcher ui = System.Windows.Application.Current.Dispatcher;
+        started.EnableRaisingEvents = true;
+        started.Exited += (_, _) => ui.BeginInvoke(() =>
+        {
+            // упал сам (не мы выключили): адаптер исчез, интернет снова напрямую — так и показываем
+            if (_singBox != started || !IsConnected) return;
+            Disconnect();
+            Connected?.Invoke(null, "TUN остановился — подробности в sing-box.log" + LastLogLine(logPath));
+        });
+
+        // адаптер и маршруты появляются за 1–3 секунды
+        for (int i = 0; i < 20; i++)
+        {
+            await Task.Delay(300);
+            if (_singBox.HasExited)
+                throw new InvalidOperationException("sing-box сразу завершился — подробности в sing-box.log" + LastLogLine(logPath));
+            if (TunAdapterUp()) return;
+        }
+        if (_singBox.HasExited) throw new InvalidOperationException("sing-box завершился — подробности в sing-box.log" + LastLogLine(logPath));
+    }
+
+    private static bool TunAdapterUp()
+    {
         try
         {
-            if (_xray is { HasExited: false }) _xray.Kill();
+            return System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                .Any(n => n.Name == VpnTun.InterfaceName && n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up);
         }
         catch
         {
-            // уже закрылся
+            return false;
         }
-        _xray = null;
-        IsConnected = false;
-        Exit = null;
-        StateChanged?.Invoke();
+    }
+
+    private static string LastLogLine(string path)
+    {
+        try
+        {
+            string? line = File.ReadLines(path).LastOrDefault(l => l.Trim().Length > 0);
+            return line == null ? "" : ": " + (line.Length > 200 ? line[..200] : line);
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     /// <summary>«1.1.1.1, https://dns.google/dns-query» → список серверов для Xray.</summary>
@@ -446,12 +626,14 @@ public sealed class VpnService
     }
 
     /// <summary>Через какую страну и IP теперь идёт трафик.</summary>
-    private static async Task<VpnExit?> CheckExitAsync(int httpPort)
+    private static async Task<VpnExit?> CheckExitAsync(int? httpPort)
     {
-        var handler = new HttpClientHandler { Proxy = new WebProxy($"http://127.0.0.1:{httpPort}"), UseProxy = true };
+        var handler = httpPort is int port
+            ? new HttpClientHandler { Proxy = new WebProxy($"http://127.0.0.1:{port}"), UseProxy = true }
+            : new HttpClientHandler { UseProxy = false };
         using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
         http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "WikarIsland");
-        for (int attempt = 0; attempt < 2; attempt++)
+        for (int attempt = 0; attempt < (httpPort == null ? 4 : 2); attempt++)
         {
             try
             {

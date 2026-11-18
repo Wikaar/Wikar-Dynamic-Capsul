@@ -252,6 +252,15 @@ public sealed class AssistantService
             App.SetDndFor(m.Groups[2].Value.StartsWith("час") ? TimeSpan.FromHours(n) : TimeSpan.FromMinutes(n));
             return new AssistantReply("Не беспокою.", Silent: true);
         }
+        // режим VPN: TUN (весь трафик) или системный прокси
+        if ((m = Regex.Match(t, @"^(?:включи|подключи|переключи(?:сь)?\s+на|поставь|режим)\s+(?:(?:vpn|впн)\s+)?(?:в\s+режиме\s+|через\s+)?(tun|тун|тан|весь трафик|туннель|системный прокси|прокси)(?:\s+(?:vpn|впн|режим))?$")).Success
+            && (m.Groups[1].Value.Contains("прокси") || Regex.IsMatch(t, @"\b(tun|тун|тан|весь трафик|туннель)\b")))
+        {
+            if (App.Settings.VpnServers.Count == 0) return new AssistantReply("Серверов VPN нет. Добавьте ссылку на вкладке VPN.");
+            bool tunMode = !m.Groups[1].Value.Contains("прокси");
+            _ = SwitchVpnModeAsync(tunMode);
+            return new AssistantReply(tunMode ? "Включаю VPN для всего трафика." : "VPN через системный прокси.", Silent: true);
+        }
         if ((m = Regex.Match(t, @"^(включи|выключи|отключи|подключи)\s+(vpn|впн|ви пи эн|в п н|запрет|zapret|не беспокоить|режим не беспокоить)")).Success)
         {
             bool on = m.Groups[1].Value is "включи" or "подключи";
@@ -597,6 +606,13 @@ public sealed class AssistantService
         App.LogVoice($"  громкость программы «{app}» → {done ?? "нет такой программы со звуком"}");
         if (done == null) return new AssistantReply($"Не вижу «{app}» среди программ со звуком, сэр.", Silent: true);
         return new AssistantReply(App.Settings.VoiceAcknowledge ? done : "", Silent: true);
+    }
+
+    /// <summary>Сменить режим VPN и подключиться (если ещё не подключён).</summary>
+    private static async Task SwitchVpnModeAsync(bool tun)
+    {
+        await App.Vpn.SetModeAsync(tun ? "tun" : "proxy");
+        if (!App.Vpn.IsConnected && !App.Vpn.IsBusy) await App.Vpn.ConnectAsync();
     }
 
     /// <summary>«сделай чуть потише», «давай погромче» — это общая громкость, а не программа.</summary>
@@ -1200,7 +1216,11 @@ public sealed class AssistantService
                 new JsonObject { ["percent"] = Num("0–100"), ["change"] = Num("Изменить на столько процентов, например -10") }),
             Fn("media", "Управление музыкой и видео.", new JsonObject { ["action"] = Enum("Действие", "play", "pause", "next", "previous") }, "action"),
             Fn("toggle", "Включить или выключить функцию острова.",
-                new JsonObject { ["feature"] = Enum("Что", "vpn", "zapret", "dnd"), ["on"] = Bool("Включить?") }, "feature", "on"),
+                new JsonObject
+                {
+                    ["feature"] = Enum("Что", "vpn", "zapret", "dnd"), ["on"] = Bool("Включить?"),
+                    ["vpn_mode"] = Enum("Для vpn: tun — весь трафик компьютера (игры, Discord), proxy — только браузеры и программы с прокси; пусто — как сейчас", "tun", "proxy"),
+                }, "feature", "on"),
             Fn("timer", "Таймер обратного отсчёта в капсуле.",
                 new JsonObject { ["minutes"] = Num("Минут"), ["label"] = Str("Подпись") }, "minutes"),
             Fn("reminder", "Напоминание.",
@@ -1355,6 +1375,11 @@ public sealed class AssistantService
                     case "zapret": if (on != App.Zapret.IsRunning) _ = App.Zapret.ToggleAsync(); break;
                     default:
                         if (App.Settings.VpnServers.Count == 0) return "VPN не настроен: нет серверов";
+                        if (on && S("vpn_mode") is "tun" or "proxy")
+                        {
+                            _ = SwitchVpnModeAsync(S("vpn_mode") == "tun");
+                            return S("vpn_mode") == "tun" ? "Включаю VPN для всего трафика (TUN)" : "Включаю VPN через системный прокси";
+                        }
                         if (on != App.Vpn.IsConnected) _ = App.Vpn.ToggleAsync();
                         break;
                 }

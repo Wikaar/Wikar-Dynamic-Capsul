@@ -333,6 +333,15 @@ public partial class App : Application
             Pill.UpdateVpn();
             Panel.UpdateVpn();
         };
+        Vpn.AdminRequired += () =>
+        {
+            MessageBoxResult answer = MessageBox.Show(
+                "Для режима TUN (весь трафик компьютера через VPN) острову нужны права администратора — без них Windows не даёт создать сетевой адаптер.\n\n" +
+                "Перезапустить Wikar Island от администратора? VPN включится сам.\n\n" +
+                "Чтобы не спрашивать каждый раз: Настройки → Основные → «Запуск» → «С правами администратора».",
+                "Wikar Island — VPN", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Yes && VpnService.RestartForTun()) Quit();
+        };
         Vpn.Connected += (exit, error) => Pill.ShowNotification(new NotificationItem
         {
             AppId = "vpn",

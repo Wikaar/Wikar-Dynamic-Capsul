@@ -2102,13 +2102,27 @@ public partial class PanelWindow : Window
             : App.Settings.VpnServers.Count == 0 ? "нет серверов" : "выкл.";
         VpnTile.ToolTip = vpn.IsConnected ? $"{vpn.ServerName} · IP {vpn.Exit?.Ip}" : vpn.ActiveServer?.Name;
         VpnHeaderState.Text = vpn.IsBusy ? "Подключаю…"
-            : vpn.IsConnected ? $"Подключён · {vpn.ServerName}" + (vpn.Exit != null ? $" · {vpn.Exit.Country}, IP {vpn.Exit.Ip}" : "")
+            : vpn.IsConnected ? $"Подключён{(vpn.IsTun ? " (TUN)" : "")} · {vpn.ServerName}" + (vpn.Exit != null ? $" · {vpn.Exit.Country}, IP {vpn.Exit.Ip}" : "")
             : App.Settings.VpnServers.Count == 0 ? "Добавь ссылку vless:// ниже" : "Выключен";
         if (_current == "vpn")
         {
             BuildVpnServers();
             VpnPillBox.IsChecked = App.Settings.VpnShowInPill;
+            bool tun = VpnService.TunSelected;
+            VpnModeProxy.IsChecked = !tun;
+            VpnModeTun.IsChecked = tun;
+            VpnModeHint.Text = tun
+                ? "Весь трафик компьютера через VPN: любые программы и игры, голос в Discord (UDP), DNS. Локальная сеть — напрямую. " +
+                  (SystemMonitorService.IsAdmin ? "Права администратора есть." : "Нужны права администратора — при включении остров предложит перезапуститься.") +
+                  " TUN в v2rayN на это время выключи."
+                : "Через VPN идут браузеры и программы, которые берут прокси Windows (и вкладки острова). Игры, голос Discord и приложения Store — напрямую.";
         }
+    }
+
+    private async void VpnMode_Click(object sender, RoutedEventArgs e)
+    {
+        await App.Vpn.SetModeAsync(VpnModeTun.IsChecked == true ? "tun" : "proxy");
+        UpdateVpn();
     }
 
     private async void VpnTile_Click(object sender, RoutedEventArgs e)

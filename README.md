@@ -95,7 +95,9 @@
 
 ### 🌐 Сеть: zapret и VPN
 - **zapret**: Discord и YouTube без VPN. Остров сам скачивает и обновляет [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube), подбирает рабочую стратегию и умеет всё из `service.bat`
-- **VPN (VLESS)** на встроенном ядре Xray: Reality/TLS, транспорты tcp, ws, grpc, xhttp и httpupgrade, системный прокси, пресеты DNS и DoH. Ссылки хранятся зашифрованными
+- **VPN (VLESS)** на встроенном ядре Xray: Reality/TLS, транспорты tcp, ws, grpc, xhttp и httpupgrade, пресеты DNS и DoH. Ссылки хранятся зашифрованными
+  - режим **системного прокси** — браузеры и программы с прокси Windows
+  - режим **TUN** (как в v2rayN, через sing-box) — весь трафик компьютера: игры, голос Discord (UDP), приложения Store, DNS; без утечек, локальная сеть напрямую. Нужны права администратора
 
 <table>
   <tr>

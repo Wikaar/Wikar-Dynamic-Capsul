@@ -56,6 +56,58 @@ public static class SelfTest
             report.AppendLine("System catalog: FAIL " + ex.GetType().Name + ": " + ex.Message);
         }
 
+        // VPN: конфиги Xray (прокси и TUN) и sing-box (TUN) проверяют сами ядра — как они их поймут у пользователя
+        try
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "wikar-selftest");
+            Directory.CreateDirectory(dir);
+            string xray = Path.Combine(AppContext.BaseDirectory, "xray", "xray.exe");
+            string[] links =
+            {
+                "vless://11111111-2222-3333-4444-555555555555@example.com:443?type=tcp&security=reality&pbk=Z84J2IelR9ch3k8VtlVhhs5ycBUlXA7wHBWcBrjqnAw&sid=abcd&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#reality",
+                "vless://11111111-2222-3333-4444-555555555555@example.com:443?type=xhttp&security=tls&sni=example.com&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D#xhttp",
+                "vless://11111111-2222-3333-4444-555555555555@example.com:443?type=ws&security=tls&path=%2Fws#ws",
+            };
+            if (File.Exists(xray))
+            {
+                int n = 0;
+                foreach (string link in links)
+                {
+                    VlessLink l = VlessLink.Parse(link);
+                    foreach (bool tun in new[] { false, true })
+                    {
+                        string cfg = Path.Combine(dir, $"xray-{n++}.json");
+                        File.WriteAllText(cfg, l.ToXrayConfig(10809, 10808, new[] { "https://1.1.1.1/dns-query" }, tun ? "93.184.215.14" : null, tun));
+                        (int code, string output) = RunTool(xray, $"run -test -c \"{cfg}\"", Path.GetDirectoryName(xray)!, ("XRAY_LOCATION_ASSET", Path.GetDirectoryName(xray)!));
+                        if (code != 0) throw new InvalidOperationException($"Xray не принял конфиг {l.Name} (tun={tun}): {Tail(output)}");
+                    }
+                }
+                report.AppendLine($"Xray configs: OK {n}");
+            }
+            else report.AppendLine("Xray configs: пропущено (нет xray.exe)");
+
+            if (VpnTun.Available)
+            {
+                foreach (string[] dns in new[] { Array.Empty<string>(), new[] { "https://dns.google/dns-query" }, new[] { "9.9.9.9" } })
+                {
+                    string cfg = Path.Combine(dir, "sing-box.json");
+                    File.WriteAllText(cfg, VpnTun.Config(10808, dns));
+                    (int code, string output) = RunTool(VpnTun.Exe, $"check -c \"{cfg}\"", VpnTun.Dir);
+                    if (code != 0) throw new InvalidOperationException($"sing-box не принял конфиг (DNS {string.Join(",", dns)}): {Tail(output)}");
+                    if (output.Contains("deprecated", StringComparison.OrdinalIgnoreCase))
+                        report.AppendLine("sing-box: предупреждение: " + Tail(output));
+                }
+                (_, string version) = RunTool(VpnTun.Exe, "version", VpnTun.Dir);
+                report.AppendLine("sing-box config: OK " + version.Split('\n')[0].Trim());
+            }
+            else report.AppendLine("sing-box config: пропущено (нет sing-box.exe)");
+        }
+        catch (Exception ex)
+        {
+            ok = false;
+            report.AppendLine("VPN configs: FAIL " + ex.GetType().Name + ": " + ex.Message);
+        }
+
         if (online)
         {
             // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен; пробуем варианты подключения
@@ -87,5 +139,33 @@ public static class SelfTest
         report.AppendLine(ok ? "RESULT: OK" : "RESULT: FAIL");
         File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "selftest.txt"), report.ToString());
         return ok ? 0 : 1;
+    }
+
+    private static (int code, string output) RunTool(string exe, string args, string workDir, params (string key, string value)[] env)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo(exe, args)
+        {
+            WorkingDirectory = workDir,
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach ((string key, string value) in env) info.Environment[key] = value;
+        using var p = System.Diagnostics.Process.Start(info)!;
+        var stdout = p.StandardOutput.ReadToEndAsync();
+        var stderr = p.StandardError.ReadToEndAsync();
+        if (!p.WaitForExit(30000))
+        {
+            p.Kill();
+            return (-1, "timeout");
+        }
+        return (p.ExitCode, stdout.Result + stderr.Result);
+    }
+
+    private static string Tail(string s)
+    {
+        s = s.Trim().Replace("\r", "").Replace("\n", " | ");
+        return s.Length > 600 ? s[^600..] : s;
     }
 }

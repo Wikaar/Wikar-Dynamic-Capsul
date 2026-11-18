@@ -257,6 +257,8 @@ public sealed class AppSettings
     /// <summary>DNS для VPN: адреса через запятую или пробел (1.1.1.1, https://dns.google/dns-query …). Пусто — системный.</summary>
     public string VpnDns { get; set; } = "";
     public bool VpnProxyWasSet { get; set; }
+    public string VpnMode { get; set; } = "proxy";          // proxy — системный прокси, tun — весь трафик (sing-box)
+    public bool VpnResumeAfterRestart { get; set; }         // перезапустились от администратора ради TUN — подключиться сразу
     public int VpnPrevProxyEnable { get; set; }
     public string? VpnPrevProxyServer { get; set; }
     public string? VpnPrevProxyOverride { get; set; }

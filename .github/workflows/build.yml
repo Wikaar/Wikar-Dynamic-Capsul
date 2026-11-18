@@ -36,6 +36,21 @@ jobs:
           if (-not (Test-Path publish/presentmon/PresentMon.exe)) { throw "PresentMon not downloaded" }
           Get-ChildItem publish/presentmon
 
+      - name: Add sing-box (VPN TUN mode)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # формат конфига — sing-box 1.12; берём свежую 1.12.x, а не «последнюю» (новые версии меняют формат)
+          $tag = gh release list -R SagerNet/sing-box --limit 80 --exclude-pre-releases --json tagName -q '.[].tagName' | Where-Object { $_ -match '^v1\.12\.\d+$' } | Select-Object -First 1
+          if (-not $tag) { throw "sing-box 1.12.x not found" }
+          gh release download $tag -R SagerNet/sing-box --pattern "sing-box-*-windows-amd64.zip" --output singbox.zip --clobber
+          Expand-Archive singbox.zip -DestinationPath singbox-tmp -Force
+          New-Item -ItemType Directory -Force -Path publish/sing-box | Out-Null
+          Get-ChildItem singbox-tmp -Recurse -Filter sing-box.exe | Select-Object -First 1 | Copy-Item -Destination publish/sing-box/
+          if (-not (Test-Path publish/sing-box/sing-box.exe)) { throw "sing-box.exe missing" }
+          Write-Host "sing-box $tag"
+
       - name: Add ad blocker (uBlock Origin Lite, optional)
         continue-on-error: true
         shell: pwsh

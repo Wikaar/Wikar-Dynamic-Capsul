@@ -1025,6 +1025,17 @@
 
                     <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
                         <StackPanel>
+                            <TextBlock Text="РЕЖИМ" Style="{StaticResource CapsLabel}" Margin="0,0,0,8"/>
+                            <WrapPanel>
+                                <RadioButton x:Name="VpnModeProxy" Content="Системный прокси" GroupName="VpnMode" Style="{StaticResource SetRadio}" Click="VpnMode_Click"/>
+                                <RadioButton x:Name="VpnModeTun" Content="TUN — весь трафик" GroupName="VpnMode" Style="{StaticResource SetRadio}" Click="VpnMode_Click"/>
+                            </WrapPanel>
+                            <TextBlock x:Name="VpnModeHint" Style="{StaticResource Hint}" Margin="0,6,0,0" FontSize="11.5" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CcCard}" Margin="0,10,0,0">
+                        <StackPanel>
                             <TextBlock Text="СЕРВЕРЫ" Style="{StaticResource CapsLabel}" Margin="0,0,0,8"/>
                             <StackPanel x:Name="VpnServersList"/>
                             <TextBox x:Name="VpnLinkBox" Height="58" Padding="8,5" Margin="0,10,0,0" FontSize="12.5" TextWrapping="Wrap" AcceptsReturn="True"
@@ -1036,7 +1047,7 @@
                                 <TextBlock x:Name="VpnAddStatus" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" FontSize="11.5"
-                                       Text="Ядро Xray, трафик идёт через системный прокси Windows. Ссылки хранятся зашифрованными."/>
+                                       Text="Ядро Xray (в режиме TUN — вместе с sing-box). Ссылки хранятся зашифрованными."/>
                         </StackPanel>
                     </Border>
 
@@ -1351,7 +1362,7 @@
                         <CheckBox x:Name="AutoStartAdminBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">
                             <StackPanel>
                                 <TextBlock Text="С правами администратора" TextWrapping="Wrap"/>
-                                <TextBlock Text="Нужно для температуры процессора" FontSize="11" Foreground="{DynamicResource ThF_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <TextBlock Text="Нужно для температуры процессора и VPN в режиме TUN" FontSize="11" Foreground="{DynamicResource ThF_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </CheckBox>
                         <CheckBox x:Name="OpenOnHoverBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">

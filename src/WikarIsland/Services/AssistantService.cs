@@ -436,7 +436,7 @@ public sealed class AssistantService
         // --- системные программы Windows: «закрой диспетчер задач», «закрой просмотр событий» ---
         if ((m = Regex.Match(t, @"^(?:закрой|закрыть|убери)\s+(.+)$")).Success && SystemCatalog.Find(m.Groups[1].Value) is { } sysClose
             && !sysClose.Target.StartsWith("keys:", StringComparison.Ordinal)
-            && (sysClose.Id is not ("explorer" or "thispc") || SystemCatalog.Windows(sysClose).Count > 0))
+            && SystemCatalog.Windows(sysClose).Count > 0) // окно не нашли по процессу и заголовку — пусть ищет обычное «закрой …»
         {
             string r = SystemCatalog.Close(sysClose);
             App.LogVoice($"  системное «{sysClose.Name}» → закрыть: {(r.Length == 0 ? "ок" : r)}");

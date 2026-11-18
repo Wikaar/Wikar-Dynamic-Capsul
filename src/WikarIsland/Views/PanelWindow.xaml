@@ -519,7 +519,7 @@
                                    Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </RadioButton>
-                <RadioButton x:Name="TabMusic" Tag="music" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Музыка: Яндекс Музыка, YouTube Music, Spotify">
+                <RadioButton x:Name="TabMusic" Tag="music" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Музыка и видео: Яндекс Музыка, YouTube Music, Spotify, YouTube">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
                         <TextBlock Text="Музыка" Margin="7,0,0,0" FontWeight="SemiBold"
@@ -1165,11 +1165,13 @@
                                    Margin="0,0,8,0" MaxWidth="230" TextTrimming="CharacterEllipsis"/>
                         <Button x:Name="MusicLoginButton" Style="{StaticResource FlatButton}" Margin="0" Content="Войти" Click="MusicLogin_Click"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="MusicYandexChip" Style="{StaticResource Chip}" Content="Яндекс Музыка" Tag="yandex" Click="MusicProvider_Click"/>
                         <Button x:Name="MusicYoutubeChip" Style="{StaticResource Chip}" Content="YouTube Music" Tag="youtube" Click="MusicProvider_Click"/>
                         <Button x:Name="MusicSpotifyChip" Style="{StaticResource Chip}" Content="Spotify" Tag="spotify" Click="MusicProvider_Click"/>
-                    </StackPanel>
+                        <Button x:Name="MusicVideoChip" Style="{StaticResource Chip}" Content="YouTube" Tag="ytvideo" Click="MusicProvider_Click"
+                                ToolTip="Видео YouTube в своём окне: весь экран, мини-плеер, управление голосом"/>
+                    </WrapPanel>
                 </DockPanel>
 
                 <!-- Spotify: свой Client ID -->
@@ -1512,7 +1514,7 @@
                             <TextBlock Text="КАПСУЛКА" Style="{StaticResource SetGroup}"/>
                             <ToggleButton x:Name="Help2" Style="{StaticResource HelpToggle}"/>
                         </StackPanel>
-                        <TextBlock Style="{StaticResource SetHint}" Margin="4,0,4,6" Text="Скажи «Капсулка, …» (или Капсуль, Капсула, Капс): открой браузер, найди на ютубе…, запусти Valheim, запусти World of Warcraft, громкость 30, следующий трек, включи VPN, таймер на 10 минут, напомни через час…, какая погода, освободи память, закрой всё кроме Discord, выключи компьютер. Всё остальное — разговор с ИИ. Клик по капсуле — замолчать."
+                        <TextBlock Style="{StaticResource SetHint}" Margin="4,0,4,6" Text="Скажи «Капсулка, …» (или Капсуль, Капсула, Капс): открой браузер, включи на ютубе…, открой диспетчер задач, микшер громкости, сделай дискорд потише, запусти Valheim, запусти World of Warcraft, громкость 30, следующий трек, включи VPN, таймер на 10 минут, напомни через час…, какая погода, освободи память, закрой всё кроме Discord, выключи компьютер. Всё остальное — разговор с ИИ. Клик по капсуле — замолчать."
                                    Visibility="{Binding IsChecked, ElementName=Help2, Converter={StaticResource BoolToVis}}"/>
                         <Border Style="{StaticResource SetCard}">
                             <StackPanel>
@@ -1523,6 +1525,20 @@
                             <Button DockPanel.Dock="Right" Style="{StaticResource SetButton}" Margin="6,0,0,0" Content="Применить" Click="VoiceHotkey_Click"/>
                             <TextBox x:Name="VoiceHotkeyBox" Style="{StaticResource SetBox}"/>
                         </DockPanel>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="4,14,0,6">
+                            <TextBlock Text="ВИДЕО YOUTUBE" Style="{StaticResource SetGroup}"/>
+                            <ToggleButton x:Name="HelpVideo" Style="{StaticResource HelpToggle}"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource SetHint}" Margin="4,0,4,6" Text="«Капсула, включи на ютубе обзор Bigster», «следующее видео», «перемотай на 5:30», «перемотай назад на минуту», «быстрее», «качество 1080», «включи субтитры», «на весь экран», «мини-плеер», «обычное окно», «закрой видео», «открой в браузере». Если видео открыто в браузере (Chrome, Edge, Яндекс), Капсула управляет им клавишами YouTube."
+                                   Visibility="{Binding IsChecked, ElementName=HelpVideo, Converter={StaticResource BoolToVis}}"/>
+                        <Border Style="{StaticResource SetCard}">
+                            <StackPanel>
+                        <CheckBox x:Name="VideoInIslandBox" Content="Включать видео во встроенном плеере острова (иначе — в браузере)" Style="{StaticResource SetCheck}" Click="Video_Changed"/>
+                        <CheckBox x:Name="VideoMiniBox" Content="Новое видео сразу мини-плеером в углу" Style="{StaticResource SetCheck}" Click="Video_Changed"/>
+                        <CheckBox x:Name="VideoAdBlockBox" Content="Блокировщик рекламы во встроенном браузере (uBlock Origin Lite)" Style="{StaticResource SetCheck}" Click="Video_Changed"/>
+                        <TextBlock x:Name="VideoAdBlockStatus" Style="{StaticResource SetHint}" Margin="0,0,0,2" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                         <TextBlock Text="ГОЛОС" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>

@@ -69,6 +69,21 @@ jobs:
           if (-not (Test-Path publish/presentmon/PresentMon.exe)) { throw "PresentMon not downloaded" }
           Get-ChildItem publish/presentmon
 
+      - name: Add ad blocker (uBlock Origin Lite, optional)
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tags = gh release list -R uBlockOrigin/uBOL-home --limit 20 --json tagName -q '.[].tagName'
+          foreach ($t in $tags) {
+            gh release download $t -R uBlockOrigin/uBOL-home --pattern "*chromium*.zip" --output ubol.zip --clobber 2>$null
+            if (Test-Path ubol.zip) { Write-Host "uBOL $t"; break }
+          }
+          if (-not (Test-Path ubol.zip)) { throw "uBOL chromium package not found" }
+          Expand-Archive ubol.zip -DestinationPath publish/adblock -Force
+          Get-ChildItem -Recurse publish/adblock -Filter manifest.json
+
       - name: Add Vosk model (voice assistant)
         shell: pwsh
         run: |

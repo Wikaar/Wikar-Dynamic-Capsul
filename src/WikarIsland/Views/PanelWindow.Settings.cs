@@ -47,6 +47,30 @@ public partial class PanelWindow
         SettingsScroll.ScrollToTop();
     }
 
+    // ---------- видео YouTube ----------
+
+    private async void Video_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        AppSettings s = App.Settings;
+        bool adBlock = VideoAdBlockBox.IsChecked == true;
+        bool adBlockChanged = adBlock != s.VideoAdBlock;
+        s.VideoInIsland = VideoInIslandBox.IsChecked == true;
+        s.VideoStartMini = VideoMiniBox.IsChecked == true;
+        s.VideoAdBlock = adBlock;
+        s.Save();
+        if (adBlockChanged)
+        {
+            await App.Music.Video.ApplyAdBlockAsync();
+            UpdateAdBlockStatus();
+        }
+    }
+
+    private void UpdateAdBlockStatus() =>
+        VideoAdBlockStatus.Text = AdBlock.Status.Length > 0 ? AdBlock.Status
+            : !AdBlock.Available ? "Блокировщика нет в этой сборке — реклама пропускается кнопкой «Пропустить», как только она появляется."
+            : "Включится, когда откроешь видео. Если встроенный браузер не примет расширение, реклама пропускается кнопкой «Пропустить».";
+
     // ---------- поиск ----------
 
     private void SettingsSearch_Changed(object sender, TextChangedEventArgs e)

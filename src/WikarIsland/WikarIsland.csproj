@@ -16,7 +16,7 @@
     <RootNamespace>WikarIsland</RootNamespace>
     <Product>Wikar Island</Product>
     <!-- новая версия здесь на main сама выпускает релиз (release.yml; уже выпущенная версия пропускается) -->
-    <Version>0.29.1</Version>
+    <Version>0.30.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

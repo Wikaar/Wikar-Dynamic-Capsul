@@ -28,6 +28,34 @@ public static class SelfTest
             report.AppendLine("Vosk: FAIL " + ex.GetType().Name + ": " + ex.Message);
         }
 
+        // каталог системных программ: все шаблоны собираются, коды не повторяются, частые фразы находятся
+        try
+        {
+            var ids = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (SystemCatalog.Entry e in SystemCatalog.All)
+                if (!ids.Add(e.Id)) throw new InvalidOperationException("повтор кода " + e.Id);
+            (string phrase, string id)[] cases =
+            {
+                ("диспетчер задач", "taskmgr"), ("диспетчера задач", "taskmgr"), ("микшер громкости", "mixer"), ("службы", "services"),
+                ("параметры wi-fi", "wifi"), ("вайфай", "wifi"), ("папку автозагрузки", "startupfolder"), ("автозагрузку", "startup"),
+                ("просмотр событий", "eventvwr"), ("эмодзи", "emoji"), ("окно микшера громкости", "mixer"), ("панель управления", "control"),
+                ("программы и компоненты", "appwiz"), ("редактор реестра", "regedit"), ("диспетчер устройств", "devmgmt"),
+            };
+            foreach ((string phrase, string id) in cases)
+            {
+                string got = SystemCatalog.Find(phrase)?.Id ?? "—";
+                if (got != id) throw new InvalidOperationException($"«{phrase}» → {got}, ждали {id}");
+            }
+            foreach (string notSystem in new[] { "дискорд", "ворд", "стим", "телеграм" })
+                if (SystemCatalog.Find(notSystem) is { } wrong) throw new InvalidOperationException($"«{notSystem}» ошибочно → {wrong.Id}");
+            report.AppendLine($"System catalog: OK {SystemCatalog.All.Length} пунктов");
+        }
+        catch (Exception ex)
+        {
+            ok = false;
+            report.AppendLine("System catalog: FAIL " + ex.GetType().Name + ": " + ex.Message);
+        }
+
         if (online)
         {
             // настоящий запрос к голосу Microsoft: принимает ли сервер наш токен; пробуем варианты подключения

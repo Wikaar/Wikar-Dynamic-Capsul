@@ -129,6 +129,14 @@ public sealed class AssistantService
             return new AssistantReply(r.Playing ? r.Message + " Приятного прослушивания, сэр." : "Не получилось, сэр: " + r.Message, Silent: true);
         }
 
+        // видео YouTube: «включи на ютубе …», «следующее видео», «перемотай на 5:30», «на весь экран»
+        if (await VideoControl.TryHandleAsync(text) is { } video)
+        {
+            App.LogVoice($"  видео → «{video}»");
+            if (video.Length == 0 && App.Settings.VoiceAcknowledge) return new AssistantReply(Ack(), Silent: true);
+            return new AssistantReply(video, Silent: true);
+        }
+
         if (await FileCommandAsync(text) is { } files)
         {
             App.LogVoice($"  файлы → «{files.Text}»");
@@ -181,6 +189,9 @@ public sealed class AssistantService
             MediaInfo? mi = App.Media.Current;
             return new AssistantReply(mi == null ? "Сейчас ничего не играет." : $"{mi.Title}" + (mi.Artist.Length > 0 ? $", {mi.Artist}." : "."));
         }
+
+        // --- громкость отдельной программы: «сделай дискорд потише», «громкость браузера 30», «выключи звук в дискорде» ---
+        if (AppVolume(t) is { } appVolume) return appVolume;
 
         // --- звук ---
         if ((m = Regex.Match(t, @"(громкость|звук)( на)? (\d{1,3})")).Success)
@@ -340,11 +351,6 @@ public sealed class AssistantService
         }
 
         // --- поиск и сайты ---
-        if ((m = Regex.Match(t, @"^(?:найди|поищи|включи|открой|покажи)\s+(?:на|в)\s+(?:ютубе|ютюбе|youtube)\s+(.+)$")).Success)
-        {
-            AppIndex.OpenUri("https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(m.Groups[1].Value));
-            return new AssistantReply("Ищу на ютубе.", Silent: true);
-        }
         if ((m = Regex.Match(t, @"^(?:найди|поищи|загугли|погугли|гугл)\s+(?:в интернете\s+|в гугле\s+|в браузере\s+)?(.+)$")).Success)
         {
             AppIndex.OpenUri("https://www.google.com/search?q=" + Uri.EscapeDataString(m.Groups[1].Value));
@@ -427,6 +433,16 @@ public sealed class AssistantService
             WindowControl.Restore(found);
             return new AssistantReply("", Silent: true);
         }
+        // --- системные программы Windows: «закрой диспетчер задач», «закрой просмотр событий» ---
+        if ((m = Regex.Match(t, @"^(?:закрой|закрыть|убери)\s+(.+)$")).Success && SystemCatalog.Find(m.Groups[1].Value) is { } sysClose
+            && !sysClose.Target.StartsWith("keys:", StringComparison.Ordinal)
+            && (sysClose.Id is not ("explorer" or "thispc") || SystemCatalog.Windows(sysClose).Count > 0))
+        {
+            string r = SystemCatalog.Close(sysClose);
+            App.LogVoice($"  системное «{sysClose.Name}» → закрыть: {(r.Length == 0 ? "ок" : r)}");
+            return new AssistantReply(r, Silent: true);
+        }
+
         if ((m = Regex.Match(t, @"^(закрой|закрыть|выключи|выруби|заверши|выйди из|убей|останови)\s+(принудительно\s+)?(?:игру\s+|программу\s+|приложение\s+)?(.+?)(\s+принудительно)?$")).Success)
         {
             string verb = m.Groups[1].Value;
@@ -461,6 +477,15 @@ public sealed class AssistantService
             }
             if (verb is "закрой" or "закрыть" or "убей" || !AiConfigured) return new AssistantReply($"Не вижу открытого «{name}».", Silent: true);
             return null; // «выключи …» — может, это не программа; пусть решит ИИ
+        }
+
+        // --- системные программы и разделы Windows: диспетчер задач, микшер громкости, параметры Wi-Fi, эмодзи… ---
+        if ((m = Regex.Match(t, @"^(открой|запусти|покажи|вызови|включи|открыть)\s+(.+)$")).Success && SystemCatalog.Find(m.Groups[2].Value) is { } sys
+            && (m.Groups[1].Value != "включи" || sys.OnVerb))
+        {
+            string r = SystemCatalog.Open(sys);
+            App.LogVoice($"  системное «{m.Groups[2].Value}» → {sys.Name} ({sys.Target}){(r.Length > 0 ? ": " + r : "")}");
+            return new AssistantReply(r, Silent: true);
         }
 
         // --- запуск программ, игр и сайтов ---
@@ -503,6 +528,80 @@ public sealed class AssistantService
 
         return null;
     }
+
+    /// <summary>
+    /// Громкость отдельной программы. null — фраза не про это или такой программы со звуком нет
+    /// (тогда «сделай потише» и т. п. меняют общую громкость).
+    /// </summary>
+    private static AssistantReply? AppVolume(string t)
+    {
+        Match m;
+        string? app = null;
+        float? level = null, delta = null;
+        bool? mute = null;
+        if ((m = Regex.Match(t, @"^(?:сделай\s+|сделать\s+)?(?:звук\s+(?:в|у)\s+)?(.+?)\s+(потише|погромче|тише|громче)$")).Success
+            && !Filler(m.Groups[1].Value))
+        {
+            app = m.Groups[1].Value;
+            delta = m.Groups[2].Value.Contains("тише") ? -0.15f : 0.15f;
+        }
+        else if ((m = Regex.Match(t, @"^(?:сделай\s+)?(потише|погромче|тише|громче)\s+(?:звук\s+)?(?:в|у)\s+(.+)$")).Success)
+        {
+            app = m.Groups[2].Value;
+            delta = m.Groups[1].Value.Contains("тише") ? -0.15f : 0.15f;
+        }
+        else if ((m = Regex.Match(t, @"^(?:громкость|звук)\s+(?:в|у|для)?\s*(.+?)\s+(?:на\s+)?(\d{1,3})(?:\s*процент\w*)?$")).Success
+                 && !Filler(m.Groups[1].Value))
+        {
+            app = m.Groups[1].Value;
+            level = Math.Clamp(int.Parse(m.Groups[2].Value), 0, 100) / 100f;
+        }
+        else if ((m = Regex.Match(t, @"^(?:сделай|поставь)\s+(.+?)\s+(?:на\s+)?(\d{1,3})\s*(?:процент\w*|%)$")).Success)
+        {
+            app = m.Groups[1].Value;
+            level = Math.Clamp(int.Parse(m.Groups[2].Value), 0, 100) / 100f;
+        }
+        else if ((m = Regex.Match(t, @"^(выключи|отключи|заглуши|убери|включи|верни)\s+звук\s+(?:в|у)\s+(.+)$")).Success)
+        {
+            app = m.Groups[2].Value;
+            mute = m.Groups[1].Value is not ("включи" or "верни");
+        }
+        else if ((m = Regex.Match(t, @"^(заглуши|приглуши)\s+(.+)$")).Success)
+        {
+            app = m.Groups[2].Value;
+            if (m.Groups[1].Value == "заглуши") mute = true;
+            else delta = -0.3f;
+        }
+        if (app == null) return null;
+        app = Regex.Replace(app, @"^(?:звук\s+|громкость\s+)?(?:в|у)\s+", "").Trim();
+        if (Filler(app)) return null;
+
+        // видео: во встроенном плеере — громкость самого плеера, в браузере — громкость браузера
+        if (Regex.IsMatch(app, @"^(видео|ролик\w*|ютуб\w*|youtube|плеер\w*)$"))
+        {
+            switch (VideoControl.Current)
+            {
+                case VideoControl.Target.Island:
+                    if (mute != null) App.Music.Video.SetMuted(mute.Value);
+                    else _ = App.Music.Video.SetVolumeAsync(level, delta);
+                    return new AssistantReply("", Silent: true);
+                case VideoControl.Target.Browser:
+                    app = "браузер";
+                    break;
+                default:
+                    return new AssistantReply("Сейчас никакое видео не открыто, сэр.", Silent: true);
+            }
+        }
+
+        string? done = App.Audio.SetAppVolume(app, level, delta, mute);
+        App.LogVoice($"  громкость программы «{app}» → {done ?? "нет такой программы со звуком"}");
+        if (done == null) return new AssistantReply($"Не вижу «{app}» среди программ со звуком, сэр.", Silent: true);
+        return new AssistantReply(App.Settings.VoiceAcknowledge ? done : "", Silent: true);
+    }
+
+    /// <summary>«сделай чуть потише», «давай погромче» — это общая громкость, а не программа.</summary>
+    private static bool Filler(string words) =>
+        Regex.IsMatch(words.Trim(), @"^(?:(?:сделай|сделать|давай|звук|музык\w*|все|еще|чуть|чуть-чуть|чуточку|немного|немножко|слегка|можно|пожалуйста|ну|капельку|его|ее|это|мне|громкость|на|системы|общ\w*|компьютера)\s*)+$");
 
     /// <summary>
     /// Слова, которых нет в словаре офлайн-распознавания, приходят похожими русскими словами.
@@ -825,9 +924,25 @@ public sealed class AssistantService
         "play_music" => await PlayMusicToolAsync(args),
         "open_app" => await OpenAppToolAsync(args["name"]?.ToString() ?? ""),
         "find_files" => await FindFilesToolAsync(args),
+        "youtube" => await YouTubeToolAsync(args),
         "program_files" => await ProgramFilesToolAsync(args),
         _ => RunTool(name, args),
     };
+
+    private static async Task<string> YouTubeToolAsync(JsonObject args)
+    {
+        string action = args["action"]?.ToString() ?? "play";
+        string query = args["query"]?.ToString() ?? "";
+        double? number = args["number"] is JsonNode n && double.TryParse(n.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double x) ? x : null;
+        string where = args["where"]?.ToString() ?? "";
+        if (action == "volume")
+        {
+            if (VideoControl.Current != VideoControl.Target.Island) return App.Audio.SetAppVolume("браузер", (float)Math.Clamp((number ?? 50) / 100, 0, 1), null, null) ?? "Видео не открыто";
+            await App.Music.Video.SetVolumeAsync((float)Math.Clamp((number ?? 50) / 100, 0, 1), null);
+            return "Готово";
+        }
+        return await VideoControl.ToolAsync(action, query, number, where);
+    }
 
     private static async Task<string> OpenAppToolAsync(string name)
     {
@@ -897,7 +1012,7 @@ public sealed class AssistantService
     /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса); музыка — с ожиданием и проверкой.</summary>
     public async Task<string> RunLiveToolAsync(string name, JsonObject args)
     {
-        string result = name is "play_music" or "open_app" or "find_files" or "program_files" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
+        string result = name is "play_music" or "open_app" or "find_files" or "program_files" or "youtube" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
         App.LogVoice($"  Live → {name}({args.ToJsonString()}) = {result[..Math.Min(result.Length, 300)]}");
         return result;
     }
@@ -947,6 +1062,9 @@ public sealed class AssistantService
             "Игры Battle.net (World of Warcraft, Diablo, Overwatch, Hearthstone) open_app запускает сразу, без кнопки «Играть». " +
             "Файлы: find_files (сразу с open=folder, если просят показать, где лежит), program_files — все папки программы, " +
             "open_found — открыть найденное по номеру, open_folder — загрузки, документы и т. п. " +
+            "Видео YouTube (включить по названию, следующее, перемотка, скорость, качество, весь экран, мини-плеер) — только youtube. " +
+            "Системные программы и разделы Windows (диспетчер задач, микшер громкости, службы, параметры Wi-Fi, автозагрузка и т. п.) — system_tool. " +
+            "Громкость одной программы (Discord, браузер, игра) — app_volume, общая — set_volume. " +
             "«Очисти корзину» — empty_recycle_bin: сначала спрашивает «да». «Освободи память» — free_memory, «закрой всё, кроме …» — close_all_except: оба сначала спрашивают «да». " +
             "В Discord и Slack к каналу, серверу или чату переходи через go_to_chat (голосовой канал так и подключается), " +
             "сообщение — app_type с enter=true. " +
@@ -1046,6 +1164,36 @@ public sealed class AssistantService
                     ["name"] = Str("Название программы или игры (для minimize и restore; пусто — активное окно)"),
                 }, "action"),
             Fn("open_url", "Открыть сайт в браузере.", new JsonObject { ["url"] = Str("Полный адрес https://…") }, "url"),
+            Fn("youtube", "Видео YouTube: включить ролик по названию (сразу первый найденный) и управлять тем, что смотрят — во встроенном плеере острова или в YouTube в браузере. " +
+                    "Для видео НЕ используй web_search и open_url.",
+                new JsonObject
+                {
+                    ["action"] = Enum("play — найти и включить; search — показать найденное; home — открыть YouTube; pause, resume, next, previous; " +
+                                      "seek — сдвиг на number секунд (минус — назад); seek_to — на отметку number секунд; speed — скорость number (0.25–2), faster, slower; " +
+                                      "quality — number: 1080, 720…, 0 — авто; subtitles_on, subtitles_off; mute, unmute; volume — громкость плеера number 0–100; " +
+                                      "fullscreen, exit_fullscreen, mini — мини-плеер в углу, window — обычное окно; close; open_in_browser",
+                        "play", "search", "home", "pause", "resume", "next", "previous", "seek", "seek_to", "speed", "faster", "slower", "quality",
+                        "subtitles_on", "subtitles_off", "mute", "unmute", "volume", "fullscreen", "exit_fullscreen", "mini", "window", "close", "open_in_browser"),
+                    ["query"] = Str("Что искать (для play и search)"),
+                    ["number"] = Num("Число для seek, seek_to, speed, quality, volume"),
+                    ["where"] = Enum("Где включить: island — в острове, browser — в браузере; пусто — как в настройках", "island", "browser"),
+                }, "action"),
+            Fn("system_tool", "Открыть или закрыть системную программу или раздел Windows: диспетчер задач, микшер громкости, монитор ресурсов, просмотр событий, " +
+                    "службы, диспетчер устройств, реестр, параметры экрана, звука, Wi-Fi, Bluetooth, автозагрузка, приложения по умолчанию, обновления, " +
+                    "панель управления, электропитание, сетевые подключения, папки AppData и автозагрузки, эмодзи, история буфера обмена, Game Bar и т. п.",
+                new JsonObject
+                {
+                    ["name"] = Str("Название по-русски, как сказал пользователь (например «диспетчер задач», «параметры wi-fi»)"),
+                    ["action"] = Enum("open — открыть, close — закрыть, list — список всего, что умеешь открыть", "open", "close", "list"),
+                }, "name"),
+            Fn("app_volume", "Громкость отдельной программы (как в микшере громкости): Discord, браузер, игра, Spotify… Без изменения общей громкости.",
+                new JsonObject
+                {
+                    ["app"] = Str("Программа: «дискорд», «браузер», «игра», «spotify»; пусто — список программ со звуком"),
+                    ["percent"] = Num("Громкость 0–100"),
+                    ["change"] = Num("Изменить на столько процентов, например -20"),
+                    ["mute"] = Bool("true — выключить звук программы, false — включить"),
+                }),
             Fn("web_search", "Поиск в интернете или на YouTube.",
                 new JsonObject { ["query"] = Str("Запрос"), ["site"] = Enum("Где искать", "google", "youtube") }, "query"),
             Fn("set_volume", "Громкость системы: точное значение или изменение.",
@@ -1114,6 +1262,22 @@ public sealed class AssistantService
                 if (found.Count == 0) return $"Не открыто: {S("name")}";
                 WindowControl.Close(found, B("force"));
                 return $"Закрыто: {shown}";
+            }
+            case "system_tool":
+            {
+                if (S("action") == "list") return "Умею открыть: " + SystemCatalog.Describe();
+                SystemCatalog.Entry? e = SystemCatalog.Find(S("name")) ?? SystemCatalog.ById(S("name"));
+                if (e == null) return $"Не знаю «{S("name")}». Вызови system_tool с action=list, чтобы увидеть список, или open_app.";
+                string r = S("action") == "close" ? SystemCatalog.Close(e) : SystemCatalog.Open(e);
+                return r.Length == 0 ? (S("action") == "close" ? $"Закрыто: {e.Name}" : $"Открыто: {e.Name}") : r;
+            }
+            case "app_volume":
+            {
+                if (S("app").Length == 0) return App.Audio.DescribeApps();
+                float? level = N("percent") is double pc ? (float)Math.Clamp(pc / 100, 0, 1) : null;
+                float? delta = level == null && N("change") is double ch ? (float)(ch / 100) : null;
+                bool? mute = args["mute"] == null ? null : B("mute");
+                return App.Audio.SetAppVolume(S("app"), level, delta, mute) ?? $"Нет программы «{S("app")}» со звуком. {App.Audio.DescribeApps()}";
             }
             case "open_found":
                 return OpenFound(args);

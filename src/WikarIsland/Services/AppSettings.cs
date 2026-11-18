@@ -151,6 +151,11 @@ public sealed class AppSettings
     public string MusicProvider { get; set; } = "yandex";
     public bool MusicVoiceBuiltIn { get; set; } = true; // Капсулка включает музыку во встроенном плеере, если в сервис вошли
     public bool MusicYoutubeUsed { get; set; }
+
+    // видео YouTube
+    public bool VideoInIsland { get; set; } = true;   // «включи на ютубе …» — во встроенном плеере, а не в браузере
+    public bool VideoStartMini { get; set; }          // новое видео сразу мини-плеером в углу
+    public bool VideoAdBlock { get; set; } = true;    // блокировщик рекламы во встроенном браузере
     public string YandexTokenProtected { get; set; } = "";
     public string SpotifyClientId { get; set; } = "";
     public string SpotifyRefreshProtected { get; set; } = "";

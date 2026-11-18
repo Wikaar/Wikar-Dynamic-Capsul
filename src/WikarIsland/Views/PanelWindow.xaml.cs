@@ -124,7 +124,12 @@ public partial class PanelWindow : Window
             userDataFolder: Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WikarIsland", "WebView2"),
             // YouTube Music во встроенном плеере играет в невидимой странице — без «клика» пользователя
-            options: new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required" });
+            // расширения — для блокировщика рекламы во встроенном YouTube (AdBlock)
+            options: new CoreWebView2EnvironmentOptions
+            {
+                AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required",
+                AreBrowserExtensionsEnabled = true,
+            });
 
     /// <summary>
     /// Всплывающие окна (например, вход через Google) открываем в своём окне поверх острова,
@@ -1183,6 +1188,10 @@ public partial class PanelWindow : Window
         DownloadsBox.IsChecked = s.DownloadsInPill;
         DownloadCardBox.IsChecked = s.DownloadFinishedCard;
         LoadVoiceSettings();
+        VideoInIslandBox.IsChecked = s.VideoInIsland;
+        VideoMiniBox.IsChecked = s.VideoStartMini;
+        VideoAdBlockBox.IsChecked = s.VideoAdBlock;
+        UpdateAdBlockStatus();
         GameHudStatus.Text = !GameService.PresentMonAvailable
             ? "Нет папки presentmon рядом с программой — FPS не будет, только нагрузка. Скачай свежую сборку целиком."
             : SystemMonitorService.IsAdmin

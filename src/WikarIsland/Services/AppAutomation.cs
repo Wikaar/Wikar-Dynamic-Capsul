@@ -494,7 +494,17 @@ public static class AppAutomation
         ["home"] = 0x24, ["end"] = 0x23, ["pageup"] = 0x21, ["pagedown"] = 0x22,
         ["ctrl"] = 0x11, ["control"] = 0x11, ["shift"] = 0x10, ["alt"] = 0x12, ["win"] = 0x5B,
         ["playpause"] = 0xB3, ["next"] = 0xB0, ["prev"] = 0xB1, ["mute"] = 0xAD, ["volumeup"] = 0xAF, ["volumedown"] = 0xAE,
+        ["period"] = 0xBE, ["comma"] = 0xBC, ["minus"] = 0xBD, ["plus"] = 0xBB,
     };
+
+    /// <summary>Нажать сочетание клавиш в активном окне («shift+n», «win+v»). false — не знаем такую клавишу.</summary>
+    public static bool Press(string combo) => SendCombo(combo);
+
+    /// <summary>Напечатать текст в активное окно.</summary>
+    public static void TypeText(string text)
+    {
+        foreach (char c in text) SendChar(c);
+    }
 
     private static bool SendCombo(string combo)
     {

@@ -28,6 +28,9 @@ public sealed class MusicHub : IDisposable
     private bool _polling;
 
     public IReadOnlyList<IMusicProvider> Providers { get; }
+
+    /// <summary>Встроенный YouTube (видео) — с окном, полным экраном и мини-плеером.</summary>
+    public YouTubeVideoProvider Video { get; } = new();
     public IMusicProvider Selected { get; private set; }
 
     /// <summary>Сервис, который сейчас играет (или стоит на паузе) во встроенном плеере.</summary>
@@ -41,7 +44,7 @@ public sealed class MusicHub : IDisposable
 
     public MusicHub()
     {
-        Providers = new IMusicProvider[] { new YandexMusicProvider(), new YouTubeMusicProvider(), new SpotifyProvider() };
+        Providers = new IMusicProvider[] { new YandexMusicProvider(), new YouTubeMusicProvider(), new SpotifyProvider(), Video };
         Selected = Providers.FirstOrDefault(p => p.Key == App.Settings.MusicProvider) ?? Providers[0];
         foreach (IMusicProvider p in Providers)
         {
@@ -195,6 +198,13 @@ public sealed class MusicHub : IDisposable
         if (Active != null && Active != p) Active.Stop();
         Active = p;
         _poll.Start();
+    }
+
+    /// <summary>Окно видео закрыли крестиком: остановить, если играет именно оно.</summary>
+    public void StopIfActive(IMusicProvider p)
+    {
+        if (Active == p) Deactivate();
+        Changed?.Invoke();
     }
 
     private void Deactivate()

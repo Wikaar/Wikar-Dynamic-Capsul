@@ -37,12 +37,15 @@ public partial class PanelWindow
         SetMusicList(provider, tracks, $"ПОИСК: {query.ToUpperInvariant()}");
     }
 
+    /// <summary>Сервисы, где искать и смотреть можно без входа.</summary>
+    private static bool Guest(IMusicProvider p) => p.Key is "youtube" or "ytvideo";
+
     private void UpdateMusicView()
     {
         MusicHub hub = App.Music;
         IMusicProvider p = hub.Selected;
 
-        foreach (Button chip in new[] { MusicYandexChip, MusicYoutubeChip, MusicSpotifyChip })
+        foreach (Button chip in new[] { MusicYandexChip, MusicYoutubeChip, MusicSpotifyChip, MusicVideoChip })
         {
             bool on = (string)chip.Tag == p.Key;
             chip.Background = on ? ChipSelected : Brushes.Transparent;
@@ -55,12 +58,12 @@ public partial class PanelWindow
         if (MusicSpotifySetup.Visibility == Visibility.Visible && !MusicSpotifyIdBox.IsKeyboardFocused)
             MusicSpotifyIdBox.Text = App.Settings.SpotifyClientId;
 
-        bool youtubeGuest = p.Key == "youtube" && p.Account.Length == 0;
+        bool youtubeGuest = Guest(p) && p.Account.Length == 0;
         MusicAccountText.Text = p.Account.Length > 0 ? p.Account
             : youtubeGuest && p.IsLoggedIn ? "без входа: поиск и прослушивание"
             : p.IsLoggedIn ? "вход выполнен"
             : "";
-        MusicLoginButton.Content = p.Account.Length > 0 || (p.IsLoggedIn && p.Key != "youtube") ? "Выйти" : "Войти";
+        MusicLoginButton.Content = p.Account.Length > 0 || (p.IsLoggedIn && !Guest(p)) ? "Выйти" : "Войти";
         MusicLoginButton.IsEnabled = !needsClientId;
 
         MusicMixButton.Content = p.MixName;
@@ -89,12 +92,15 @@ public partial class PanelWindow
             "yandex" when !p.IsLoggedIn => "Войди в аккаунт Яндекса — и музыка будет играть прямо в острове: поиск, «Моя волна», «Мне нравится». Полные треки — с подпиской Плюс.",
             "spotify" when !p.IsLoggedIn => "После входа: поиск по Spotify, любимые треки и управление воспроизведением. Звук играет приложение Spotify (так требует Spotify), остров его запускает и управляет.",
             "youtube" => "Ищи и слушай YouTube Music прямо в острове. Вход в Google общий с ИИ-вкладками: если ты уже вошёл в Gemini, ты вошёл и сюда.",
+            "ytvideo" => "Видео YouTube в своём окне: найди ролик или нажми «Главная». На весь экран — кнопка в плеере, F или двойной клик; Esc — обратно. Вход в Google общий с ИИ-вкладками.",
             _ => "Найди исполнителя или трек — или включи «" + p.MixName + "».",
         };
         MusicList.Children.Add(new TextBlock { Text = text, Style = (Style)FindResource("Hint"), Margin = new Thickness(4, 6, 4, 0) });
         MusicList.Children.Add(new TextBlock
         {
-            Text = "Капсулка тоже умеет: «Капсулка, включи Король и Шут в " + p.Name + "».",
+            Text = p.Key == "ytvideo"
+                ? "Капсулка тоже умеет: «включи на ютубе обзор Bigster», «следующее видео», «перемотай на 5:30», «на весь экран», «мини-плеер», «качество 1080»."
+                : "Капсулка тоже умеет: «Капсулка, включи Король и Шут в " + p.Name + "».",
             Style = (Style)FindResource("Hint"),
             FontSize = 11.5,
             Margin = new Thickness(4, 8, 4, 0),
@@ -262,7 +268,7 @@ public partial class PanelWindow
     private async void MusicLogin_Click(object sender, RoutedEventArgs e)
     {
         IMusicProvider p = App.Music.Selected;
-        bool loggedIn = p.Account.Length > 0 || (p.IsLoggedIn && p.Key != "youtube");
+        bool loggedIn = p.Account.Length > 0 || (p.IsLoggedIn && !Guest(p));
         if (loggedIn)
         {
             App.Music.Logout(p);
@@ -303,7 +309,7 @@ public partial class PanelWindow
         string query = MusicSearchBox.Text.Trim();
         if (query.Length == 0) return;
         IMusicProvider p = App.Music.Selected;
-        if (!p.IsLoggedIn && p.Key != "youtube")
+        if (!p.IsLoggedIn && !Guest(p))
         {
             App.Music.SetStatus($"Сначала войди в {p.Name}.");
             return;
@@ -316,7 +322,7 @@ public partial class PanelWindow
     private async void MusicMix_Click(object sender, RoutedEventArgs e)
     {
         IMusicProvider p = App.Music.Selected;
-        if (!p.IsLoggedIn && p.Key != "youtube")
+        if (!p.IsLoggedIn && !Guest(p))
         {
             App.Music.SetStatus($"Сначала войди в {p.Name}.");
             return;

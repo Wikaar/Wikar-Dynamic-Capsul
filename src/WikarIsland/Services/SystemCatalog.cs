@@ -246,7 +246,7 @@ public static class SystemCatalog
         Shell("windowsdir", "Папка Windows", "Windows", new[] { "Windows" }, "папка windows", "папку windows"),
         Shell("system32", "System32", "System", new[] { "System32" }, "system32", "систем 32", "систем32"),
         Shell("recent", "Недавние файлы", "Recent", new[] { "Recent", "Недавние" }, "недавние файлы", "последние файлы", "недавние документы"),
-        Shell("network", "Сеть (сетевое окружение)", "NetworkPlacesFolder", new[] { "Сеть", "Network", "Netzwerk" }, "сетевое окружение", "компьютеры в сети"),
+        Shell("netplaces", "Сеть (сетевое окружение)", "NetworkPlacesFolder", new[] { "Сеть", "Network", "Netzwerk" }, "сетевое окружение", "компьютеры в сети"),
         Shell("startmenu", "Папка меню «Пуск»", "Programs", new[] { "Programs", "Программы" }, "папка меню пуск", "ярлыки меню пуск"),
         Shell("sendto", "Папка «Отправить»", "SendTo", new[] { "SendTo" }, "папка отправить", "меню отправить"),
         Shell("screenshots", "Снимки экрана", "Screenshots", new[] { "Снимки экрана", "Screenshots", "Bildschirmfotos" }, "папка снимков экрана", "снимки экрана windows"),

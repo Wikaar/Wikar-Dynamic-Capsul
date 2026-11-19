@@ -33,7 +33,22 @@ public sealed class YouTubeVideoProvider : IMusicProvider
         "html.wikar-fill #movie_player{position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;" +
         "z-index:2147483646!important;background:#000!important}" +
         "html.wikar-fill #movie_player .html5-video-container,html.wikar-fill #movie_player video{width:100%!important;height:100%!important;left:0!important;top:0!important}" +
-        "html.wikar-fill #movie_player video{object-fit:contain!important}";
+        "html.wikar-fill #movie_player video{object-fit:contain!important}" +
+        // предки плеера с transform/contain держали бы position:fixed внутри колонки страницы, а не всего окна
+        "html.wikar-fill ytd-app,html.wikar-fill ytd-page-manager,html.wikar-fill ytd-watch-flexy,html.wikar-fill #columns," +
+        "html.wikar-fill #primary,html.wikar-fill #primary-inner,html.wikar-fill #player,html.wikar-fill #player-container," +
+        "html.wikar-fill #player-container-outer,html.wikar-fill #player-container-inner,html.wikar-fill #full-bleed-container," +
+        "html.wikar-fill #player-full-bleed-container,html.wikar-fill ytd-player,html.wikar-fill ytd-player #container" +
+        "{transform:none!important;contain:none!important;filter:none!important;will-change:auto!important;z-index:auto!important}" +
+        // шапка, рекомендации справа и всё под видео — прочь, чтобы ничего не выглядывало поверх и рядом
+        "html.wikar-fill #masthead-container,html.wikar-fill #secondary,html.wikar-fill #below,html.wikar-fill tp-yt-app-drawer," +
+        "html.wikar-fill ytd-mini-guide-renderer{visibility:hidden!important}";
+
+    // кнопка YouTube «Во весь экран»; запускается через DevTools как действие пользователя, иначе браузер не пустит в полный экран
+    private const string PageFullscreenJs =
+        "(()=>{if(document.fullscreenElement)return true;" +
+        "const b=document.querySelector('#movie_player .ytp-fullscreen-button');if(b&&b.offsetParent!==null){b.click();return true;}" +
+        "const p=document.getElementById('movie_player');if(p&&p.requestFullscreen){p.requestFullscreen().catch(()=>{});return true;}return false;})()";
 
     private VideoWindow? _window;
     private Task<CoreWebView2>? _init;
@@ -523,7 +538,7 @@ public sealed class YouTubeVideoProvider : IMusicProvider
         if (_window == null) return;
         if (mode == VideoMode.Full)
         {
-            _window.SetMode(VideoMode.Full);
+            _ = EnterFullAsync();
             return;
         }
         // из настоящего полноэкранного режима страницы выходим через саму страницу
@@ -534,6 +549,35 @@ public sealed class YouTubeVideoProvider : IMusicProvider
             return;
         }
         _window.SetMode(mode);
+    }
+
+    /// <summary>
+    /// «На весь экран» голосом: настоящий полноэкранный режим самого плеера YouTube, как по кнопке или клавише F, —
+    /// только видео, без рекомендаций и страницы вокруг. Если страница его не включила, растягиваем плеер на всё окно сами.
+    /// </summary>
+    private async Task EnterFullAsync()
+    {
+        if (_window == null) return;
+        if (_pageFullscreen)
+        {
+            _window.SetMode(VideoMode.Full);
+            return;
+        }
+        if (_window.Web.CoreWebView2 is { } core)
+        {
+            try
+            {
+                string args = JsonSerializer.Serialize(new { expression = PageFullscreenJs, userGesture = true, returnByValue = true });
+                await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", args);
+                // окно на весь экран переключит событие страницы (OnPageFullscreen)
+                for (int i = 0; i < 15 && !_pageFullscreen; i++) await Task.Delay(100);
+            }
+            catch
+            {
+                // страница перезагружается — ниже запасной путь
+            }
+        }
+        if (!_pageFullscreen && _window.Mode != VideoMode.Full) _window.SetMode(VideoMode.Full);
     }
 
     /// <summary>Адрес текущего ролика с текущей секундой — для «открыть в браузере».</summary>

@@ -16,7 +16,7 @@ public partial class PanelWindow
     private readonly Dictionary<string, string> _sectionText = new();
 
     private IEnumerable<StackPanel> SettingsSections =>
-        new[] { SetSec_general, SetSec_profile, SetSec_look, SetSec_voice, SetSec_ai, SetSec_weather, SetSec_notify, SetSec_games, SetSec_focus, SetSec_data };
+        new[] { SetSec_general, SetSec_profile, SetSec_look, SetSec_voice, SetSec_ai, SetSec_weather, SetSec_google, SetSec_notify, SetSec_games, SetSec_focus, SetSec_data };
 
     private IEnumerable<RadioButton> SettingsNavItems => SettingsNavPanel.Children.OfType<RadioButton>();
 

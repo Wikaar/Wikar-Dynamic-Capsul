@@ -37,6 +37,7 @@ public partial class App : Application
     public static AssistantService Assistant { get; private set; } = null!;
     public static SpectrumService Spectrum { get; } = new();
     public static DeviceBatteryService Batteries { get; private set; } = null!;
+    public static GoogleService Google { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -191,6 +192,7 @@ public partial class App : Application
         Voice = new VoiceService();
         Assistant = new AssistantService();
         Batteries = new DeviceBatteryService();
+        Google = new GoogleService();
         ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
@@ -241,7 +243,7 @@ public partial class App : Application
                 Click = () =>
                 {
                     if (r.Repeat == "none") Reminders.Snooze(r, 10);
-                    else Reminders.Add(r.Text, DateTime.Now.AddMinutes(10));
+                    else Reminders.Add(r.Text, DateTime.Now.AddMinutes(10), snooze: true);
                 },
             });
         };
@@ -390,6 +392,23 @@ public partial class App : Application
         Batteries.Changed += () => Panel.Dispatcher.BeginInvoke(() => Panel.UpdateBatteries());
         Batteries.Low += (device, threshold) => Pill.Dispatcher.BeginInvoke(() => OnBatteryLow(device, threshold));
         if (Settings.BatteryEnabled) Safe("заряд устройств", Batteries.Start);
+        Google.Changed += () => Pill.Dispatcher.BeginInvoke(() =>
+        {
+            Pill.UpdateAgenda();
+            Panel.UpdateAgenda();
+        });
+        Google.EventSoon += e => Pill.Dispatcher.BeginInvoke(() => OnEventSoon(e));
+        Reminders.Added += r =>
+        {
+            if (!Settings.GoogleTasksSync || !Google.IsSignedIn) return;
+            string notes = "Напоминание Капсулы: " + (r.Repeat != "none" ? r.RepeatName + ", " : "") + r.Due.ToString("dd.MM HH:mm");
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try { await Google.AddTaskAsync(r.Text, r.Due.Date, notes); }
+                catch (Exception ex) { LogError(new InvalidOperationException("Google Задачи: напоминание не добавилось", ex)); }
+            });
+        };
+        Safe("Google", Google.Start);
 
         Safe("трей", CreateTray);
 
@@ -410,6 +429,32 @@ public partial class App : Application
         };
         updateTimer.Start();
         Pill.UpdateZapret();
+    }
+
+    /// <summary>До события в Google Календаре 10 минут: карточка и (по желанию) голос.</summary>
+    private static void OnEventSoon(CalendarEvent e)
+    {
+        int min = Math.Max(1, (int)Math.Round((e.Start - DateTime.Now).TotalMinutes));
+        var item = new NotificationItem
+        {
+            AppId = "wikar.calendar",
+            AppName = "Календарь",
+            Title = e.Title,
+            Body = $"Через {min} мин · {e.Start:HH:mm}–{e.End:HH:mm}" + (string.IsNullOrWhiteSpace(e.Location) ? "" : " · " + e.Location),
+            Time = DateTime.Now,
+            Click = () => Panel.ShowTab("home", activate: true),
+        };
+        if (FocusService.Active) { Pill.CountMissed(); return; }
+        Pill.ShowNotification(item);
+        if (Settings.GoogleEventVoice && !Speech.IsSpeaking && Voice.State != VoiceState.Speaking)
+            _ = Speech.SpeakAsync($"Сэр, через {min} {Minutes(min)} — {e.Title}.");
+    }
+
+    private static string Minutes(int n)
+    {
+        int a = n % 100, b = n % 10;
+        if (a is >= 11 and <= 14) return "минут";
+        return b switch { 1 => "минуту", 2 or 3 or 4 => "минуты", _ => "минут" };
     }
 
     /// <summary>Заряд наушников/мыши дошёл до 20, 10 или 5%: карточка в капсуле и голосом «поставьте на зарядку».</summary>

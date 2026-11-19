@@ -166,6 +166,30 @@ public sealed class AppSettings
     public string SpotifyClientId { get; set; } = "";
     public string SpotifyRefreshProtected { get; set; } = "";
 
+    // Google Календарь и Задачи: своё приложение Google Cloud (тип «Компьютер»)
+    public string GoogleClientId { get; set; } = "";
+    public string GoogleSecretProtected { get; set; } = "";
+    public string GoogleRefreshProtected { get; set; } = "";
+    public string GoogleEmail { get; set; } = "";
+    public bool GoogleInPill { get; set; } = true;       // ближайшее событие в капсуле (за час)
+    public bool GoogleEventAlerts { get; set; } = true;  // карточка за 10 минут до события
+    public bool GoogleEventVoice { get; set; } = true;   // …и голосом
+    public bool GoogleTasksSync { get; set; } = true;    // голосовые напоминания → Google Задачи
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string GoogleClientSecret
+    {
+        get => Unprotect(GoogleSecretProtected);
+        set => GoogleSecretProtected = Protect(value);
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string GoogleRefresh
+    {
+        get => Unprotect(GoogleRefreshProtected);
+        set => GoogleRefreshProtected = Protect(value);
+    }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public string YandexToken
     {

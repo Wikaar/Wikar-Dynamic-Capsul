@@ -137,6 +137,12 @@ public sealed class AssistantService
             return new AssistantReply(video, Silent: true);
         }
 
+        if (await GoogleCommandAsync(text) is { } google)
+        {
+            App.LogVoice($"  Google → «{google.Text}»");
+            return google;
+        }
+
         if (await FileCommandAsync(text) is { } files)
         {
             App.LogVoice($"  файлы → «{files.Text}»");
@@ -819,6 +825,111 @@ public sealed class AssistantService
     }
 
     /// <summary>Быстрые команды про файлы: найти, открыть папку, открыть найденное по номеру, файлы программы.</summary>
+    // ---------- Google Календарь и Задачи ----------
+
+    private static async Task<AssistantReply?> GoogleCommandAsync(string text)
+    {
+        string t = text.Trim().TrimEnd('.', '!', '?');
+        Match m;
+        GoogleService g = App.Google;
+
+        // «что у меня сегодня в календаре», «какие планы на завтра», «что запланировано на завтра»
+        if (!Regex.IsMatch(t, @"^(открой|запусти|закрой|включи)\s") && Regex.IsMatch(t, @"(календар|запланирован|(какие|что за) (у меня )?(планы|встречи|события)|что у меня (сегодня|завтра|на сегодня|на завтра))"))
+        {
+            if (Regex.IsMatch(t, @"(следующ|ближайш)"))
+                return new AssistantReply(NextEventText());
+            await g.RefreshAsync();
+            DateTime day = Regex.IsMatch(t, @"послезавтра") ? DateTime.Today.AddDays(2) : Regex.IsMatch(t, @"завтра") ? DateTime.Today.AddDays(1) : DateTime.Today;
+            return new AssistantReply(g.Describe(day));
+        }
+        if (Regex.IsMatch(t, @"^(какое |какая )?(следующ\w+|ближайш\w+) (событие|встреча)"))
+            return new AssistantReply(NextEventText());
+
+        // «добавь задачу купить хлеб на завтра», «новая задача …», «запиши в задачи …», «добавь в список дел …»
+        if ((m = Regex.Match(t, @"^(?:добавь|создай|запиши|поставь|новая)\s+(?:мне\s+)?(?:задачу|задача|в задачи|в список (?:дел|задач)|дело)\s*[:,-]?\s*(.+)$")).Success)
+        {
+            if (!g.IsSignedIn) return new AssistantReply("Google Задачи не подключены, сэр. Войдите в Google в настройках, раздел «Google».");
+            string what = m.Groups[1].Value.Trim();
+            DateTime? due = null;
+            Match d = Regex.Match(what, @"\s+(?:на\s+)?(сегодня|завтра|послезавтра)$");
+            if (d.Success)
+            {
+                due = d.Groups[1].Value switch { "сегодня" => DateTime.Today, "завтра" => DateTime.Today.AddDays(1), _ => DateTime.Today.AddDays(2) };
+                what = what[..d.Index].Trim();
+            }
+            if (what.Length == 0) return new AssistantReply("Какую задачу добавить, сэр?");
+            what = char.ToUpper(what[0]) + what[1..];
+            try
+            {
+                await g.AddTaskAsync(what, due);
+                return new AssistantReply($"Добавил задачу «{what}»" + (due == null ? "" : due == DateTime.Today ? " на сегодня" : due == DateTime.Today.AddDays(1) ? " на завтра" : " на послезавтра") + ", сэр.");
+            }
+            catch (Exception ex)
+            {
+                return new AssistantReply("Не получилось добавить задачу, сэр: " + ex.Message);
+            }
+        }
+
+        // «какие у меня задачи», «что в списке дел», «мои задачи»
+        if (Regex.IsMatch(t, @"^((какие|что) (у меня )?(за )?(задачи|дела)|(мои|список) (задач|дел)|что в (списке|задачах)|прочитай задачи)"))
+        {
+            if (!g.IsSignedIn) return new AssistantReply("Google Задачи не подключены, сэр.");
+            await g.RefreshAsync();
+            if (g.Tasks.Count == 0) return new AssistantReply("Задач нет, сэр. Всё сделано.");
+            string list = string.Join("; ", g.Tasks.Take(7).Select(x => x.Title + (x.Due is DateTime dd ? (dd < DateTime.Today ? " (просрочено)" : dd == DateTime.Today ? " (сегодня)" : dd == DateTime.Today.AddDays(1) ? " (завтра)" : "") : "")));
+            return new AssistantReply($"Задач: {g.Tasks.Count}. {list}." + (g.Tasks.Count > 7 ? $" И ещё {g.Tasks.Count - 7}." : ""));
+        }
+
+        // «отметь задачу купить хлеб», «задача купить хлеб выполнена», «вычеркни купить хлеб»
+        if ((m = Regex.Match(t, @"^(?:отметь|закрой|заверши|вычеркни|удали)\s+(?:задачу\s+)?(.+?)(?:\s+(?:как\s+)?(?:выполненн\w*|сделанн\w*|готов\w*))?$")).Success && (t.Contains("задач") || t.StartsWith("вычеркни"))
+            || (m = Regex.Match(t, @"^задач\w*\s+(.+?)\s+(?:выполнен\w*|сделан\w*|готов\w*)$")).Success)
+        {
+            if (!g.IsSignedIn) return new AssistantReply("Google Задачи не подключены, сэр.");
+            if (g.Tasks.Count == 0) await g.RefreshAsync();
+            GoogleTask? task = g.FindTask(m.Groups[1].Value);
+            if (task == null) return new AssistantReply($"Не нашёл задачу «{m.Groups[1].Value}», сэр.");
+            try
+            {
+                await g.CompleteTaskAsync(task);
+                return new AssistantReply($"Отметил «{task.Title}» выполненной, сэр.");
+            }
+            catch (Exception ex)
+            {
+                return new AssistantReply("Не получилось, сэр: " + ex.Message);
+            }
+        }
+        return null;
+    }
+
+    private static async Task<string> AddTaskToolAsync(JsonObject args)
+    {
+        if (!App.Google.IsSignedIn) return "Google Задачи не подключены";
+        string title = args["title"]?.ToString()?.Trim() ?? "";
+        if (title.Length == 0) return "Нет текста задачи";
+        DateTime? due = args["due"]?.ToString() switch { "today" => DateTime.Today, "tomorrow" => DateTime.Today.AddDays(1), _ => null };
+        try
+        {
+            await App.Google.AddTaskAsync(title, due);
+            return "Задача добавлена";
+        }
+        catch (Exception ex)
+        {
+            return "Ошибка: " + ex.Message;
+        }
+    }
+
+    private static string NextEventText()
+    {
+        GoogleService g = App.Google;
+        if (!g.IsSignedIn) return "Google Календарь не подключён, сэр.";
+        CalendarEvent? e = g.Events.FirstOrDefault(x => !x.AllDay && x.End > DateTime.Now);
+        if (e == null) return "Ближайших событий нет, сэр.";
+        if (e.IsNow) return $"Сейчас идёт «{e.Title}», до {e.End:HH:mm}.";
+        TimeSpan left = e.Start - DateTime.Now;
+        string when = left.TotalMinutes < 60 ? $"через {Math.Max(1, (int)Math.Round(left.TotalMinutes))} мин" : e.Start.Date == DateTime.Today ? $"в {e.Start:HH:mm}" : e.When;
+        return $"Следующее — «{e.Title}», {when}.";
+    }
+
     private async Task<AssistantReply?> FileCommandAsync(string t)
     {
         Match m;
@@ -959,6 +1070,7 @@ public sealed class AssistantService
         "find_files" => await FindFilesToolAsync(args),
         "youtube" => await YouTubeToolAsync(args),
         "program_files" => await ProgramFilesToolAsync(args),
+        "add_task" => await AddTaskToolAsync(args),
         _ => RunTool(name, args),
     };
 
@@ -1249,6 +1361,9 @@ public sealed class AssistantService
             Fn("system_info", "Загрузка и температура процессора, видеокарты, память.", new JsonObject()),
             Fn("weather", "Текущая погода в городе пользователя.", new JsonObject()),
             Fn("device_battery", "Заряд беспроводных наушников, мыши и других устройств.", new JsonObject()),
+            Fn("calendar", "События Google Календаря пользователя на день.", new JsonObject { ["day"] = Enum("День", "today", "tomorrow") }),
+            Fn("tasks", "Список невыполненных Google Задач пользователя.", new JsonObject()),
+            Fn("add_task", "Добавить задачу в Google Задачи.", new JsonObject { ["title"] = Str("Текст задачи"), ["due"] = Enum("Срок", "none", "today", "tomorrow") }, "title"),
             Fn("now_playing", "Что сейчас играет.", new JsonObject()),
         };
     }
@@ -1466,6 +1581,13 @@ public sealed class AssistantService
                 return WeatherText();
             case "device_battery":
                 return BatteryText("");
+            case "calendar":
+                return App.Google.Describe(S("day") == "tomorrow" ? DateTime.Today.AddDays(1) : DateTime.Today);
+            case "tasks":
+                return App.Google.IsSignedIn
+                    ? (App.Google.Tasks.Count == 0 ? "Задач нет" : string.Join("; ", App.Google.Tasks.Take(15).Select(x => x.Title + (x.Due is DateTime dd ? $" (срок {dd:dd.MM})" : ""))))
+                    : "Google Задачи не подключены";
+
             case "now_playing":
                 MediaInfo? mi = App.Media.Current;
                 return mi == null ? "Ничего не играет" : $"{mi.Title} — {mi.Artist} ({(mi.IsPlaying ? "играет" : "пауза")})";

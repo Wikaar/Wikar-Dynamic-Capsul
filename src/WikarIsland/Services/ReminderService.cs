@@ -47,11 +47,15 @@ public sealed class ReminderService
         }
     }
 
-    public Reminder Add(string text, DateTime due, string repeat = "none")
+    /// <summary>Новое напоминание от пользователя (не «отложить»): для синхронизации с Google Задачами.</summary>
+    public event Action<Reminder>? Added;
+
+    public Reminder Add(string text, DateTime due, string repeat = "none", bool snooze = false)
     {
         var r = new Reminder { Text = text, Due = due, Repeat = repeat };
         Items.Add(r);
         Save();
+        if (!snooze) Added?.Invoke(r);
         return r;
     }
 

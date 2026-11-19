@@ -48,6 +48,7 @@ public partial class PillWindow : Window
         _clockTimer.Tick += (_, _) =>
         {
             UpdateTime();
+            if (DateTime.Now.Second == 0) UpdateAgenda();
             FocusService.Poll();
             App.Game.Tick();
             App.FocusTimer.Tick();
@@ -351,6 +352,10 @@ public partial class PillWindow : Window
             ? Visibility.Visible : Visibility.Collapsed;
         FocusChip.Visibility = chips && App.FocusTimer?.Active == true
             ? Visibility.Visible : Visibility.Collapsed;
+        CalendarEvent? nextEvent = App.Settings.GoogleInPill ? App.Google?.NextForPill() : null;
+        bool eventSoon = nextEvent != null && (nextEvent.IsNow || nextEvent.Start - DateTime.Now <= TimeSpan.FromMinutes(15));
+        EventChip.Visibility = chips && nextEvent != null && (!music || eventSoon)
+            ? Visibility.Visible : Visibility.Collapsed;
         DndIcon.Visibility = !timer && !voice && !recording && !card && !volume && FocusService.Active
             ? Visibility.Visible : Visibility.Collapsed;
         ZapretChip.Visibility = chips && App.Zapret?.Installed == true
@@ -423,6 +428,25 @@ public partial class PillWindow : Window
         FocusRing.StrokeDashArray = new DoubleCollection { p * 44.0 / FocusRing.StrokeThickness, 1000 };
         FocusChip.ToolTip = $"{f.Label} · осталось {FocusTimerService.Format(f.Remaining)}\nНажми — {(f.Paused ? "продолжить" : "пауза")}, правой кнопкой — остановить";
         UpdateContent();
+    }
+
+    /// <summary>Чип ближайшего события: «14:30 Созвон», «через 5 мин · Созвон», «идёт · Созвон».</summary>
+    public void UpdateAgenda()
+    {
+        CalendarEvent? e = App.Google?.NextForPill();
+        if (e != null)
+        {
+            int min = (int)Math.Ceiling((e.Start - DateTime.Now).TotalMinutes);
+            EventChipText.Text = e.IsNow ? "идёт · " + e.Title : min <= 15 ? $"через {min} мин · {e.Title}" : $"{e.Start:HH:mm} {e.Title}";
+            EventChip.ToolTip = $"{e.Title}\n{e.When}" + (string.IsNullOrWhiteSpace(e.Location) ? "" : "\n" + e.Location);
+        }
+        UpdateContent();
+    }
+
+    private void EventChip_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        App.Panel.ShowTab("home", activate: true);
     }
 
     private void FocusChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

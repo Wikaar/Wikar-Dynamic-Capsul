@@ -28,6 +28,17 @@
             <!-- живая подложка: форма пилюли рисуется здесь -->
             <controls:LiquidPill x:Name="Liquid"/>
             <StackPanel Orientation="Horizontal" Margin="12,0" HorizontalAlignment="Center">
+                <!-- ближайшее событие Google Календаря (за час до начала и пока идёт) -->
+                <Border x:Name="EventChip" Visibility="Collapsed" Background="{DynamicResource ThB_1EFFFFFF}" CornerRadius="10" Padding="7,3,8,3"
+                        Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonUp="EventChip_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE787;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11"
+                                   Foreground="{DynamicResource ThF_FF9CB0FF}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="EventChipText" Margin="5,0,0,0" MaxWidth="150" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource ThF_FFD8D8E0}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   FontFamily="Segoe UI Variable Text, Segoe UI"/>
+                    </StackPanel>
+                </Border>
                 <!-- таймер / Pomodoro: клик — пауза, правый клик — стоп -->
                 <Border x:Name="FocusChip" Visibility="Collapsed" Background="{DynamicResource ThB_1EFFFFFF}" CornerRadius="10" Padding="6,3,8,3"
                         Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand"

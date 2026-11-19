@@ -487,7 +487,7 @@ public partial class PanelWindow : Window
         if (isAi && !_views.ContainsKey(key)) _ = CreateAiViewAsync(key);
         if (key == "settings") LoadSettings();
         if (key == "weather") BuildWeatherView();
-        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateSteam(); UpdateTimer(); }
+        if (key == "home") { UpdateHomeClock(); RefreshSound(); UpdateSteam(); UpdateTimer(); UpdateAgenda(); }
         if (key == "clipboard") UpdateClipboard();
         if (key == "music") UpdateMusicView();
         if (key == "control") { _ = RefreshControlAsync(); UpdateVpn(); UpdateZapret(); UpdateDnd(); UpdateTimer(); UpdateNotifications(); }
@@ -1305,6 +1305,7 @@ public partial class PanelWindow : Window
         DownloadsBox.IsChecked = s.DownloadsInPill;
         DownloadCardBox.IsChecked = s.DownloadFinishedCard;
         LoadVoiceSettings();
+        LoadGoogleSettings();
         VideoInIslandBox.IsChecked = s.VideoInIsland;
         VideoMiniBox.IsChecked = s.VideoStartMini;
         VideoAdBlockBox.IsChecked = s.VideoAdBlock;
@@ -2219,6 +2220,80 @@ public partial class PanelWindow : Window
 
     private static Color LoadColor(double p) =>
         p >= 90 ? Theme.Rgb(0xFF, 0x5A, 0x52) : p >= 70 ? Theme.Rgb(0xFF, 0xB0, 0x40) : Theme.Rgb(0x7C, 0x9C, 0xFF);
+
+    // ---------- Google Календарь и Задачи на «Главной» ----------
+
+    public void UpdateAgenda()
+    {
+        GoogleService g = App.Google;
+        if (_current == "settings" && IsVisible) UpdateGoogleStatus();
+        if (!g.IsSignedIn)
+        {
+            AgendaCard.Visibility = Visibility.Collapsed;
+            return;
+        }
+        AgendaCard.Visibility = Visibility.Visible;
+        AgendaContent.Children.Clear();
+
+        var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+        var refresh = new Button { Content = "\uE72C", Style = (Style)FindResource("RoundIcon"), Width = 28, Height = 28, FontSize = 12, Margin = new Thickness(0), ToolTip = "Обновить" };
+        refresh.Click += async (_, _) => await g.RefreshAsync();
+        DockPanel.SetDock(refresh, Dock.Right);
+        head.Children.Add(refresh);
+        head.Children.Add(Text("Календарь и задачи", 14, bold: true));
+        AgendaContent.Children.Add(head);
+
+        if (g.LastError != null)
+            AgendaContent.Children.Add(Text("Google: " + g.LastError, 12.5, dim: true, top: 2));
+
+        var events = g.Events.Where(e => e.Start.Date <= DateTime.Today.AddDays(1)).Take(6).ToList();
+        if (events.Count == 0 && g.LastUpdate != default)
+            AgendaContent.Children.Add(Text("Сегодня и завтра событий нет.", 13, dim: true, top: 2));
+        foreach (CalendarEvent e in events)
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 5, 0, 0) };
+            var time = new TextBlock
+            {
+                Text = e.AllDay ? (e.Start.Date == DateTime.Today ? "весь день" : "завтра") : e.IsNow ? "идёт" : (e.Start.Date == DateTime.Today ? "" : "завтра ") + e.Start.ToString("HH:mm"),
+                Width = 92, FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center,
+                Foreground = e.IsNow ? new SolidColorBrush(Theme.Rgb(0x6E, 0xE0, 0x9A)) : (Brush)FindResource("TextDim"),
+                FontFamily = (FontFamily)FindResource("UiFont"),
+            };
+            DockPanel.SetDock(time, Dock.Left);
+            row.Children.Add(time);
+            var title = Text(e.Title, 13.5);
+            title.TextTrimming = TextTrimming.CharacterEllipsis;
+            title.ToolTip = e.When + (e.Calendar.Length > 0 ? " · " + e.Calendar : "") + (string.IsNullOrWhiteSpace(e.Location) ? "" : "\n" + e.Location);
+            row.Children.Add(title);
+            AgendaContent.Children.Add(row);
+        }
+
+        if (g.Tasks.Count > 0)
+        {
+            AgendaContent.Children.Add(Text("ЗАДАЧИ", 11, dim: true, bold: true, top: 10));
+            foreach (GoogleTask t in g.Tasks.Take(6))
+            {
+                var box = new CheckBox { Style = (Style)FindResource("SetCheck"), Margin = new Thickness(0, 3, 0, 0) };
+                var label = new StackPanel();
+                label.Children.Add(new TextBlock { Text = t.Title, TextWrapping = TextWrapping.Wrap });
+                if (t.Due is DateTime due)
+                    label.Children.Add(new TextBlock
+                    {
+                        Text = due < DateTime.Today ? "просрочено · " + due.ToString("d MMM", Ru) : due == DateTime.Today ? "сегодня" : due == DateTime.Today.AddDays(1) ? "завтра" : due.ToString("d MMM", Ru),
+                        FontSize = 11, Foreground = due < DateTime.Today ? new SolidColorBrush(Theme.Rgb(0xFF, 0x8A, 0x80)) : (Brush)FindResource("TextDim"),
+                    });
+                box.Content = label;
+                box.Click += async (_, _) =>
+                {
+                    box.IsEnabled = false;
+                    try { await g.CompleteTaskAsync(t); }
+                    catch (Exception ex) { box.IsChecked = false; box.IsEnabled = true; box.ToolTip = ex.Message; }
+                };
+                AgendaContent.Children.Add(box);
+            }
+            if (g.Tasks.Count > 6) AgendaContent.Children.Add(Text($"и ещё {g.Tasks.Count - 6}", 12, dim: true, top: 2));
+        }
+    }
 
     // ---------- заряд устройств ----------
 

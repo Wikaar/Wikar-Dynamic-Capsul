@@ -57,7 +57,7 @@ public sealed class DeviceBatteryService : IDisposable
     public event Action<DeviceBattery, int>? Low;
 
     public static string HeadsetControlPath => Path.Combine(AppContext.BaseDirectory, "headsetcontrol", "headsetcontrol.exe");
-    public static bool HeadsetControlAvailable => File.Exists(HeadsetControlPath);
+    public static bool HeadsetControlAvailable => File.Exists(HeadsetControlPath) && HeadsetControl.Verified();
 
     public void Start()
     {
@@ -311,6 +311,30 @@ public sealed class DeviceBatteryService : IDisposable
     /// <summary>HeadsetControl (github.com/Sapd/HeadsetControl) — отдельная программа, лежит в папке headsetcontrol.</summary>
     internal static class HeadsetControl
     {
+        private static bool? _ok;
+
+        /// <summary>
+        /// Один раз за запуск: настоящий консольный HeadsetControl на --help сразу печатает справку и выходит.
+        /// Если это не он (например, установщик из архива в v0.32.0) — больше не запускаем.
+        /// </summary>
+        public static bool Verified()
+        {
+            if (_ok is bool known) return known;
+            bool ok = false;
+            try
+            {
+                string help = Run("--help");
+                ok = help.Contains("headset", StringComparison.OrdinalIgnoreCase) && help.Contains("-b", StringComparison.Ordinal);
+            }
+            catch
+            {
+                ok = false;
+            }
+            if (!ok) App.LogError(new InvalidOperationException("HeadsetControl: в папке headsetcontrol не консольная программа — не используем"));
+            _ok = ok;
+            return ok;
+        }
+
         public static IEnumerable<DeviceBattery> Read()
         {
             var result = new List<DeviceBattery>();
@@ -358,7 +382,8 @@ public sealed class DeviceBatteryService : IDisposable
             _ = p.StandardError.ReadToEndAsync();
             if (!p.WaitForExit(6000))
             {
-                try { p.Kill(); } catch { }
+                try { p.Kill(entireProcessTree: true); } catch { }
+                _ok = false; // висит — значит, это не консольная утилита
                 return "";
             }
             return output.Result.Trim();

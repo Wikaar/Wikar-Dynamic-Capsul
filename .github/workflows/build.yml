@@ -72,24 +72,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # github.com/Sapd/HeadsetControl (GPL-3.0) — отдельная программа рядом с островом, остров только читает её вывод
+          # github.com/Sapd/HeadsetControl (GPL-3.0) — консольная программа рядом с островом, остров только читает её вывод.
+          # Берём только готовый консольный exe (headsetcontrol-windows-x86_64.exe), а не архив: в нём может быть установщик.
+          New-Item -ItemType Directory -Force -Path publish/headsetcontrol | Out-Null
           $tags = gh release list -R Sapd/HeadsetControl --limit 10 --exclude-pre-releases --json tagName -q '.[].tagName'
           foreach ($t in $tags) {
-            foreach ($pat in @("*windows*.zip", "*win*.zip", "*windows*.exe", "*.exe")) {
-              gh release download $t -R Sapd/HeadsetControl --pattern $pat --dir hsc-dl --clobber 2>$null
-              if (Get-ChildItem hsc-dl -ErrorAction SilentlyContinue) { break }
-            }
-            if (Get-ChildItem hsc-dl -ErrorAction SilentlyContinue) { Write-Host "HeadsetControl $t"; break }
+            gh release download $t -R Sapd/HeadsetControl --pattern "headsetcontrol-windows-x86_64.exe" --output publish/headsetcontrol/headsetcontrol.exe --clobber 2>$null
+            if (Test-Path publish/headsetcontrol/headsetcontrol.exe) { Write-Host "HeadsetControl $t"; break }
           }
-          Get-ChildItem hsc-dl -Filter *.zip -ErrorAction SilentlyContinue | ForEach-Object { Expand-Archive $_.FullName -DestinationPath hsc-tmp -Force }
-          New-Item -ItemType Directory -Force -Path publish/headsetcontrol | Out-Null
-          $exe = Get-ChildItem hsc-tmp, hsc-dl -Recurse -Filter "headsetcontrol*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { throw "headsetcontrol.exe not found" }
-          Copy-Item (Split-Path $exe.FullName) -Destination hsc-src -Recurse -Force
-          Get-ChildItem hsc-src | Copy-Item -Destination publish/headsetcontrol -Recurse -Force
-          if ($exe.Name -ne "headsetcontrol.exe") { Rename-Item (Join-Path publish/headsetcontrol $exe.Name) headsetcontrol.exe }
-          Get-ChildItem publish/headsetcontrol -Filter "headsetcontrol-*.exe" | Remove-Item -Force
-          Get-ChildItem publish/headsetcontrol
+          if (-not (Test-Path publish/headsetcontrol/headsetcontrol.exe)) { throw "headsetcontrol-windows-x86_64.exe not found" }
+          # проверка: настоящий консольный HeadsetControl отвечает на --help и сразу выходит
+          $p = Start-Process publish/headsetcontrol/headsetcontrol.exe -ArgumentList "--help" -NoNewWindow -PassThru -RedirectStandardOutput hsc-help.txt
+          if (-not $p.WaitForExit(10000)) { $p.Kill(); Remove-Item -Recurse -Force publish/headsetcontrol; throw "headsetcontrol.exe is not a console tool" }
+          Get-Content hsc-help.txt -TotalCount 5
 
       - name: Add Vosk model (voice assistant)
         shell: pwsh

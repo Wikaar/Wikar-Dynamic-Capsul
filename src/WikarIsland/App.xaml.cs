@@ -36,6 +36,7 @@ public partial class App : Application
     public static VoiceService Voice { get; private set; } = null!;
     public static AssistantService Assistant { get; private set; } = null!;
     public static SpectrumService Spectrum { get; } = new();
+    public static DeviceBatteryService Batteries { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
     private static WF.NotifyIcon? _tray;
@@ -189,6 +190,7 @@ public partial class App : Application
         Speech = new SpeechService();
         Voice = new VoiceService();
         Assistant = new AssistantService();
+        Batteries = new DeviceBatteryService();
         ZapretService.MigrateSettings();
         Safe("VPN", Vpn.RecoverAfterCrash);
 
@@ -385,6 +387,10 @@ public partial class App : Application
         Safe("погода", Weather.Start);
         Safe("уведомления", Notifications.Start);
 
+        Batteries.Changed += () => Panel.Dispatcher.BeginInvoke(() => Panel.UpdateBatteries());
+        Batteries.Low += (device, threshold) => Pill.Dispatcher.BeginInvoke(() => OnBatteryLow(device, threshold));
+        if (Settings.BatteryEnabled) Safe("заряд устройств", Batteries.Start);
+
         Safe("трей", CreateTray);
 
         Zapret.StateChanged += () => Pill.Dispatcher.BeginInvoke(() =>
@@ -405,6 +411,42 @@ public partial class App : Application
         updateTimer.Start();
         Pill.UpdateZapret();
     }
+
+    /// <summary>Заряд наушников/мыши дошёл до 20, 10 или 5%: карточка в капсуле и голосом «поставьте на зарядку».</summary>
+    private static void OnBatteryLow(DeviceBattery device, int threshold)
+    {
+        var item = new NotificationItem
+        {
+            AppId = "wikar.battery",
+            AppName = "Заряд",
+            Title = $"{device.Name}: {device.Percent}%",
+            Body = threshold <= 5 ? "Почти разряжено — поставьте на зарядку" : "Не забудьте поставить устройство на зарядку",
+            Time = DateTime.Now,
+            Click = () => Panel.ShowTab("system", activate: true),
+        };
+        if (FocusService.Active) Pill.CountMissed();
+        else Pill.ShowNotification(item);
+
+        if (!Settings.BatteryVoice || FocusService.Active || Speech.IsSpeaking) return;
+        string what = device.Kind == BatteryDeviceKind.Other ? device.Name : $"{device.KindWord} {device.Name}";
+        string text = threshold <= 5
+            ? $"Сэр, {what} почти разряжены: {device.Percent} {DeviceBatteryService.Percent(device.Percent)}. Поставьте устройство на зарядку."
+            : $"Сэр, у {Genitive(device.Kind, device.Name)} осталось {device.Percent} {DeviceBatteryService.Percent(device.Percent)}. Не забудьте поставить устройство на зарядку.";
+        if (threshold <= 5 && device.Kind is BatteryDeviceKind.Mouse or BatteryDeviceKind.Keyboard)
+            text = text.Replace("почти разряжены", "почти разряжена");
+        if (threshold <= 5 && device.Kind is BatteryDeviceKind.Gamepad or BatteryDeviceKind.Other)
+            text = text.Replace("почти разряжены", "почти разряжен");
+        _ = Speech.SpeakAsync(text);
+    }
+
+    private static string Genitive(BatteryDeviceKind kind, string name) => kind switch
+    {
+        BatteryDeviceKind.Headset => "наушников " + name,
+        BatteryDeviceKind.Mouse => "мыши " + name,
+        BatteryDeviceKind.Keyboard => "клавиатуры " + name,
+        BatteryDeviceKind.Gamepad => "геймпада " + name,
+        _ => name,
+    };
 
     private static void CreateTray()
     {

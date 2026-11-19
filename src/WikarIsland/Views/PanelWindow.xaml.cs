@@ -466,6 +466,7 @@ public partial class PanelWindow : Window
         if (key is "system" or "control")
         {
             App.SystemMonitor.Start();
+            if (key == "system" && App.Settings.BatteryEnabled) _ = App.Batteries.RefreshAsync();
             UpdateSystem();
         }
         else App.SystemMonitor.Stop();
@@ -1185,6 +1186,9 @@ public partial class PanelWindow : Window
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
         GameHudBox.IsChecked = s.GameHud;
+        BatteryBox.IsChecked = s.BatteryEnabled;
+        BatteryVoiceBox.IsChecked = s.BatteryVoice;
+        BatteryVoiceBox.IsEnabled = s.BatteryEnabled;
         DownloadsBox.IsChecked = s.DownloadsInPill;
         DownloadCardBox.IsChecked = s.DownloadFinishedCard;
         LoadVoiceSettings();
@@ -1243,6 +1247,15 @@ public partial class PanelWindow : Window
         s.WeatherInPill = WeatherPillBox.IsChecked == true;
         s.NotificationsEnabled = NotificationsBox.IsChecked == true;
         s.GameHud = GameHudBox.IsChecked == true;
+        bool battery = BatteryBox.IsChecked == true;
+        if (battery != s.BatteryEnabled)
+        {
+            if (battery) App.Batteries.Start();
+            else App.Batteries.Stop();
+        }
+        s.BatteryEnabled = battery;
+        s.BatteryVoice = BatteryVoiceBox.IsChecked == true;
+        BatteryVoiceBox.IsEnabled = battery;
         s.DownloadsInPill = DownloadsBox.IsChecked == true;
         s.DownloadFinishedCard = DownloadCardBox.IsChecked == true;
         if (!s.GameHud) App.Game.End();
@@ -1934,6 +1947,8 @@ public partial class PanelWindow : Window
         ram.Children.Add(Bar(ramPct, LoadColor(ramPct)));
         SystemContent.Children.Add(Card(ram));
 
+        if (App.Settings.BatteryEnabled) SystemContent.Children.Add(BatteryCard());
+
         // все датчики температуры
         var temps = new StackPanel();
         temps.Children.Add(CardHeader("\uE9CA", "Температуры по датчикам"));
@@ -2089,6 +2104,50 @@ public partial class PanelWindow : Window
 
     private static Color LoadColor(double p) =>
         p >= 90 ? Theme.Rgb(0xFF, 0x5A, 0x52) : p >= 70 ? Theme.Rgb(0xFF, 0xB0, 0x40) : Theme.Rgb(0x7C, 0x9C, 0xFF);
+
+    // ---------- заряд устройств ----------
+
+    public void UpdateBatteries()
+    {
+        if (_current == "system" && IsVisible) UpdateSystem();
+    }
+
+    private Border BatteryCard()
+    {
+        var box = new StackPanel();
+        box.Children.Add(CardHeader("\uE83F", "Заряд устройств"));
+        IReadOnlyList<DeviceBattery> devices = App.Batteries.Devices;
+        if (devices.Count == 0)
+        {
+            box.Children.Add(Text("Беспроводных устройств с батареей не видно. Наушники и мышь включены?", 13, dim: true));
+            box.Children.Add(Text(DeviceBatteryService.HeadsetControlAvailable
+                ? "Заряд берётся из Windows (Bluetooth), из HeadsetControl и напрямую у JBL Quantum 350."
+                : "Заряд берётся из Windows (Bluetooth) и напрямую у JBL Quantum 350. Папки headsetcontrol рядом с программой нет — гарнитуры Logitech, SteelSeries, HyperX и др. не видны.", 12, dim: true, top: 4));
+            return Card(box);
+        }
+        foreach (DeviceBattery d in devices)
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+            var value = new TextBlock
+            {
+                Text = d.Charging ? $"\u26A1 {d.Percent}%" : $"{d.Percent}%",
+                FontSize = 15, FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(BatteryColor(d.Percent)),
+            };
+            DockPanel.SetDock(value, Dock.Right);
+            row.Children.Add(value);
+            var icon = new TextBlock { Text = d.Glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 15, Margin = new Thickness(0, 1, 8, 0), Opacity = 0.8 };
+            DockPanel.SetDock(icon, Dock.Left);
+            row.Children.Add(icon);
+            row.Children.Add(Text(d.Name, 13.5));
+            box.Children.Add(row);
+            box.Children.Add(Bar(d.Percent, BatteryColor(d.Percent), thin: true));
+        }
+        return Card(box);
+    }
+
+    private static Color BatteryColor(double p) =>
+        p <= 10 ? Theme.Rgb(0xFF, 0x5A, 0x52) : p <= 20 ? Theme.Rgb(0xFF, 0xB0, 0x40) : Theme.Rgb(0x6E, 0xE0, 0x9A);
 
     // ---------- VPN ----------
 

@@ -184,6 +184,8 @@ public sealed class AssistantService
             return new AssistantReply(WeatherText());
         if (Regex.IsMatch(t, @"(температур\w* (процессора|видеокарты|компьютера|железа)|нагрузк\w* (процессора|видеокарты|компьютера)|как (там )?(железо|компьютер))"))
             return new AssistantReply(SystemText());
+        if (Regex.IsMatch(t, @"(заряд|батаре|аккумулятор|разрядил|сядут|сели)") && !Regex.IsMatch(t, @"(экономи|режим|^(открой|запусти|включи|выключи|покажи настройки))"))
+            return new AssistantReply(BatteryText(t));
         if (Regex.IsMatch(t, @"(что (сейчас )?играет|что за (песня|трек|музыка)|какая (это )?песня)"))
         {
             MediaInfo? mi = App.Media.Current;
@@ -760,6 +762,15 @@ public sealed class AssistantService
         return text + ".";
     }
 
+    /// <summary>«Сколько заряда у наушников», «заряд мыши» — свежий опрос и ответ.</summary>
+    private static string BatteryText(string t)
+    {
+        if (!App.Settings.BatteryEnabled) return "Слежение за зарядом выключено в настройках, сэр.";
+        try { App.Batteries.RefreshAsync().Wait(TimeSpan.FromSeconds(8)); } catch { }
+        string? only = Regex.IsMatch(t, @"наушник|гарнитур") ? "headset" : Regex.IsMatch(t, @"мыш") ? "mouse" : null;
+        return App.Batteries.Describe(only);
+    }
+
     private static string SystemText()
     {
         SystemSnapshot? s = App.SystemMonitor.Current;
@@ -1231,6 +1242,7 @@ public sealed class AssistantService
                 new JsonObject { ["action"] = Enum("Действие", "shutdown", "restart", "sleep", "lock", "cancel"), ["delay_minutes"] = Num("Через сколько минут") }, "action"),
             Fn("system_info", "Загрузка и температура процессора, видеокарты, память.", new JsonObject()),
             Fn("weather", "Текущая погода в городе пользователя.", new JsonObject()),
+            Fn("device_battery", "Заряд беспроводных наушников, мыши и других устройств.", new JsonObject()),
             Fn("now_playing", "Что сейчас играет.", new JsonObject()),
         };
     }
@@ -1446,6 +1458,8 @@ public sealed class AssistantService
                 return SystemText();
             case "weather":
                 return WeatherText();
+            case "device_battery":
+                return BatteryText("");
             case "now_playing":
                 MediaInfo? mi = App.Media.Current;
                 return mi == null ? "Ничего не играет" : $"{mi.Title} — {mi.Artist} ({(mi.IsPlaying ? "играет" : "пауза")})";

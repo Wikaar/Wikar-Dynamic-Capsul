@@ -120,6 +120,8 @@ public sealed class AppSettings
 
     // игры и загрузки в капсуле
     public bool GameHud { get; set; } = true;
+    public bool BatteryEnabled { get; set; } = true;   // заряд наушников, мыши и т. п.
+    public bool BatteryVoice { get; set; } = true;     // голосом на 20, 10 и 5%
     public bool DownloadsInPill { get; set; } = true;
     public bool DownloadFinishedCard { get; set; } = true;
 

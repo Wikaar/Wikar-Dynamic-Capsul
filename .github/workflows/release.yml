@@ -99,6 +99,30 @@ jobs:
           Expand-Archive ubol.zip -DestinationPath publish/adblock -Force
           Get-ChildItem -Recurse publish/adblock -Filter manifest.json
 
+      - name: Add HeadsetControl (headset battery, optional)
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # github.com/Sapd/HeadsetControl (GPL-3.0) — отдельная программа рядом с островом, остров только читает её вывод
+          $tags = gh release list -R Sapd/HeadsetControl --limit 10 --exclude-pre-releases --json tagName -q '.[].tagName'
+          foreach ($t in $tags) {
+            foreach ($pat in @("*windows*.zip", "*win*.zip", "*windows*.exe", "*.exe")) {
+              gh release download $t -R Sapd/HeadsetControl --pattern $pat --dir hsc-dl --clobber 2>$null
+              if (Get-ChildItem hsc-dl -ErrorAction SilentlyContinue) { break }
+            }
+            if (Get-ChildItem hsc-dl -ErrorAction SilentlyContinue) { Write-Host "HeadsetControl $t"; break }
+          }
+          Get-ChildItem hsc-dl -Filter *.zip -ErrorAction SilentlyContinue | ForEach-Object { Expand-Archive $_.FullName -DestinationPath hsc-tmp -Force }
+          New-Item -ItemType Directory -Force -Path publish/headsetcontrol | Out-Null
+          $exe = Get-ChildItem hsc-tmp, hsc-dl -Recurse -Filter "headsetcontrol*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "headsetcontrol.exe not found" }
+          Copy-Item (Split-Path $exe.FullName) -Destination hsc-src -Recurse -Force
+          Get-ChildItem hsc-src | Copy-Item -Destination publish/headsetcontrol -Recurse -Force
+          if ($exe.Name -ne "headsetcontrol.exe") { Rename-Item (Join-Path publish/headsetcontrol $exe.Name) headsetcontrol.exe }
+          Get-ChildItem publish/headsetcontrol
+
       - name: Add Vosk model (voice assistant)
         shell: pwsh
         run: |

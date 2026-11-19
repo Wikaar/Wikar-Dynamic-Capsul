@@ -1826,7 +1826,7 @@
                         </StackPanel>
                         <StackPanel x:Name="SetSec_games" Tag="games" Visibility="Collapsed">
                         <TextBlock Text="Игры и загрузки" Style="{StaticResource SetTitle}"/>
-                        <TextBlock Text="FPS в капсуле и ход загрузок" Style="{StaticResource SetSubtitle}"/>
+                        <TextBlock Text="FPS в капсуле, заряд устройств и ход загрузок" Style="{StaticResource SetSubtitle}"/>
                         <TextBlock Text="ИГРЫ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
                         <Border Style="{StaticResource SetCard}">
                             <StackPanel>
@@ -1837,6 +1837,18 @@
                             </StackPanel>
                         </CheckBox>
                         <TextBlock x:Name="GameHudStatus" Style="{StaticResource SetHint}" Margin="0,0,0,4"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="ЗАРЯД УСТРОЙСТВ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
+                        <Border Style="{StaticResource SetCard}">
+                            <StackPanel>
+                        <CheckBox x:Name="BatteryBox" Style="{StaticResource SetCheck}" Click="Setting_Changed">
+                            <StackPanel>
+                                <TextBlock Text="Следить за зарядом наушников и мыши" TextWrapping="Wrap"/>
+                                <TextBlock Text="Видно во вкладке «Система». Bluetooth-устройства, JBL Quantum 350, гарнитуры из HeadsetControl" FontSize="11" Foreground="{DynamicResource ThF_FF8C8C97}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </CheckBox>
+                        <CheckBox x:Name="BatteryVoiceBox" Content="Напоминать голосом на 20, 10 и 5%" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
                             </StackPanel>
                         </Border>
                         <TextBlock Text="ЗАГРУЗКИ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>

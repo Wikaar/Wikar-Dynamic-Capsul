@@ -314,24 +314,18 @@ public sealed class DeviceBatteryService : IDisposable
         public static IEnumerable<DeviceBattery> Read()
         {
             var result = new List<DeviceBattery>();
-            var psi = new ProcessStartInfo(HeadsetControlPath, "-b --output JSON")
+            string json = Run("-o json");
+            int start = json.IndexOf('{');
+            if (start < 0)
             {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
-            using Process? p = Process.Start(psi);
-            if (p == null) return result;
-            Task<string> output = p.StandardOutput.ReadToEndAsync();
-            if (!p.WaitForExit(6000))
-            {
-                try { p.Kill(); } catch { }
+                // старый формат вывода: «Battery: 55%» / «Battery: Charging»
+                string plain = Run("-b");
+                var m = System.Text.RegularExpressions.Regex.Match(plain, @"(\d{1,3})\s*%");
+                if (m.Success && int.Parse(m.Groups[1].Value) <= 100)
+                    result.Add(new DeviceBattery("hsc:headset", "Гарнитура", BatteryDeviceKind.Headset, int.Parse(m.Groups[1].Value),
+                        plain.Contains("harging", StringComparison.OrdinalIgnoreCase), "HeadsetControl"));
                 return result;
             }
-            string json = output.Result.Trim();
-            int start = json.IndexOf('{');
-            if (start < 0) return result;
 
             using JsonDocument doc = JsonDocument.Parse(json[start..]);
             if (!doc.RootElement.TryGetProperty("devices", out JsonElement devices) || devices.ValueKind != JsonValueKind.Array) return result;
@@ -346,6 +340,28 @@ public sealed class DeviceBatteryService : IDisposable
                 result.Add(new DeviceBattery("hsc:" + name, name, BatteryDeviceKind.Headset, level, charging, "HeadsetControl"));
             }
             return result;
+        }
+
+        private static string Run(string args)
+        {
+            var psi = new ProcessStartInfo(HeadsetControlPath, args)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+            };
+            using Process? p = Process.Start(psi);
+            if (p == null) return "";
+            Task<string> output = p.StandardOutput.ReadToEndAsync();
+            _ = p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(6000))
+            {
+                try { p.Kill(); } catch { }
+                return "";
+            }
+            return output.Result.Trim();
         }
 
         private static string? Str(JsonElement e, string name) =>

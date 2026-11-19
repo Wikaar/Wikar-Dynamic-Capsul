@@ -204,10 +204,18 @@ public partial class PanelWindow
     }
 
     /// <summary>Окантовка раскрытой капсулы: неон, если выбран, иначе тонкая линия (в светлой теме — чтобы край был виден).</summary>
+    public void ApplyMusicOutline() => ApplyPanelOutline();
+
     private void ApplyPanelOutline()
     {
         Color? neon = NeonColor();
-        if (neon is Color c && App.Settings.NeonPanel)
+        if (PillWindow.MusicOutlineColor() is Color music && (App.Settings.NeonPanel || neon == null))
+        {
+            PanelOutline.BorderBrush = new SolidColorBrush(music);
+            PanelOutline.BorderThickness = new Thickness(2);
+            PanelOutline.Visibility = Visibility.Visible;
+        }
+        else if (neon is Color c && App.Settings.NeonPanel)
         {
             PanelOutline.BorderBrush = new SolidColorBrush(c);
             PanelOutline.BorderThickness = new Thickness(2);

@@ -121,6 +121,7 @@ jobs:
           Copy-Item (Split-Path $exe.FullName) -Destination hsc-src -Recurse -Force
           Get-ChildItem hsc-src | Copy-Item -Destination publish/headsetcontrol -Recurse -Force
           if ($exe.Name -ne "headsetcontrol.exe") { Rename-Item (Join-Path publish/headsetcontrol $exe.Name) headsetcontrol.exe }
+          Get-ChildItem publish/headsetcontrol -Filter "headsetcontrol-*.exe" | Remove-Item -Force
           Get-ChildItem publish/headsetcontrol
 
       - name: Add Vosk model (voice assistant)

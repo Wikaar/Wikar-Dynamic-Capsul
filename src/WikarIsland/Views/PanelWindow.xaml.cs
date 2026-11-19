@@ -78,6 +78,7 @@ public partial class PanelWindow : Window
         {
             UpdateHomeClock();
             UpdateProgress();
+            UpdateLyrics();
             UpdateMusicProgress();
         };
         _morphTimer.Tick += (_, _) => MorphTick();
@@ -609,11 +610,92 @@ public partial class PanelWindow : Window
         CardTitle.Text = m.Title;
         CardArtist.Text = m.Artist;
         PlayPauseButton.Content = m.IsPlaying ? "\uE769" : "\uE768";
+        LoadLyrics(m);
         UpdateProgress();
+    }
+
+    // ---------- текст песни ----------
+
+    private string _lyricsKey = "";
+    private Lyrics? _lyrics;
+    private int _lyricIndex = int.MinValue;
+
+    private void LoadLyrics(MediaInfo m)
+    {
+        LyricsButton.Opacity = App.Settings.MusicLyrics ? 1 : 0.55;
+        LyricsBox.Visibility = App.Settings.MusicLyrics ? Visibility.Visible : Visibility.Collapsed;
+        string key = LyricsService.Key(m.Title, m.Artist);
+        if (key == _lyricsKey) return;
+        _lyricsKey = key;
+        _lyrics = null;
+        _lyricIndex = int.MinValue;
+        ShowLyricLines("", "Ищу текст…", "");
+        if (!App.Settings.MusicLyrics) return;
+        _ = FetchLyricsAsync(m, key);
+    }
+
+    private async Task FetchLyricsAsync(MediaInfo m, string key)
+    {
+        Lyrics? found = await LyricsService.GetAsync(m.Title, m.Artist, m.Duration);
+        if (key != _lyricsKey) return; // трек уже сменился
+        _lyrics = found;
+        _lyricIndex = int.MinValue;
+        if (found == null) ShowLyricLines("", "Текст не нашёлся", "");
+        UpdateLyrics();
+    }
+
+    private void UpdateLyrics()
+    {
+        if (!App.Settings.MusicLyrics || _lyrics == null || !IsVisible) return;
+        if (!_lyrics.IsSynced)
+        {
+            LyricPrev.Visibility = LyricCur.Visibility = LyricNext.Visibility = Visibility.Collapsed;
+            LyricsPlainScroll.Visibility = Visibility.Visible;
+            LyricsPlain.Text = _lyrics.Plain;
+            return;
+        }
+        MediaInfo? m = App.Media.Current;
+        if (m == null) return;
+        int i = _lyrics.IndexAt(m.LivePosition + TimeSpan.FromMilliseconds(300));
+        if (i == _lyricIndex) return;
+        _lyricIndex = i;
+        var lines = _lyrics.Synced;
+        ShowLyricLines(i > 0 ? lines[i - 1].line : "", i >= 0 ? lines[i].line : "♪", i + 1 < lines.Count ? lines[i + 1].line : "");
+    }
+
+    private void ShowLyricLines(string prev, string cur, string next)
+    {
+        LyricsPlainScroll.Visibility = Visibility.Collapsed;
+        LyricPrev.Visibility = LyricCur.Visibility = LyricNext.Visibility = Visibility.Visible;
+        LyricPrev.Text = prev;
+        LyricCur.Text = cur;
+        LyricNext.Text = next;
+    }
+
+    private void Lyrics_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.MusicLyrics = !App.Settings.MusicLyrics;
+        App.Settings.Save();
+        _lyricsKey = "";
+        if (App.Media.Current is { } m) LoadLyrics(m);
+    }
+
+    /// <summary>«Покажи текст песни» голосом.</summary>
+    public void ShowLyrics()
+    {
+        if (!App.Settings.MusicLyrics)
+        {
+            App.Settings.MusicLyrics = true;
+            App.Settings.Save();
+            _lyricsKey = "";
+        }
+        ShowTab("home", activate: true);
+        if (App.Media.Current is { } m) LoadLyrics(m);
     }
 
     private void UpdateProgress()
     {
+        if (_seekDragging) return;
         MediaInfo? m = App.Media.Current;
         if (m == null || m.Duration <= TimeSpan.Zero)
         {
@@ -632,12 +714,43 @@ public partial class PanelWindow : Window
     private static string FormatTime(TimeSpan t) =>
         t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
 
+    private bool _seekDragging;
+
     private void Progress_Click(object sender, MouseButtonEventArgs e)
     {
         MediaInfo? m = App.Media.Current;
         if (m == null || m.Duration <= TimeSpan.Zero || ProgressArea.ActualWidth <= 0) return;
+        _seekDragging = true;
+        ProgressArea.CaptureMouse();
+        PreviewSeek(e.GetPosition(ProgressArea).X, m);
+    }
+
+    /// <summary>Перемотка перетаскиванием: полоса и время двигаются сразу, сама перемотка — когда отпустишь.</summary>
+    private void Progress_Drag(object sender, MouseEventArgs e)
+    {
+        if (!_seekDragging || App.Media.Current is not { } m) return;
+        PreviewSeek(e.GetPosition(ProgressArea).X, m);
+    }
+
+    private void Progress_Release(object sender, MouseButtonEventArgs e)
+    {
+        if (!_seekDragging) return;
+        _seekDragging = false;
+        ProgressArea.ReleaseMouseCapture();
+        MediaInfo? m = App.Media.Current;
+        if (m == null || m.Duration <= TimeSpan.Zero || ProgressArea.ActualWidth <= 0) return;
         double ratio = Math.Clamp(e.GetPosition(ProgressArea).X / ProgressArea.ActualWidth, 0, 1);
         App.Media.Seek(TimeSpan.FromTicks((long)(m.Duration.Ticks * ratio)));
+        _lyricIndex = int.MinValue;
+    }
+
+    private void PreviewSeek(double x, MediaInfo m)
+    {
+        double ratio = Math.Clamp(x / ProgressArea.ActualWidth, 0, 1);
+        ProgressFill.Width = ProgressArea.ActualWidth * ratio;
+        var pos = TimeSpan.FromTicks((long)(m.Duration.Ticks * ratio));
+        PosText.Text = FormatTime(pos);
+        RemainText.Text = "-" + FormatTime(m.Duration - pos);
     }
 
     private void PlayPause_Click(object sender, RoutedEventArgs e) => App.Media.PlayPause();
@@ -1208,6 +1321,8 @@ public partial class PanelWindow : Window
         PillOpacityText.Text = $"{Math.Round(s.PillOpacity * 100)}%";
         MusicGlowBox.IsChecked = s.MusicGlow;
         MusicTintBox.IsChecked = s.MusicTint;
+        MusicOutlineBox.IsChecked = s.MusicOutline;
+        MusicLyricsBox.IsChecked = s.MusicLyrics;
         VisSpectrum.IsChecked = s.Visualizer == "spectrum";
         VisSimple.IsChecked = s.Visualizer == "simple";
         VisOff.IsChecked = s.Visualizer == "off";
@@ -3348,6 +3463,12 @@ public partial class PanelWindow : Window
         AppSettings s = App.Settings;
         s.MusicGlow = MusicGlowBox.IsChecked == true;
         s.MusicTint = MusicTintBox.IsChecked == true;
+        s.MusicOutline = MusicOutlineBox.IsChecked == true;
+        if (s.MusicLyrics != (MusicLyricsBox.IsChecked == true))
+        {
+            s.MusicLyrics = MusicLyricsBox.IsChecked == true;
+            _lyricsKey = "";
+        }
         s.Visualizer = VisOff.IsChecked == true ? "off" : VisSimple.IsChecked == true ? "simple" : "spectrum";
         s.Save();
         App.Pill.ApplySettings();

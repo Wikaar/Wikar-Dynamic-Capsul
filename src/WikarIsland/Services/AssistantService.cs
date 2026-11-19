@@ -186,6 +186,12 @@ public sealed class AssistantService
             return new AssistantReply(SystemText());
         if (Regex.IsMatch(t, @"(заряд|батаре|аккумулятор|разрядил|сядут|сели)") && !Regex.IsMatch(t, @"(экономи|режим|^(открой|запусти|включи|выключи|покажи настройки))"))
             return new AssistantReply(BatteryText(t));
+        if (Regex.IsMatch(t, @"^(покажи|открой|выведи)\s+(текст|слова)(\s+(песни|трека|песенки))?$"))
+        {
+            if (App.Media.Current == null) return new AssistantReply("Сейчас ничего не играет, сэр.");
+            App.Panel.Dispatcher.Invoke(() => App.Panel.ShowLyrics());
+            return new AssistantReply("", Silent: true);
+        }
         if (Regex.IsMatch(t, @"(что (сейчас )?играет|что за (песня|трек|музыка)|какая (это )?песня)"))
         {
             MediaInfo? mi = App.Media.Current;

@@ -184,13 +184,7 @@ public partial class PillWindow : Window
         TimeText.Visibility = mode == "eyes" ? Visibility.Collapsed : Visibility.Visible;
         TimeText.Margin = new Thickness(mode == "clock" && PillWeather.Visibility != Visibility.Visible ? 2 : 10, 0, 2, 0);
 
-        Color? neon = s.NeonPill ? PanelWindow.NeonColor() : null;
-        Liquid.NeonColor = neon;
-        Liquid.Outline = s.Unlocked
-            ? new Pen((Brush)FindResource("Accent"), 1.6)
-            : neon is Color n
-                ? new Pen(new SolidColorBrush(n), 1.6)
-                : new Pen(new SolidColorBrush(Theme.Argb(0x26, 0xFF, 0xFF, 0xFF)), 1);
+        ApplyOutline();
         Liquid.GlowEnabled = s.MusicGlow;
         ApplyPillFill();
         if (App.Media != null) UpdateMedia();
@@ -228,7 +222,33 @@ public partial class PillWindow : Window
             Liquid.MusicPlaying = false;
             ApplyPillFill();
         }
+        ApplyOutline();
+        App.Panel?.ApplyMusicOutline();
         UpdateContent();
+    }
+
+    /// <summary>Цвет окантовки, пока играет музыка: цвет обложки (подсветлённый), иначе null.</summary>
+    public static Color? MusicOutlineColor()
+    {
+        AppSettings s = App.Settings;
+        MediaInfo? m = App.Media?.Current;
+        if (!s.MusicOutline || !s.MusicInPill || m is not { IsPlaying: true, Accent: Color accent }) return null;
+        return Lighten(accent);
+    }
+
+    /// <summary>Окантовка свёрнутой капсулы: перемещение — акцент; играет музыка — цвет обложки; иначе неон или тонкая линия.</summary>
+    private void ApplyOutline()
+    {
+        AppSettings s = App.Settings;
+        Color? music = MusicOutlineColor();
+        Color? neon = music ?? (s.NeonPill ? PanelWindow.NeonColor() : null);
+        Liquid.NeonColor = neon;
+        Liquid.Outline = s.Unlocked
+            ? new Pen((Brush)FindResource("Accent"), 1.6)
+            : neon is Color n
+                ? new Pen(new SolidColorBrush(n), 1.6)
+                : new Pen(new SolidColorBrush(Theme.Argb(0x26, 0xFF, 0xFF, 0xFF)), 1);
+        Liquid.InvalidateVisual();
     }
 
     public static readonly (string key, string name, Color color)[] Themes =

@@ -75,6 +75,10 @@ public sealed class AppSettings
     public bool MusicGlow { get; set; } = true;
     /// <summary>Слегка окрашивать саму капсулу в цвет обложки.</summary>
     public bool MusicTint { get; set; } = true;
+    /// <summary>Окантовка капсулы в цвет обложки, пока играет музыка.</summary>
+    public bool MusicOutline { get; set; } = true;
+    /// <summary>Текст песни под плеером на «Главной».</summary>
+    public bool MusicLyrics { get; set; } = true;
     public string PillTheme { get; set; } = "black";
 
     /// <summary>Тема острова: dark или light (применяется после перезапуска).</summary>

@@ -137,6 +137,12 @@ public sealed class AssistantService
             return new AssistantReply(video, Silent: true);
         }
 
+        if (SteamVoice.TryHandle(text) is { } steamReply)
+        {
+            App.LogVoice($"  Steam → «{steamReply}»");
+            return new AssistantReply(steamReply);
+        }
+
         if (await GoogleCommandAsync(text) is { } google)
         {
             App.LogVoice($"  Google → «{google.Text}»");

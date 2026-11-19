@@ -1356,7 +1356,7 @@
                                 <RadioButton x:Name="SetNav_games" Style="{StaticResource SetNav}" Tag="games" Checked="SettingsNav_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE7FC;" Style="{StaticResource SetIcon}"/>
-                                        <TextBlock Text="Игры и загрузки"/>
+                                        <TextBlock Text="Игры и устройства"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="SetNav_focus" Style="{StaticResource SetNav}" Tag="focus" Checked="SettingsNav_Checked">
@@ -1902,7 +1902,7 @@
 
                         </StackPanel>
                         <StackPanel x:Name="SetSec_games" Tag="games" Visibility="Collapsed">
-                        <TextBlock Text="Игры и загрузки" Style="{StaticResource SetTitle}"/>
+                        <TextBlock Text="Игры и устройства" Style="{StaticResource SetTitle}"/>
                         <TextBlock Text="FPS в капсуле, заряд устройств и ход загрузок" Style="{StaticResource SetSubtitle}"/>
                         <TextBlock Text="ИГРЫ" Style="{StaticResource SetGroup}" Margin="4,14,0,6"/>
                         <Border Style="{StaticResource SetCard}">

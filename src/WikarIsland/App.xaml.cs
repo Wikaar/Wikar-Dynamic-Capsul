@@ -37,6 +37,7 @@ public partial class App : Application
     public static AssistantService Assistant { get; private set; } = null!;
     public static SpectrumService Spectrum { get; } = new();
     public static DeviceBatteryService Batteries { get; private set; } = null!;
+    public static TabletBridge? Tablet { get; private set; }
     public static GoogleService Google { get; private set; } = null!;
 
     private static Mutex? _instanceMutex;
@@ -392,6 +393,7 @@ public partial class App : Application
         Batteries.Changed += () => Panel.Dispatcher.BeginInvoke(() => Panel.UpdateBatteries());
         Batteries.Low += (device, threshold) => Pill.Dispatcher.BeginInvoke(() => OnBatteryLow(device, threshold));
         if (Settings.BatteryEnabled) Safe("заряд устройств", Batteries.Start);
+        Safe("Capsul Box", () => Tablet = new TabletBridge(Batteries));
         Google.Changed += () => Pill.Dispatcher.BeginInvoke(() =>
         {
             Pill.UpdateAgenda();
@@ -581,6 +583,7 @@ public partial class App : Application
         AudioRecorder?.Stop();
         Spectrum.Dispose();
         Game?.Dispose();
+        Tablet?.Dispose();
         Speech?.Stop();
         Voice?.Dispose();
         Music?.Dispose();

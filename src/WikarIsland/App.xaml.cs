@@ -393,7 +393,7 @@ public partial class App : Application
         Batteries.Changed += () => Panel.Dispatcher.BeginInvoke(() => Panel.UpdateBatteries());
         Batteries.Low += (device, threshold) => Pill.Dispatcher.BeginInvoke(() => OnBatteryLow(device, threshold));
         if (Settings.BatteryEnabled) Safe("заряд устройств", Batteries.Start);
-        Safe("Capsul Box", () => Tablet = new TabletBridge(Batteries));
+        Safe("Capsul Box", () => Tablet = new TabletBridge(Batteries, Game));
         Google.Changed += () => Pill.Dispatcher.BeginInvoke(() =>
         {
             Pill.UpdateAgenda();

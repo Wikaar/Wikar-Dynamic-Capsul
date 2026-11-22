@@ -164,6 +164,10 @@ public sealed class AppSettings
     public bool VideoAdBlock { get; set; } = true;    // блокировщик рекламы во встроенном браузере
     public string YandexTokenProtected { get; set; } = "";
     public string SpotifyClientId { get; set; } = "";
+
+    // Discord-бот Capsul Radio: музыка из Капсулы в голосовой канал
+    public string DiscordBotUrl { get; set; } = "";
+    public string DiscordBotKeyProtected { get; set; } = "";
     public string SpotifyRefreshProtected { get; set; } = "";
 
     // Google Календарь и Задачи: своё приложение Google Cloud (тип «Компьютер»)
@@ -202,6 +206,13 @@ public sealed class AppSettings
     {
         get => Unprotect(SpotifyRefreshProtected);
         set => SpotifyRefreshProtected = Protect(value);
+    }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string DiscordBotKey
+    {
+        get => Unprotect(DiscordBotKeyProtected);
+        set => DiscordBotKeyProtected = Protect(value);
     }
 
     [System.Text.Json.Serialization.JsonIgnore]

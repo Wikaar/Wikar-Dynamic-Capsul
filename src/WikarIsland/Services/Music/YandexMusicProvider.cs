@@ -73,7 +73,10 @@ public sealed class YandexMusicProvider : IMusicProvider
         Position = _player.Position,
         Duration = _player.Duration > TimeSpan.Zero ? _player.Duration : _current.Duration,
         PositionUpdated = DateTimeOffset.Now,
+        StreamUrl = _player.CurrentUri,
     };
+
+    public void SetMuted(bool muted) => _player.SetMuted(muted);
 
     // ---------- вход ----------
 

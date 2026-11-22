@@ -17,6 +17,8 @@ public partial class PanelWindow
     private IReadOnlyList<MusicTrack> _musicTracks = Array.Empty<MusicTrack>();
     private IMusicProvider? _musicTracksFrom;
     private CancellationTokenSource? _musicCts;
+    private bool _discordSetupOpen;
+    private static readonly Brush DiscordBlurple = new SolidColorBrush(Color.FromRgb(0x58, 0x65, 0xF2));
 
     private static readonly Brush ChipSelected = new SolidColorBrush(Theme.Argb(0x33, 0xFF, 0xFF, 0xFF));
     private static readonly Brush RowNormal = new SolidColorBrush(Theme.Rgb(0x1C, 0x1C, 0x22));
@@ -55,6 +57,8 @@ public partial class PanelWindow
         bool needsClientId = p.Key == "spotify" && App.Settings.SpotifyClientId.Length == 0;
         MusicSpotifySetup.Visibility = p.Key == "spotify" && !p.IsLoggedIn ? Visibility.Visible : Visibility.Collapsed;
         MusicSpotifyRedirect.Text = SpotifyProvider.RedirectUri;
+        if (_discordSetupOpen) MusicSpotifySetup.Visibility = Visibility.Collapsed;
+        MusicDiscordSetup.Visibility = _discordSetupOpen ? Visibility.Visible : Visibility.Collapsed;
         if (MusicSpotifySetup.Visibility == Visibility.Visible && !MusicSpotifyIdBox.IsKeyboardFocused)
             MusicSpotifyIdBox.Text = App.Settings.SpotifyClientId;
 
@@ -225,7 +229,75 @@ public partial class PanelWindow
         MusicNowArtist.Text = hub.Active!.Key == hub.Selected.Key ? s.Artist : $"{s.Artist} · {hub.Active.Name}";
         MusicNowCover.Source = hub.Cover;
         MusicPlayButton.Content = s.IsPlaying ? "" : "";
+        UpdateDiscordButton();
         UpdateMusicProgress();
+    }
+
+    // ---------- «В Discord» ----------
+
+    private void UpdateDiscordButton()
+    {
+        DiscordBridge dc = App.Music.Discord;
+        if (dc.Enabled) MusicDiscordButton.Foreground = DiscordBlurple;
+        else MusicDiscordButton.ClearValue(ForegroundProperty);
+        MusicDiscordButton.IsEnabled = !dc.Busy;
+        MusicDiscordButton.ToolTip = dc.Enabled
+            ? "Музыка играет в Discord. Нажми, чтобы вернуть звук на компьютер"
+            : "В Discord: играть в голосовом канале через своего бота (на компьютере — без звука). Правый клик — настройки бота";
+    }
+
+    private async void MusicDiscord_Click(object sender, RoutedEventArgs e)
+    {
+        if (!DiscordBridge.Configured && !App.Music.Discord.Enabled)
+        {
+            ShowDiscordSetup();
+            return;
+        }
+        await App.Music.Discord.ToggleAsync();
+        UpdateMusicView();
+    }
+
+    private void MusicDiscordSetup_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        ShowDiscordSetup();
+    }
+
+    private void ShowDiscordSetup()
+    {
+        _discordSetupOpen = true;
+        MusicDiscordUrlBox.Text = App.Settings.DiscordBotUrl;
+        MusicDiscordKeyBox.Password = App.Settings.DiscordBotKey;
+        UpdateMusicView();
+    }
+
+    private void MusicDiscordHide_Click(object sender, RoutedEventArgs e)
+    {
+        _discordSetupOpen = false;
+        UpdateMusicView();
+    }
+
+    private async void MusicDiscordSave_Click(object sender, RoutedEventArgs e)
+    {
+        AppSettings s = App.Settings;
+        s.DiscordBotUrl = DiscordBridge.NormalizeUrl(MusicDiscordUrlBox.Text);
+        s.DiscordBotKey = MusicDiscordKeyBox.Password.Trim();
+        s.Save();
+        MusicDiscordUrlBox.Text = s.DiscordBotUrl;
+        if (!DiscordBridge.Configured)
+        {
+            App.Music.SetStatus("Нужны адрес бота и ключ моста.");
+            return;
+        }
+        App.Music.SetStatus("Проверяю связь с ботом…");
+        string? error = await DiscordBridge.CheckAsync();
+        if (error != null)
+        {
+            App.Music.SetStatus("Discord-бот: " + error);
+            return;
+        }
+        _discordSetupOpen = false;
+        App.Music.SetStatus("Бот на связи (ключ зашифрован). Включи музыку и нажми кнопку с наушниками в плеере.");
     }
 
     private void UpdateMusicProgress()

@@ -55,8 +55,15 @@ public sealed class LocalPlayer : IDisposable
         }
     }
 
+    /// <summary>Ссылка на поток, который сейчас открыт (для Discord-бота).</summary>
+    public Uri? CurrentUri { get; private set; }
+
+    /// <summary>Без звука на ПК — музыка в это время звучит в Discord.</summary>
+    public void SetMuted(bool muted) => Player.IsMuted = muted;
+
     public void Play(Uri uri, MusicTrack track)
     {
+        CurrentUri = uri;
         var item = new MediaPlaybackItem(MediaSource.CreateFromUri(uri));
         try
         {
@@ -103,6 +110,7 @@ public sealed class LocalPlayer : IDisposable
         if (_player == null) return;
         _player.Pause();
         _player.Source = null;
+        CurrentUri = null;
         StateChanged?.Invoke();
     }
 

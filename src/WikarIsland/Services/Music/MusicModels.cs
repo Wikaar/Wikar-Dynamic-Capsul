@@ -28,10 +28,17 @@ public sealed class MusicState
     public TimeSpan Duration { get; init; }
     public DateTimeOffset PositionUpdated { get; init; } = DateTimeOffset.Now;
 
+    /// <summary>Прямая ссылка на звук трека (Яндекс Музыка) — для Discord-бота.</summary>
+    public Uri? StreamUrl { get; init; }
+
+    /// <summary>ID видео YouTube (YouTube Music) — для Discord-бота.</summary>
+    public string? VideoId { get; init; }
+
     /// <summary>Изменилось ли что-то, что видно в пилюле (без учёта позиции).</summary>
     public bool SameAs(MusicState? other) =>
         other != null && other.Title == Title && other.Artist == Artist && other.CoverUrl == CoverUrl &&
-        other.IsPlaying == IsPlaying && Math.Abs((other.Duration - Duration).TotalSeconds) < 1;
+        other.IsPlaying == IsPlaying && Math.Abs((other.Duration - Duration).TotalSeconds) < 1 &&
+        other.VideoId == VideoId && other.StreamUrl == StreamUrl;
 }
 
 /// <summary>Понятная пользователю ошибка сервиса — показывается как есть.</summary>
@@ -87,6 +94,9 @@ public interface IMusicProvider : IDisposable
     void Previous();
     void Seek(TimeSpan position);
     void Stop();
+
+    /// <summary>Заглушить звук на ПК (музыка в это время играет через Discord-бота). Сервисы без своего звука — ничего не делают.</summary>
+    void SetMuted(bool muted) { }
 
     /// <summary>Раз в секунду, пока сервис активен: обновить состояние, если оно живёт снаружи (страница, Spotify).</summary>
     Task PollAsync();

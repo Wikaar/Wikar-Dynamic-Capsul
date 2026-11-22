@@ -31,6 +31,9 @@ public sealed class MusicHub : IDisposable
 
     /// <summary>Встроенный YouTube (видео) — с окном, полным экраном и мини-плеером.</summary>
     public YouTubeVideoProvider Video { get; } = new();
+
+    /// <summary>«В Discord»: музыка через своего Discord-бота.</summary>
+    public DiscordBridge Discord { get; }
     public IMusicProvider Selected { get; private set; }
 
     /// <summary>Сервис, который сейчас играет (или стоит на паузе) во встроенном плеере.</summary>
@@ -44,6 +47,7 @@ public sealed class MusicHub : IDisposable
 
     public MusicHub()
     {
+        Discord = new DiscordBridge(this);
         Providers = new IMusicProvider[] { new YandexMusicProvider(), new YouTubeMusicProvider(), new SpotifyProvider(), Video };
         Selected = Providers.FirstOrDefault(p => p.Key == App.Settings.MusicProvider) ?? Providers[0];
         foreach (IMusicProvider p in Providers)
@@ -99,6 +103,8 @@ public sealed class MusicHub : IDisposable
         Status = "";
         Changed?.Invoke();
     }
+
+    public void RaiseChanged() => Changed?.Invoke();
 
     public void SetStatus(string message)
     {
@@ -271,6 +277,7 @@ public sealed class MusicHub : IDisposable
     private void OnStateChanged(IMusicProvider p)
     {
         if (p != Active) return;
+        Discord.SyncSoon();
         string url = p.State?.CoverUrl ?? "";
         if (url != _coverUrl)
         {
@@ -323,6 +330,7 @@ public sealed class MusicHub : IDisposable
 
     public void Dispose()
     {
+        Discord.Dispose();
         _poll.Stop();
         foreach (IMusicProvider p in Providers)
         {

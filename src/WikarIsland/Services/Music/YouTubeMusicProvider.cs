@@ -34,6 +34,7 @@ public sealed class YouTubeMusicProvider : IMusicProvider
     private MusicState? _state;
     private bool _loggedIn;
     private bool _active;
+    private bool _muted;
 
     public string Key => "youtube";
     public string Name => "YouTube Music";
@@ -83,6 +84,7 @@ public sealed class YouTubeMusicProvider : IMusicProvider
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.WebMessageReceived += OnMessage;
+        core.IsMuted = _muted;
         await NavigateAsync(core, Home);
         await CheckLoginAsync(core);
         return core;
@@ -328,6 +330,12 @@ public sealed class YouTubeMusicProvider : IMusicProvider
     public void Seek(TimeSpan position) =>
         Script($"(()=>{{const v=document.querySelector('video');if(v)v.currentTime={position.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)};}})()");
 
+    public void SetMuted(bool muted)
+    {
+        _muted = muted;
+        if (_web?.CoreWebView2 is { } core) core.IsMuted = muted;
+    }
+
     public void Stop()
     {
         if (_web?.CoreWebView2 is { } core) _ = core.ExecuteScriptAsync("(()=>{const v=document.querySelector('video');if(v)v.pause();})()");
@@ -345,7 +353,7 @@ public sealed class YouTubeMusicProvider : IMusicProvider
             string raw = await core.ExecuteScriptAsync(
                 "(()=>{const v=document.querySelector('video');const m=navigator.mediaSession&&navigator.mediaSession.metadata;" +
                 "const art=m&&m.artwork&&m.artwork.length?m.artwork[m.artwork.length-1].src:'';" +
-                "return {t:m?m.title:'',a:m?m.artist:'',c:art,p:!!(v&&!v.paused&&!v.ended),pos:v?v.currentTime:0," +
+                "return {id:new URLSearchParams(location.search).get('v')||'',t:m?m.title:'',a:m?m.artist:'',c:art,p:!!(v&&!v.paused&&!v.ended),pos:v?v.currentTime:0," +
                 "d:v&&isFinite(v.duration)?v.duration:0};})()");
             JsonNode? n = JsonNode.Parse(raw);
             string title = n?["t"]?.ToString() ?? "";
@@ -358,6 +366,7 @@ public sealed class YouTubeMusicProvider : IMusicProvider
                 Position = TimeSpan.FromSeconds((double?)n?["pos"] ?? 0),
                 Duration = TimeSpan.FromSeconds((double?)n?["d"] ?? 0),
                 PositionUpdated = DateTimeOffset.Now,
+                VideoId = n?["id"]?.ToString() is { Length: > 0 } vid ? vid : null,
             };
             bool changed = next == null ? _state != null : !next.SameAs(_state) || Jumped(_state, next);
             _state = next;

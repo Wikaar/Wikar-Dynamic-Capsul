@@ -165,6 +165,11 @@ public sealed class AppSettings
     public string YandexTokenProtected { get; set; } = "";
     public string SpotifyClientId { get; set; } = "";
 
+    // интернет-радио (каталог Radio Browser)
+    public bool RadioRussiaOnly { get; set; }                       // в каталоге — только станции России
+    public List<RadioStation> RadioFavorites { get; set; } = new(); // избранные станции
+    public RadioStation? RadioLast { get; set; }                    // последняя станция — для «включи радио»
+
     // Discord-бот Capsul Radio: музыка из Капсулы в голосовой канал
     public string DiscordBotUrl { get; set; } = "";
     public string DiscordBotKeyProtected { get; set; } = "";

@@ -42,7 +42,7 @@ public static class LyricsService
     private static HttpClient CreateClient()
     {
         var c = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("WikarIsland/1.0 (https://github.com/Wikaar/wikar-dynamicisland)");
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("WikarIsland/1.0 (https://github.com/Wikaar/Wikar-Dynamic-Capsul)");
         return c;
     }
 

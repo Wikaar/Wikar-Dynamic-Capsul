@@ -6,8 +6,8 @@
 
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-установка)
 [![.NET](https://img.shields.io/badge/.NET-10%20·%20WPF-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](#-сборка-из-исходников)
-[![Build](https://img.shields.io/github/actions/workflow/status/Wikaar/Wikar-DynamicIsland/build.yml?style=for-the-badge&label=build)](../../actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/Wikaar/Wikar-DynamicIsland?style=for-the-badge&color=8A2BE2&label=версия)](../../releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/Wikaar/Wikar-Dynamic-Capsul/build.yml?style=for-the-badge&label=build)](../../actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/Wikaar/Wikar-Dynamic-Capsul?style=for-the-badge&color=8A2BE2&label=версия)](../../releases/latest)
 
 <img src="docs/pill-collapsed.png" width="242" alt="Свёрнутая пилюля: глаза, погода и часы, неоновая окантовка">
 

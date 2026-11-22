@@ -14,7 +14,7 @@ namespace WikarIsland.Services;
 /// <summary>Обновление острова из GitHub Releases: проверка, скачивание, замена файлов и перезапуск.</summary>
 public sealed class UpdateService
 {
-    private const string Api = "https://api.github.com/repos/Wikaar/Wikar-DynamicIsland/releases/latest";
+    private const string Api = "https://api.github.com/repos/Wikaar/Wikar-Dynamic-Capsul/releases/latest";
 
     private static readonly HttpClient Http = CreateClient();
 

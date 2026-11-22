@@ -115,7 +115,7 @@ public sealed class GoogleService
                 string path = line.Success ? line.Groups[1].Value : "";
                 bool ours = path.Contains("state=" + state) || path.Contains("error=");
                 string html = ours
-                    ? "<html><head><meta charset='utf-8'><title>Wikar Island</title></head><body style='font-family:Segoe UI;background:#111;color:#eee;text-align:center;padding-top:80px'>" +
+                    ? "<html><head><meta charset='utf-8'><title>Wikar Dynamic Capsul</title></head><body style='font-family:Segoe UI;background:#111;color:#eee;text-align:center;padding-top:80px'>" +
                       "<h2>Готово, можно закрыть эту вкладку</h2><p>Капсула получила ответ Google.</p></body></html>"
                     : "";
                 byte[] body = Encoding.UTF8.GetBytes(html);

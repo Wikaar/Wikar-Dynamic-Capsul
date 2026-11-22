@@ -31,7 +31,7 @@ public sealed class CommandWindow : Window
         Topmost = true;
         Width = 560;
         SizeToContent = SizeToContent.Height;
-        Title = "Wikar Island — быстрая строка";
+        Title = "Wikar Dynamic Capsul — быстрая строка";
 
         _input = new TextBox
         {

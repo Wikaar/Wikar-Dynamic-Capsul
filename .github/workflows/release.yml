@@ -149,4 +149,4 @@ jobs:
           notes=".github/release-notes/${{ needs.version.outputs.tag }}.md"
           if [ -f "$notes" ]; then n="--notes-file $notes"; else n="--generate-notes"; fi
           gh release create "${{ needs.version.outputs.tag }}" "WikarIsland-${{ needs.version.outputs.tag }}-win-x64.zip" \
-            --title "Wikar Island ${{ needs.version.outputs.tag }}" --target "${{ github.sha }}" $n --latest
+            --title "Wikar Dynamic Capsul ${{ needs.version.outputs.tag }}" --target "${{ github.sha }}" $n --latest

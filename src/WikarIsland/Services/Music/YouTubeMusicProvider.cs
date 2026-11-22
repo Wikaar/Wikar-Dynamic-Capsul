@@ -63,7 +63,7 @@ public sealed class YouTubeMusicProvider : IMusicProvider
         // окно за пределами экрана: страница считает себя открытой и играет как обычная вкладка
         _host = new Window
         {
-            Title = "YouTube Music — Wikar Island",
+            Title = "YouTube Music — Wikar Dynamic Capsul",
             Width = 480,
             Height = 360,
             Left = -32000,

@@ -106,7 +106,7 @@ public partial class PanelWindow : Window
         };
 
         Version? v = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = $"Wikar Island {v?.ToString(3)}";
+        VersionText.Text = $"Wikar Dynamic Capsul {v?.ToString(3)}";
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -3305,7 +3305,7 @@ public partial class PanelWindow : Window
     private void LogCopy_Click(object sender, RoutedEventArgs e)
     {
         string text = System.IO.File.Exists(LogPath) ? System.IO.File.ReadAllText(LogPath) : "";
-        string header = $"Wikar Island {UpdateService.Current.ToString(3)} · Windows {Environment.OSVersion.Version} · " +
+        string header = $"Wikar Dynamic Capsul {UpdateService.Current.ToString(3)} · Windows {Environment.OSVersion.Version} · " +
                         $"{(SystemMonitorService.IsAdmin ? "администратор" : "обычные права")}\n\n";
         // последние ~30 КБ, чтобы влезло в сообщение
         if (text.Length > 30000) text = "…\n" + text[^30000..];

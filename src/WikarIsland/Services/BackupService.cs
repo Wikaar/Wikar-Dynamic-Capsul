@@ -44,7 +44,7 @@ public static class BackupService
     public static void Import(string zipPath)
     {
         using ZipArchive zip = ZipFile.OpenRead(zipPath);
-        if (zip.GetEntry("settings.json") == null) throw new InvalidDataException("Это не резервная копия Wikar Island — в ней нет settings.json");
+        if (zip.GetEntry("settings.json") == null) throw new InvalidDataException("Это не резервная копия Wikar Dynamic Capsul — в ней нет settings.json");
 
         App.Vpn?.Disconnect();
         App.Zapret?.Stop();

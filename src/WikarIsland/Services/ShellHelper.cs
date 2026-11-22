@@ -84,7 +84,7 @@ internal static class ShellHelper
         catch (Exception ex)
         {
             App.LogError(ex);
-            MessageBox.Show($"Не удалось открыть:\n{path}\n\n{ex.Message}", "Wikar Island", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"Не удалось открыть:\n{path}\n\n{ex.Message}", "Wikar Dynamic Capsul", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

@@ -9,7 +9,7 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/Wikaar/Wikar-DynamicIsland/build.yml?style=for-the-badge&label=build)](../../actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/Wikaar/Wikar-DynamicIsland?style=for-the-badge&color=8A2BE2&label=версия)](../../releases/latest)
 
-<img src="docs/pill.png" width="406" alt="Свёрнутая пилюля: глаза, погода и часы">
+<img src="docs/pill.png" width="406" alt="Свёрнутая пилюля: глаза, погода и часы, неоновая окантовка">
 
 <br><br>
 

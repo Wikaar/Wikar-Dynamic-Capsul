@@ -9,13 +9,13 @@ namespace WikarIsland.Services;
 
 /// <summary>
 /// Связь с Capsul Box — панелью на Android-планшете. Агент Capsul Box слушает на этом компьютере
-/// (http://127.0.0.1:8765), Капсула отдаёт ему то, что знает сама: заряд устройств (JBL через QuantumENGINE,
+/// (http://127.0.0.1:8775), Капсула отдаёт ему то, что знает сама: заряд устройств (JBL через QuantumENGINE,
 /// HeadsetControl, Bluetooth), FPS игры и её начало/конец — тогда планшет сам открывает страницу «Игра» и потом
 /// возвращается. Если агент не запущен, ничего не происходит.
 /// </summary>
 public sealed class TabletBridge : IDisposable
 {
-    private const string Agent = "http://127.0.0.1:8765";
+    private const string Agent = "http://127.0.0.1:8775";
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(3) };
 
     private const string GameRule = "capsula-game";

@@ -140,7 +140,7 @@ internal static class AutoStart
             <?xml version="1.0" encoding="UTF-16"?>
             <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
               <RegistrationInfo>
-                <Description>Wikar Island — запуск при входе в Windows</Description>
+                <Description>Wikar Dynamic Capsul — запуск при входе в Windows</Description>
               </RegistrationInfo>
               <Triggers>
                 <LogonTrigger>

@@ -1828,7 +1828,7 @@ public sealed class AssistantService
         string key = App.Settings.AiPreset == "gemini" && App.Settings.GeminiKey.Length > 0 ? App.Settings.GeminiKey : App.Settings.AiKey;
         if (key.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         request.Headers.Add("HTTP-Referer", "https://github.com/Wikaar/Wikar-DynamicIsland"); // OpenRouter просит
-        request.Headers.Add("X-Title", "Wikar Island");
+        request.Headers.Add("X-Title", "Wikar Dynamic Capsul");
 
         using HttpResponseMessage response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         if (response.IsSuccessStatusCode && onContent != null) return await ReadStreamAsync(response, onContent);

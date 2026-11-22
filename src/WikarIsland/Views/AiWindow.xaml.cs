@@ -43,7 +43,7 @@ public partial class AiWindow : Window
             core.Settings.IsStatusBarEnabled = false;
             core.WindowCloseRequested += (_, _) => Close();
             core.DocumentTitleChanged += (_, _) =>
-                Title = string.IsNullOrWhiteSpace(core.DocumentTitle) ? "Wikar Island" : core.DocumentTitle;
+                Title = string.IsNullOrWhiteSpace(core.DocumentTitle) ? "Wikar Dynamic Capsul" : core.DocumentTitle;
             PanelWindow.HookNewWindows(core);
 
             if (_url != null) core.Navigate(_url);
@@ -52,7 +52,7 @@ public partial class AiWindow : Window
         {
             App.LogError(ex);
             MessageBox.Show(this, "Не удалось запустить встроенный браузер (WebView2).\n\n" + ex.Message,
-                "Wikar Island", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "Wikar Dynamic Capsul", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }

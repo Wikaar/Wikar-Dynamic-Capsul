@@ -484,7 +484,7 @@ public partial class PillWindow : Window
             ShowNotification(new NotificationItem
             {
                 AppId = "wikar.dnd",
-                AppName = "Wikar Island",
+                AppName = "Wikar Dynamic Capsul",
                 Title = "Пока было «Не беспокоить»",
                 Body = $"Пришло уведомлений: {n}. Нажми, чтобы посмотреть",
                 Time = DateTime.Now,
@@ -513,7 +513,7 @@ public partial class PillWindow : Window
     public void ShowUpdateAvailable(string tag) => ShowNotification(new NotificationItem
     {
         AppId = "wikar.update",
-        AppName = "Wikar Island",
+        AppName = "Wikar Dynamic Capsul",
         Title = $"Доступна версия {tag}",
         Body = "Нажми, чтобы обновить остров",
         Time = DateTime.Now,

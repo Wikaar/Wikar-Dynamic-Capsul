@@ -134,11 +134,11 @@ public partial class App : Application
         {
             string log = System.IO.Path.Combine(AppSettings.DataDir, "error.log");
             MessageBox.Show(
-                "Wikar Island не смог запуститься.\n\n" +
+                "Wikar Dynamic Capsul не смог запуститься.\n\n" +
                 $"{ex.GetType().Name}: {ex.Message}\n\n" +
                 $"Windows {Environment.OSVersion.Version}\n" +
                 $"Подробности записаны в:\n{log}",
-                "Wikar Island — ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                "Wikar Dynamic Capsul — ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch
         {
@@ -342,9 +342,9 @@ public partial class App : Application
         {
             MessageBoxResult answer = MessageBox.Show(
                 "Для режима TUN (весь трафик компьютера через VPN) острову нужны права администратора — без них Windows не даёт создать сетевой адаптер.\n\n" +
-                "Перезапустить Wikar Island от администратора? VPN включится сам.\n\n" +
+                "Перезапустить Wikar Dynamic Capsul от администратора? VPN включится сам.\n\n" +
                 "Чтобы не спрашивать каждый раз: Настройки → Основные → «Запуск» → «С правами администратора».",
-                "Wikar Island — VPN", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                "Wikar Dynamic Capsul — VPN", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (answer == MessageBoxResult.Yes && VpnService.RestartForTun()) Quit();
         };
         Vpn.Connected += (exit, error) => Pill.ShowNotification(new NotificationItem
@@ -511,7 +511,7 @@ public partial class App : Application
         _tray = new WF.NotifyIcon
         {
             Icon = TrayIcon.Create(),
-            Text = "Wikar Island",
+            Text = "Wikar Dynamic Capsul",
             Visible = true,
             ContextMenuStrip = menu,
         };

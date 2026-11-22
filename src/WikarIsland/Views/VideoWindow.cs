@@ -43,7 +43,7 @@ public sealed class VideoWindow : Window
 
     public VideoWindow()
     {
-        Title = "YouTube — Wikar Island";
+        Title = "YouTube — Wikar Dynamic Capsul";
         Width = 1120;
         Height = 700;
         MinWidth = 320;

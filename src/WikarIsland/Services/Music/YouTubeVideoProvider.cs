@@ -120,7 +120,7 @@ public sealed class YouTubeVideoProvider : IMusicProvider
         core.WebMessageReceived += OnMessage;
         core.DocumentTitleChanged += (_, _) =>
         {
-            if (_window != null) _window.Title = (string.IsNullOrWhiteSpace(core.DocumentTitle) ? "YouTube" : core.DocumentTitle) + " — Wikar Island";
+            if (_window != null) _window.Title = (string.IsNullOrWhiteSpace(core.DocumentTitle) ? "YouTube" : core.DocumentTitle) + " — Wikar Dynamic Capsul";
         };
         core.ContainsFullScreenElementChanged += (_, _) => OnPageFullscreen(core.ContainsFullScreenElement);
         core.SourceChanged += (_, _) => OnSourceChanged(core.Source);

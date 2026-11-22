@@ -14,7 +14,8 @@ namespace WikarIsland.Services;
 /// «В Discord»: музыка встроенного плеера играет в голосовом канале через своего бота Capsul Radio (на NAS).
 /// Плеер Капсулы остаётся главным и играет без звука, а бот повторяет за ним: трек, паузу, перемотку.
 /// Поэтому очередь, «Моя волна», кнопки, медиаклавиши и голос работают как обычно.
-/// Яндекс Музыка — бот получает прямую ссылку на поток; YouTube Music — ID видео (звук бот берёт сам через yt-dlp).
+/// Яндекс Музыка и радио — бот получает прямую ссылку на поток (у радио с пометкой live: эфир не перематывается);
+/// YouTube Music — ID видео (звук бот берёт сам через yt-dlp).
 /// </summary>
 public sealed class DiscordBridge : IDisposable
 {
@@ -177,13 +178,14 @@ public sealed class DiscordBridge : IDisposable
             if (s != null && p != null && p.Key is "spotify" or "ytvideo" && !_unsupportedShown)
             {
                 _unsupportedShown = true;
-                _hub.SetStatus("В Discord можно включить Яндекс Музыку и YouTube Music.");
+                _hub.SetStatus("В Discord можно включить Яндекс Музыку, YouTube Music и радио.");
             }
             if (_sentKey != null && _sentPlaying) await SendAsync("/pause", null, () => _sentPlaying = false);
             return;
         }
 
         TimeSpan pos = PosOf(s);
+        bool live = RadioProvider.IsLive(p); // эфир радио: без перемотки, бот всегда берёт поток «с сейчас»
 
         if (key != _sentKey)
         {
@@ -196,7 +198,8 @@ public sealed class DiscordBridge : IDisposable
                 ["cover"] = s.CoverUrl,
                 ["durationMs"] = (long)s.Duration.TotalMilliseconds,
                 // в самом начале трека шлём 0 — бот всё равно стартует с задержкой
-                ["positionMs"] = pos < TimeSpan.FromSeconds(3) ? 0 : (long)pos.TotalMilliseconds,
+                ["positionMs"] = live || pos < TimeSpan.FromSeconds(3) ? 0 : (long)pos.TotalMilliseconds,
+                ["live"] = live,
                 ["trackId"] = key.Length > 200 ? key[..200] : key,
             };
             if (s.VideoId != null) body["videoId"] = s.VideoId;
@@ -216,7 +219,7 @@ public sealed class DiscordBridge : IDisposable
         {
             if (s.IsPlaying)
             {
-                await SendAsync("/seek", new JsonObject { ["positionMs"] = (long)pos.TotalMilliseconds }, null);
+                if (!live) await SendAsync("/seek", new JsonObject { ["positionMs"] = (long)pos.TotalMilliseconds }, null);
                 await SendAsync("/resume", null, () => _sentPlaying = true);
             }
             else
@@ -229,7 +232,7 @@ public sealed class DiscordBridge : IDisposable
 
         // перемотали в Капсуле — позиция плеера ушла от ожидаемой больше чем на 3 секунды.
         // Сравниваем плеер с самим собой, а не с ботом: бот может отставать на время запуска трека, и это нормально.
-        if (s.IsPlaying)
+        if (s.IsPlaying && !live)
         {
             TimeSpan expected = _lastPos + (DateTimeOffset.Now - _lastAt);
             if (Math.Abs((pos - expected).TotalSeconds) > 3)

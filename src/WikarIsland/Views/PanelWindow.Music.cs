@@ -11,7 +11,7 @@ using WikarIsland.Services;
 
 namespace WikarIsland.Views;
 
-/// <summary>Вкладка «Музыка»: вход в сервис, поиск, «Моя волна» / любимые и встроенный плеер.</summary>
+/// <summary>Вкладка «Музыка»: вход в сервис, поиск, «Моя волна» / любимые, встроенный плеер и интернет-радио.</summary>
 public partial class PanelWindow
 {
     private IReadOnlyList<MusicTrack> _musicTracks = Array.Empty<MusicTrack>();
@@ -47,7 +47,7 @@ public partial class PanelWindow
         MusicHub hub = App.Music;
         IMusicProvider p = hub.Selected;
 
-        foreach (Button chip in new[] { MusicYandexChip, MusicYoutubeChip, MusicSpotifyChip, MusicVideoChip })
+        foreach (Button chip in new[] { MusicYandexChip, MusicYoutubeChip, MusicSpotifyChip, MusicVideoChip, MusicRadioChip })
         {
             bool on = (string)chip.Tag == p.Key;
             chip.Background = on ? ChipSelected : Brushes.Transparent;
@@ -69,6 +69,15 @@ public partial class PanelWindow
             : "";
         MusicLoginButton.Content = p.Account.Length > 0 || (p.IsLoggedIn && !Guest(p)) ? "Выйти" : "Войти";
         MusicLoginButton.IsEnabled = !needsClientId;
+        MusicLoginButton.ToolTip = null;
+        MusicSearchBox.ToolTip = "Исполнитель, песня, альбом — Enter";
+        if (p is RadioProvider)
+        {
+            // у радио нет входа — на месте кнопки «Войти» фильтр стран
+            MusicLoginButton.Content = App.Settings.RadioRussiaOnly ? "Все страны" : "Только Россия";
+            MusicLoginButton.ToolTip = "Какие станции показывать в каталоге";
+            MusicSearchBox.ToolTip = "Название станции или жанр (джаз, рок, шансон…) — Enter";
+        }
 
         MusicMixButton.Content = p.MixName;
         MusicFavButton.Content = p.FavoritesName ?? "";
@@ -97,14 +106,18 @@ public partial class PanelWindow
             "spotify" when !p.IsLoggedIn => "После входа: поиск по Spotify, любимые треки и управление воспроизведением. Звук играет приложение Spotify (так требует Spotify), остров его запускает и управляет.",
             "youtube" => "Ищи и слушай YouTube Music прямо в острове. Вход в Google общий с ИИ-вкладками: если ты уже вошёл в Gemini, ты вошёл и сюда.",
             "ytvideo" => "Видео YouTube в своём окне: найди ролик или нажми «Главная». На весь экран — кнопка в плеере, F или двойной клик; Esc — обратно. Вход в Google общий с ИИ-вкладками.",
+            "radio" => "Интернет-радио без входа: найди станцию по названию или жанру, или открой «Популярные». Звёздочка добавляет станцию в «Избранное». Что звучит в эфире, видно в капсуле, если станция это сообщает.",
             _ => "Найди исполнителя или трек — или включи «" + p.MixName + "».",
         };
         MusicList.Children.Add(new TextBlock { Text = text, Style = (Style)FindResource("Hint"), Margin = new Thickness(4, 6, 4, 0) });
         MusicList.Children.Add(new TextBlock
         {
-            Text = p.Key == "ytvideo"
-                ? "Капсулка тоже умеет: «включи на ютубе обзор Bigster», «следующее видео», «перемотай на 5:30», «на весь экран», «мини-плеер», «качество 1080»."
-                : "Капсулка тоже умеет: «Капсулка, включи Король и Шут в " + p.Name + "».",
+            Text = p.Key switch
+            {
+                "ytvideo" => "Капсулка тоже умеет: «включи на ютубе обзор Bigster», «следующее видео», «перемотай на 5:30», «на весь экран», «мини-плеер», «качество 1080».",
+                "radio" => "Капсулка тоже умеет: «включи радио», «включи радио Европа Плюс», «включи радио джаз», «следующая станция», «выключи радио».",
+                _ => "Капсулка тоже умеет: «Капсулка, включи Король и Шут в " + p.Name + "».",
+            },
             Style = (Style)FindResource("Hint"),
             FontSize = 11.5,
             Margin = new Thickness(4, 8, 4, 0),
@@ -160,7 +173,32 @@ public partial class PanelWindow
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
 
-        if (t.Duration > TimeSpan.Zero)
+        if (p is RadioProvider)
+        {
+            var star = new Button
+            {
+                Style = (Style)FindResource("RoundIcon"),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            void Paint()
+            {
+                bool fav = RadioProvider.IsFavorite(t);
+                star.Content = fav ? "\uE735" : "\uE734";
+                star.ToolTip = fav ? "Убрать из избранного" : "В избранное";
+            }
+            Paint();
+            star.Click += (_, _) =>
+            {
+                bool fav = RadioProvider.ToggleFavorite(t);
+                App.Music.SetStatus(fav ? $"«{t.Title}» — в избранном." : $"«{t.Title}» убрана из избранного.");
+                if (!fav && MusicListTitle.Text == (p.FavoritesName ?? "").ToUpperInvariant())
+                    SetMusicList(p, App.Settings.RadioFavorites.Select(f => tracks.FirstOrDefault(x => x.Id == f.Id)).OfType<MusicTrack>().ToList(), MusicListTitle.Text);
+                else Paint();
+            };
+            Grid.SetColumn(star, 2);
+            grid.Children.Add(star);
+        }
+        else if (t.Duration > TimeSpan.Zero)
         {
             var duration = new TextBlock { Text = FormatTime(t.Duration), Style = (Style)FindResource("Hint"), FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(duration, 2);
@@ -186,7 +224,9 @@ public partial class PanelWindow
 
     private bool IsPlayingRow(Border row) =>
         row.Tag is MusicTrack t && App.Music.Active?.Key == t.Provider && App.Music.Active.State is { } s &&
-        s.Title.StartsWith(t.Title.Split(" (")[0], StringComparison.CurrentCultureIgnoreCase);
+        (t.Provider == "radio"
+            ? App.Music.Radio.CurrentStation == t.Title // у радио в заголовке песня из эфира, сверяем станцию
+            : s.Title.StartsWith(t.Title.Split(" (")[0], StringComparison.CurrentCultureIgnoreCase));
 
     private void HighlightPlaying()
     {
@@ -340,6 +380,15 @@ public partial class PanelWindow
     private async void MusicLogin_Click(object sender, RoutedEventArgs e)
     {
         IMusicProvider p = App.Music.Selected;
+        if (p is RadioProvider radio)
+        {
+            App.Settings.RadioRussiaOnly = !App.Settings.RadioRussiaOnly;
+            App.Settings.Save();
+            App.Music.SetStatus(App.Settings.RadioRussiaOnly ? "Показываю только станции России." : "Показываю станции всех стран.");
+            if (MusicListTitle.Text == p.MixName.ToUpperInvariant()) await ShowRadioTopAsync(radio);
+            UpdateMusicView();
+            return;
+        }
         bool loggedIn = p.Account.Length > 0 || (p.IsLoggedIn && !Guest(p));
         if (loggedIn)
         {
@@ -394,6 +443,11 @@ public partial class PanelWindow
     private async void MusicMix_Click(object sender, RoutedEventArgs e)
     {
         IMusicProvider p = App.Music.Selected;
+        if (p is RadioProvider radio)
+        {
+            await ShowRadioTopAsync(radio); // у радио «Популярные» — список, а не сразу эфир
+            return;
+        }
         if (!p.IsLoggedIn && !Guest(p))
         {
             App.Music.SetStatus($"Сначала войди в {p.Name}.");
@@ -413,6 +467,32 @@ public partial class PanelWindow
         CancellationToken ct = RestartMusicRequest();
         IReadOnlyList<MusicTrack>? list = await App.Music.FavoritesAsync(p, ct);
         if (list != null && !ct.IsCancellationRequested) SetMusicList(p, list, (p.FavoritesName ?? "").ToUpperInvariant());
+    }
+
+    private async System.Threading.Tasks.Task ShowRadioTopAsync(RadioProvider radio)
+    {
+        CancellationToken ct = RestartMusicRequest();
+        App.Music.SetStatus("Загружаю популярные станции…");
+        try
+        {
+            IReadOnlyList<MusicTrack> list = await radio.TopAsync(ct);
+            if (ct.IsCancellationRequested) return;
+            SetMusicList(radio, list, radio.MixName.ToUpperInvariant());
+            App.Music.SetStatus(list.Count == 0 ? "Станций не нашлось." : "");
+        }
+        catch (OperationCanceledException)
+        {
+            // перебили новым запросом
+        }
+        catch (MusicException ex)
+        {
+            App.Music.SetStatus(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            App.Music.SetStatus("Радио: " + ex.Message);
+        }
     }
 
     private CancellationToken RestartMusicRequest()

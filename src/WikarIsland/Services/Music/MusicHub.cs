@@ -12,7 +12,7 @@ using System.Windows.Threading;
 namespace WikarIsland.Services;
 
 /// <summary>
-/// Встроенная музыка острова: Яндекс Музыка, YouTube Music и Spotify под своими аккаунтами.
+/// Встроенная музыка острова: Яндекс Музыка, YouTube Music и Spotify под своими аккаунтами, видео YouTube и интернет-радио.
 /// Хранит, какой сервис выбран во вкладке и какой сейчас играет, и отдаёт снимок «что играет»
 /// в <see cref="MediaService"/> — поэтому пилюля, эквалайзер, «Главная» и Капсулка видят встроенный плеер как любой другой.
 /// </summary>
@@ -32,6 +32,9 @@ public sealed class MusicHub : IDisposable
     /// <summary>Встроенный YouTube (видео) — с окном, полным экраном и мини-плеером.</summary>
     public YouTubeVideoProvider Video { get; } = new();
 
+    /// <summary>Интернет-радио (каталог Radio Browser).</summary>
+    public RadioProvider Radio { get; } = new();
+
     /// <summary>«В Discord»: музыка через своего Discord-бота.</summary>
     public DiscordBridge Discord { get; }
     public IMusicProvider Selected { get; private set; }
@@ -48,7 +51,7 @@ public sealed class MusicHub : IDisposable
     public MusicHub()
     {
         Discord = new DiscordBridge(this);
-        Providers = new IMusicProvider[] { new YandexMusicProvider(), new YouTubeMusicProvider(), new SpotifyProvider(), Video };
+        Providers = new IMusicProvider[] { new YandexMusicProvider(), new YouTubeMusicProvider(), new SpotifyProvider(), Video, Radio };
         Selected = Providers.FirstOrDefault(p => p.Key == App.Settings.MusicProvider) ?? Providers[0];
         foreach (IMusicProvider p in Providers)
         {
@@ -170,7 +173,7 @@ public sealed class MusicHub : IDisposable
     public async Task<bool> PlayMixAsync(IMusicProvider p)
     {
         Activate(p);
-        SetStatus($"Включаю «{p.MixName}»…");
+        SetStatus(p is RadioProvider ? "Включаю радио…" : $"Включаю «{p.MixName}»…");
         bool ok = await Guard(async () => { await p.PlayMixAsync(); return true; });
         if (ok && Status.StartsWith("Включаю")) SetStatus("");
         return ok;

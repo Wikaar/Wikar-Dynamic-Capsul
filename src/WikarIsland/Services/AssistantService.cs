@@ -137,6 +137,14 @@ public sealed class AssistantService
             return new AssistantReply(video, Silent: true);
         }
 
+        // интернет-радио: «включи радио Европа Плюс», «следующая станция», «выключи радио»
+        if (await RadioVoice.TryHandleAsync(text) is { } radio)
+        {
+            App.LogVoice($"  радио → «{radio}»");
+            if (radio.Length == 0 && App.Settings.VoiceAcknowledge) return new AssistantReply(Ack(), Silent: true);
+            return new AssistantReply(radio, Silent: true);
+        }
+
         if (SteamVoice.TryHandle(text) is { } steamReply)
         {
             App.LogVoice($"  Steam → «{steamReply}»");
@@ -1075,6 +1083,7 @@ public sealed class AssistantService
         "open_app" => await OpenAppToolAsync(args["name"]?.ToString() ?? ""),
         "find_files" => await FindFilesToolAsync(args),
         "youtube" => await YouTubeToolAsync(args),
+        "radio" => await RadioVoice.ToolAsync(args["action"]?.ToString() ?? "play", args["query"]?.ToString()),
         "program_files" => await ProgramFilesToolAsync(args),
         "add_task" => await AddTaskToolAsync(args),
         _ => RunTool(name, args),
@@ -1163,7 +1172,7 @@ public sealed class AssistantService
     /// <summary>Выполнить инструмент по просьбе Gemini Live (в потоке интерфейса); музыка — с ожиданием и проверкой.</summary>
     public async Task<string> RunLiveToolAsync(string name, JsonObject args)
     {
-        string result = name is "play_music" or "open_app" or "find_files" or "program_files" or "youtube" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
+        string result = name is "play_music" or "open_app" or "find_files" or "program_files" or "youtube" or "radio" ? await RunToolAsync(name, args) : RunLiveTool(name, args);
         App.LogVoice($"  Live → {name}({args.ToJsonString()}) = {result[..Math.Min(result.Length, 300)]}");
         return result;
     }
@@ -1208,6 +1217,8 @@ public sealed class AssistantService
             "Если просят что-то сделать на компьютере — вызывай подходящий инструмент, а потом коротко подтверди. " +
             "Музыку (Яндекс Музыка, YouTube Music, Spotify) включай ТОЛЬКО через play_music и пересказывай его ответ как есть: " +
             "если он вернул «НЕ получилось» — так и скажи, никогда не утверждай, что музыка играет. " +
+            "Интернет-радио (станция по названию или жанру, следующая станция, выключить, в избранное) — только radio; " +
+            "название станции передавай как услышал («Европа Плюс», «Шансон», «джаз»). " +
             "Никогда не говори, что что-то запущено, открыто или включено, если ты не вызвал для этого инструмент и он не подтвердил успех. " +
             "Что открыто на компьютере — list_windows. " +
             "Игры Battle.net (World of Warcraft, Diablo, Overwatch, Hearthstone) open_app запускает сразу, без кнопки «Играть». " +
@@ -1265,6 +1276,13 @@ public sealed class AssistantService
                     ["service"] = Enum("Сервис", "yandex", "youtube_music", "spotify"),
                     ["query"] = Str("Что включить: исполнитель, трек, альбом или плейлист (пусто — просто музыку)"),
                 }, "service"),
+            Fn("radio", "Интернет-радио во встроенном плеере: включить станцию по названию или жанру (без запроса — последнюю или избранную), " +
+                    "переключить на следующую, выключить, добавить играющую в избранное.",
+                new JsonObject
+                {
+                    ["action"] = Enum("Действие", "play", "next", "stop", "favorite"),
+                    ["query"] = Str("Для play: название станции или жанр, например «Европа Плюс», «Радио Рекорд», «джаз» (пусто — последняя станция)"),
+                }, "action"),
             Fn("find_files", "Найти файлы или папки на компьютере по словам из названия (индекс поиска Windows, потом все диски). " +
                     "Можно сразу открыть папку с первым найденным или сам файл.",
                 new JsonObject

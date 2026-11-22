@@ -519,7 +519,7 @@
                                    Visibility="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </RadioButton>
-                <RadioButton x:Name="TabMusic" Tag="music" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Музыка и видео: Яндекс Музыка, YouTube Music, Spotify, YouTube">
+                <RadioButton x:Name="TabMusic" Tag="music" Style="{StaticResource IconTab}" Checked="Tab_Checked" ToolTip="Музыка и видео: Яндекс Музыка, YouTube Music, Spotify, YouTube, радио">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center"/>
                         <TextBlock Text="Музыка" Margin="7,0,0,0" FontWeight="SemiBold"
@@ -1177,7 +1177,7 @@
                 </ScrollViewer>
             </Grid>
 
-            <!-- ===== Музыка: встроенный плеер Яндекс Музыки, YouTube Music и Spotify ===== -->
+            <!-- ===== Музыка: встроенный плеер Яндекс Музыки, YouTube Music, Spotify, видео YouTube и радио ===== -->
             <Grid x:Name="MusicView" Visibility="Collapsed" Margin="14,2,14,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -1201,6 +1201,8 @@
                         <Button x:Name="MusicSpotifyChip" Style="{StaticResource Chip}" Content="Spotify" Tag="spotify" Click="MusicProvider_Click"/>
                         <Button x:Name="MusicVideoChip" Style="{StaticResource Chip}" Content="YouTube" Tag="ytvideo" Click="MusicProvider_Click"
                                 ToolTip="Видео YouTube в своём окне: весь экран, мини-плеер, управление голосом"/>
+                        <Button x:Name="MusicRadioChip" Style="{StaticResource Chip}" Content="Радио" Tag="radio" Click="MusicProvider_Click"
+                                ToolTip="Интернет-радио: десятки тысяч станций со всего мира, без входа"/>
                     </WrapPanel>
                 </DockPanel>
 
@@ -1225,7 +1227,7 @@
                 <Border x:Name="MusicDiscordSetup" Grid.Row="1" Style="{StaticResource CcCard}" Margin="0,10,0,0" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap"
-                                   Text="Свой Discord-бот Capsul Radio на NAS. Адрес — IP NAS и порт моста (например, http://192.168.1.10:8770), ключ — BRIDGE_KEY из bot.env. Когда включено «В Discord», музыка играет в твоём голосовом канале, а на компьютере — без звука. Работает с Яндекс Музыкой и YouTube Music."/>
+                                   Text="Свой Discord-бот Capsul Radio на NAS. Адрес — IP NAS и порт моста (например, http://192.168.1.10:8770), ключ — BRIDGE_KEY из bot.env. Когда включено «В Discord», музыка играет в твоём голосовом канале, а на компьютере — без звука. Работает с Яндекс Музыкой, YouTube Music и радио."/>
                         <TextBox x:Name="MusicDiscordUrlBox" Margin="0,8,0,0" Padding="8,5" FontSize="12.5" FontFamily="Cascadia Mono, Consolas"
                                  Background="{DynamicResource ThB_FF1F1F24}" Foreground="{DynamicResource ThF_FFF2F2F5}" BorderBrush="{DynamicResource ThB_33FFFFFF}" CaretBrush="{DynamicResource ThF_FFF2F2F5}"
                                  ToolTip="Адрес бота, например http://192.168.1.10:8770"/>

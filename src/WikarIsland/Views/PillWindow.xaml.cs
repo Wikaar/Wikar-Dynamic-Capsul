@@ -57,6 +57,7 @@ public partial class PillWindow : Window
             UpdateDnd();
             UpdateContent();
             CheckDiscordFocused();
+            KeepOnTop();
         };
 
         _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
@@ -459,6 +460,20 @@ public partial class PillWindow : Window
     {
         e.Handled = true;
         App.FocusTimer.Stop();
+    }
+
+    // ---------- поверх всех окон и игр ----------
+
+    /// <summary>
+    /// Игры и другие окна «поверх всех» перехватывают верх стопки, поэтому раз в секунду поднимаем
+    /// капсулу (и открытую панель) обратно, не забирая фокус. Эксклюзивный полноэкранный режим
+    /// перекрыть нельзя — Windows там ничего не рисует поверх игры.
+    /// </summary>
+    private void KeepOnTop()
+    {
+        if (!App.Settings.AlwaysOnTop) return;
+        if (IsVisible) NativeMethods.BringToTopmost(new WindowInteropHelper(this).Handle);
+        if (App.Panel?.IsVisible == true) NativeMethods.BringToTopmost(new WindowInteropHelper(App.Panel).Handle);
     }
 
     // ---------- «Не беспокоить» ----------

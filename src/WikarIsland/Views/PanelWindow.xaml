@@ -1551,8 +1551,11 @@
                             <RadioButton x:Name="ModeEyes" Content="Только глаза" Style="{StaticResource SetRadio}" Click="Setting_Changed"/>
                             <RadioButton x:Name="ModeClock" Content="Только часы" Style="{StaticResource SetRadio}" Click="Setting_Changed"/>
                         </WrapPanel>
-                        <CheckBox x:Name="MusicPillBox" Content="Играющий трек в пилюле" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
+                        <CheckBox x:Name="MusicPillBox" Content="Играющий трек в пилюле (свёрнутой капсуле)" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
                         <CheckBox x:Name="WeatherPillBox" Content="Погода в пилюле" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
+                        <CheckBox x:Name="AlwaysOnTopBox" Content="Поверх всех окон и игр" Style="{StaticResource SetCheck}" Click="Setting_Changed"/>
+                        <TextBlock Style="{StaticResource SetHint}" Margin="28,0,4,4" TextWrapping="Wrap"
+                                   Text="Капсула не прячется в играх и на весь экран. Работает в оконном и «полноэкранном оконном» режиме игры; в эксклюзивном полноэкранном режиме Windows не даёт ничему рисоваться поверх."/>
                         <WrapPanel Margin="0,6,0,0">
                             <Button Style="{StaticResource SetButton}" Content="Вернуть пилюлю по центру" Click="ResetPill_Click"/>
                         </WrapPanel>

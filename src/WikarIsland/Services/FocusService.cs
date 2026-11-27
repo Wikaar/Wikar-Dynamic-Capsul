@@ -75,6 +75,7 @@ public static class FocusService
 
     /// <summary>Прятать саму капсулу (только для полноэкранных приложений).</summary>
     /// <summary>Игровая строка с FPS важнее: в игре капсулу не прячем.</summary>
-    public static bool HidePill => _fullscreen && App.Settings.DndHidePill
+    /// <summary>С «Поверх всех окон и игр» капсулу не прячем никогда.</summary>
+    public static bool HidePill => _fullscreen && App.Settings.DndHidePill && !App.Settings.AlwaysOnTop
                                    && !(App.Settings.GameHud && App.Game?.Active == true);
 }

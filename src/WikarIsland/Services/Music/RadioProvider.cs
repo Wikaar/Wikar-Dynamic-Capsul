@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
+using System.Net.Security;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -43,9 +45,11 @@ public sealed class RadioProvider : IMusicProvider
     private string _onAir = "";
     private CancellationTokenSource? _icyCts;
     private bool _icyUnsupported;
+    private DateTime _icyRetryAt = DateTime.MaxValue;
     private int _icyFailures;
     private string? _songCover;   // обложка песни в эфире (AMG / iTunes)
     private string? _stationLogo; // логотип с amgradio.ru, если в каталоге его нет
+    private bool _logoBroken;     // логотип из каталога не открылся или это не картинка
     private CancellationTokenSource? _coverCts;
 
     public string Key => "radio";
@@ -90,7 +94,7 @@ public sealed class RadioProvider : IMusicProvider
         }
     }
 
-    private string? StationCover => string.IsNullOrWhiteSpace(_current?.CoverUrl) ? _stationLogo : _current!.CoverUrl;
+    private string? StationCover => string.IsNullOrWhiteSpace(_current?.CoverUrl) || _logoBroken ? _stationLogo : _current!.CoverUrl;
 
     /// <summary>Сейчас играет станция (для Discord-бота: эфир не перематывается).</summary>
     public static bool IsLive(IMusicProvider? p) => p is RadioProvider;
@@ -301,9 +305,11 @@ public sealed class RadioProvider : IMusicProvider
         _onAir = "";
         _songCover = null;
         _stationLogo = null;
+        _logoBroken = false;
         _coverCts?.Cancel();
         _icyFailures = 0;
         _icyUnsupported = uri.AbsolutePath.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase); // в HLS названий ICY нет
+        _icyRetryAt = _icyUnsupported ? DateTime.MaxValue : DateTime.UtcNow;
         _player.Play(uri, track with { Artist = "Радио" });
         App.Settings.RadioLast = ToStation(track);
         App.Settings.Save();
@@ -363,11 +369,17 @@ public sealed class RadioProvider : IMusicProvider
 
     private async Task RefreshOnAirAsync()
     {
-        if (_current == null || _icyUnsupported || !_player.IsPlaying) return;
-        _icyCts?.Cancel();
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        _icyCts = cts;
+        if (_current == null || !_player.IsPlaying) return;
         MusicTrack station = _current;
+        // поток названий не даёт (HLS или сервер без ICY) — у станций AMG песню знает amgradio.ru
+        if (_icyUnsupported && DateTime.UtcNow < _icyRetryAt)
+        {
+            await RefreshFromAmgAsync(station);
+            return;
+        }
+        _icyCts?.Cancel();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        _icyCts = cts;
         string? title;
         try
         {
@@ -375,23 +387,47 @@ public sealed class RadioProvider : IMusicProvider
         }
         catch (Exception)
         {
-            // сеть моргнула или запрос перебили — спросим в следующий раз; три сбоя подряд — станция названий не даст
-            if (_current == station && !cts.IsCancellationRequested && ++_icyFailures >= 3) _icyUnsupported = true;
+            // сеть моргнула или запрос перебили — спросим в следующий раз; три сбоя подряд — пауза на пару минут
+            if (_current == station && !cts.IsCancellationRequested && ++_icyFailures >= 3) PauseIcy();
+            if (_current == station) await RefreshFromAmgAsync(station);
             return;
         }
         if (_current != station) return;
         _icyFailures = 0;
         if (title == null)
         {
-            _icyUnsupported = true; // у этой станции названий нет — больше не спрашиваем
+            // сейчас без метаданных: не сдаёмся навсегда (многие серверы включают их не сразу), а спросим позже
+            PauseIcy();
+            await RefreshFromAmgAsync(station);
             return;
         }
-        if (title == _onAir) return;
+        _icyUnsupported = false;
+        SetOnAir(station, title);
+    }
+
+    private void PauseIcy()
+    {
+        _icyUnsupported = true;
+        _icyRetryAt = DateTime.UtcNow.AddMinutes(2);
+    }
+
+    private async Task RefreshFromAmgAsync(MusicTrack station)
+    {
+        if (!RadioCovers.LooksLikeAmg(station.Extra)) return;
+        string? track = null;
+        try { track = await RadioCovers.AmgTrackAsync(Http, station.Extra!, station.Title, CancellationToken.None); }
+        catch (Exception) { }
+        if (track != null && _current == station) SetOnAir(station, track);
+    }
+
+    private void SetOnAir(MusicTrack station, string title)
+    {
+        if (title == _onAir || _current != station) return;
         _onAir = title;
         _songCover = null;
         UpdateSystemDisplay();
         StateChanged?.Invoke();
-        _ = LoadSongCoverAsync(station, title);
+        if (title.Length > 0) _ = LoadSongCoverAsync(station, title);
     }
 
     // ---------- подпись в Windows и обложки (как в Wikar Radio) ----------
@@ -407,18 +443,50 @@ public sealed class RadioProvider : IMusicProvider
             _player.UpdateDisplay(_current.Title, "Радио", "", StationCover);
     }
 
+    /// <summary>
+    /// Логотип из каталога часто битый (ссылка умерла, SVG, вместо картинки страница сайта). Проверяем его и,
+    /// если он не годится, берём логотип с amgradio.ru (станции AMG).
+    /// </summary>
     private async Task LoadStationLogoAsync(MusicTrack station)
     {
-        if (!string.IsNullOrWhiteSpace(station.CoverUrl) || !RadioCovers.LooksLikeAmg(station.Extra)) return;
         try
         {
-            string? logo = await RadioCovers.AmgLogoAsync(Http, station.Extra!, station.Title, CancellationToken.None);
-            if (logo == null || _current != station) return;
+            if (!string.IsNullOrWhiteSpace(station.CoverUrl) && await IsGoodImageAsync(station.CoverUrl!)) return;
+            if (_current != station) return;
+            _logoBroken = !string.IsNullOrWhiteSpace(station.CoverUrl);
+            string? logo = RadioCovers.LooksLikeAmg(station.Extra)
+                ? await RadioCovers.AmgLogoAsync(Http, station.Extra!, station.Title, CancellationToken.None)
+                : null;
+            if (_current != station) return;
             _stationLogo = logo;
             UpdateSystemDisplay();
             StateChanged?.Invoke();
         }
         catch (Exception) { /* без логотипа */ }
+    }
+
+    private static async Task<bool> IsGoodImageAsync(string url)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            using HttpResponseMessage res = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!res.IsSuccessStatusCode) return false;
+            byte[] head = new byte[16];
+            await using Stream s = await res.Content.ReadAsStreamAsync(cts.Token);
+            int read = 0;
+            while (read < head.Length)
+            {
+                int n = await s.ReadAsync(head.AsMemory(read), cts.Token);
+                if (n == 0) break;
+                read += n;
+            }
+            return RadioCovers.IsRaster(head[..read]);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     /// <summary>Список AMG может отставать от эфира на несколько секунд — пробуем до пяти раз.</summary>
@@ -447,46 +515,150 @@ public sealed class RadioProvider : IMusicProvider
 
     /// <summary>
     /// Подключиться с «Icy-MetaData: 1», пропустить icy-metaint байт звука и прочитать блок «StreamTitle='…';».
-    /// null — станция метаданные не отдаёт; "" — отдаёт, но сейчас без названия (реклама, заставка).
+    /// Свой маленький HTTP/1.0-клиент: старые SHOUTcast отвечают «ICY 200 OK», и HttpClient такой ответ не принимает.
+    /// Понимает переадресации и ссылки-плейлисты (.m3u/.pls). null — станция метаданные не отдаёт; "" — отдаёт,
+    /// но сейчас без названия (реклама, заставка).
     /// </summary>
-    private static async Task<string?> ReadIcyTitleAsync(string url, CancellationToken ct)
+    private static async Task<string?> ReadIcyTitleAsync(string url, CancellationToken ct, int depth = 0)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.TryAddWithoutValidation("Icy-MetaData", "1");
-        using HttpResponseMessage res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-        if (!res.IsSuccessStatusCode) return null;
-        string? metaint = res.Headers.TryGetValues("icy-metaint", out IEnumerable<string>? v) ? v.FirstOrDefault()
-            : res.Content.Headers.TryGetValues("icy-metaint", out IEnumerable<string>? cv) ? cv.FirstOrDefault() : null;
-        if (!int.TryParse(metaint, out int interval) || interval <= 0 || interval > 1_000_000) return null;
+        if (depth > 4 || !Uri.TryCreate(url?.Trim(), UriKind.Absolute, out Uri? uri) || uri.Scheme is not ("http" or "https")) return null;
+        using var tcp = new TcpClient();
+        await tcp.ConnectAsync(uri.Host, uri.Port, ct).ConfigureAwait(false);
+        Stream net = tcp.GetStream();
+        if (uri.Scheme == "https")
+        {
+            var ssl = new SslStream(net, false);
+            await ssl.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = uri.IdnHost }, ct).ConfigureAwait(false);
+            net = ssl;
+        }
+        await using Stream stream = net;
+        string request = $"GET {uri.PathAndQuery} HTTP/1.0\r\nHost: {uri.Authority}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) WikarIsland/{UpdateService.Current}\r\n" +
+                         "Accept: */*\r\nIcy-MetaData: 1\r\nConnection: close\r\n\r\n";
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(request), ct).ConfigureAwait(false);
 
-        await using Stream stream = await res.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        byte[] skip = new byte[8192];
-        int left = interval;
-        while (left > 0)
+        var reader = new IcyReader(stream);
+        string? head = await reader.ReadHeadAsync(ct).ConfigureAwait(false);
+        if (head == null) return null;
+        string[] lines = head.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Match status = Regex.Match(lines.FirstOrDefault() ?? "", @"^(?:ICY|HTTP/\d(?:\.\d)?)\s+(\d{3})", RegexOptions.IgnoreCase);
+        if (!status.Success) return null;
+        int code = int.Parse(status.Groups[1].Value);
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string line in lines.Skip(1))
         {
-            int n = await stream.ReadAsync(skip.AsMemory(0, Math.Min(left, skip.Length)), ct).ConfigureAwait(false);
-            if (n == 0) return null;
-            left -= n;
+            int colon = line.IndexOf(':');
+            if (colon > 0) headers[line[..colon].Trim()] = line[(colon + 1)..].Trim();
         }
-        byte[] one = new byte[1];
-        if (await stream.ReadAsync(one, ct).ConfigureAwait(false) == 0) return null;
-        int len = one[0];
-        if (len == 0) return "";
-        byte[] meta = new byte[len * 16];
-        int read = 0;
-        while (read < meta.Length)
+        if (code is 301 or 302 or 303 or 307 or 308 && headers.TryGetValue("Location", out string? location)
+            && Uri.TryCreate(uri, location, out Uri? next))
+            return await ReadIcyTitleAsync(next.ToString(), ct, depth + 1).ConfigureAwait(false);
+        if (code != 200) return null;
+
+        if (!headers.TryGetValue("icy-metaint", out string? metaint) || !int.TryParse(metaint, out int interval) || interval <= 0 || interval > 1_000_000)
         {
-            int n = await stream.ReadAsync(meta.AsMemory(read), ct).ConfigureAwait(false);
-            if (n == 0) break;
-            read += n;
+            // ссылка на плейлист: берём первый поток из него
+            string type = headers.TryGetValue("Content-Type", out string? ctype) ? ctype.ToLowerInvariant() : "";
+            string path = uri.AbsolutePath.ToLowerInvariant();
+            if (type.Contains("mpegurl") || type.Contains("scpls") || path.EndsWith(".m3u") || path.EndsWith(".pls"))
+            {
+                string body = Encoding.UTF8.GetString(await reader.ReadUpToAsync(64 * 1024, ct).ConfigureAwait(false));
+                Match inner = Regex.Match(body, @"(?im)^(?:File\d+=)?\s*(https?://\S+)");
+                if (inner.Success) return await ReadIcyTitleAsync(inner.Groups[1].Value, ct, depth + 1).ConfigureAwait(false);
+            }
+            return null;
         }
-        string text = Decode(meta.AsSpan(0, read).ToArray()).TrimEnd('\0');
-        Match m = Regex.Match(text, @"StreamTitle='(.*?)';", RegexOptions.Singleline);
-        if (!m.Success) return "";
-        string title = m.Groups[1].Value.Trim();
-        // заглушки вместо названия
-        if (title is "-" or " - " || Regex.IsMatch(title, @"^(?:unknown|n/?a|\-+)$", RegexOptions.IgnoreCase)) return "";
-        return title;
+
+        // первый блок метаданных бывает пустым (длина 0) — смотрим до трёх блоков
+        for (int block = 0; block < 3; block++)
+        {
+            if (!await reader.SkipAsync(interval, ct).ConfigureAwait(false)) return null;
+            int len = await reader.ReadByteAsync(ct).ConfigureAwait(false);
+            if (len < 0) return null;
+            if (len == 0) continue;
+            byte[] meta = await reader.ReadExactAsync(len * 16, ct).ConfigureAwait(false);
+            string text = Decode(meta).TrimEnd('\0');
+            Match m = Regex.Match(text, @"StreamTitle='(.*?)';", RegexOptions.Singleline);
+            if (!m.Success) return "";
+            string title = m.Groups[1].Value.Trim();
+            // заглушки вместо названия
+            if (title is "-" or " - " || Regex.IsMatch(title, @"^(?:unknown|n/?a|\-+)$", RegexOptions.IgnoreCase)) return "";
+            return title;
+        }
+        return "";
+    }
+
+    /// <summary>Чтение ответа: сначала то, что пришло вместе с заголовками, потом из сети.</summary>
+    private sealed class IcyReader
+    {
+        private readonly Stream _stream;
+        private readonly byte[] _buf = new byte[16 * 1024];
+        private int _pos, _len;
+
+        public IcyReader(Stream stream) => _stream = stream;
+
+        private async Task<bool> FillAsync(CancellationToken ct)
+        {
+            if (_pos < _len) return true;
+            _len = await _stream.ReadAsync(_buf, ct).ConfigureAwait(false);
+            _pos = 0;
+            return _len > 0;
+        }
+
+        /// <summary>Заголовки до пустой строки (не больше 16 КБ).</summary>
+        public async Task<string?> ReadHeadAsync(CancellationToken ct)
+        {
+            var head = new StringBuilder();
+            while (head.Length < 16 * 1024)
+            {
+                if (!await FillAsync(ct).ConfigureAwait(false)) return null;
+                char c = (char)_buf[_pos++];
+                if (c == '\r') continue;
+                head.Append(c);
+                if (head.Length >= 2 && head[^1] == '\n' && head[^2] == '\n') return head.ToString();
+            }
+            return null;
+        }
+
+        public async Task<int> ReadByteAsync(CancellationToken ct) =>
+            await FillAsync(ct).ConfigureAwait(false) ? _buf[_pos++] : -1;
+
+        public async Task<bool> SkipAsync(int count, CancellationToken ct)
+        {
+            while (count > 0)
+            {
+                if (!await FillAsync(ct).ConfigureAwait(false)) return false;
+                int n = Math.Min(count, _len - _pos);
+                _pos += n;
+                count -= n;
+            }
+            return true;
+        }
+
+        public async Task<byte[]> ReadExactAsync(int count, CancellationToken ct)
+        {
+            var result = new byte[count];
+            int done = 0;
+            while (done < count && await FillAsync(ct).ConfigureAwait(false))
+            {
+                int n = Math.Min(count - done, _len - _pos);
+                Array.Copy(_buf, _pos, result, done, n);
+                _pos += n;
+                done += n;
+            }
+            return done == count ? result : result[..done];
+        }
+
+        public async Task<byte[]> ReadUpToAsync(int max, CancellationToken ct)
+        {
+            using var ms = new MemoryStream();
+            while (ms.Length < max && await FillAsync(ct).ConfigureAwait(false))
+            {
+                int n = (int)Math.Min(max - ms.Length, _len - _pos);
+                ms.Write(_buf, _pos, n);
+                _pos += n;
+            }
+            return ms.ToArray();
+        }
     }
 
     /// <summary>Русские станции часто шлют названия в Windows-1251, остальные — в UTF-8.</summary>

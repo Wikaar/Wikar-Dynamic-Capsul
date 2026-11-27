@@ -36,6 +36,26 @@ public static class RadioCovers
         return s != null && s.Logo.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? s.Logo : null;
     }
 
+    /// <summary>Что сейчас в эфире станции AMG по amgradio.ru (для потоков без ICY и HLS) или null.</summary>
+    public static async Task<string?> AmgTrackAsync(HttpClient http, string streamUrl, string name, CancellationToken ct)
+    {
+        if (!LooksLikeAmg(streamUrl)) return null;
+        AmgStation? s = Match(streamUrl, name, await AmgListAsync(http, 10_000, ct).ConfigureAwait(false));
+        return s == null || string.IsNullOrWhiteSpace(s.Track) ? null : s.Track.Trim();
+    }
+
+    /// <summary>Похоже ли на картинку, которую покажут Windows и Капсула (не SVG и не HTML-страница).</summary>
+    public static bool IsRaster(byte[] b)
+    {
+        if (b.Length < 12) return false;
+        if (b[0] == 0xFF && b[1] == 0xD8) return true;                                       // JPEG
+        if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return true;        // PNG
+        if (b[0] == 'G' && b[1] == 'I' && b[2] == 'F') return true;                           // GIF
+        if (b[0] == 'B' && b[1] == 'M') return true;                                           // BMP
+        if (b[0] == 0 && b[1] == 0 && b[2] == 1 && b[3] == 0) return true;                    // ICO
+        return b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F' && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P';
+    }
+
     /// <summary>Обложка песни <paramref name="track"/> («Исполнитель - Название»): AMG, иначе iTunes. null — не нашли.</summary>
     public static async Task<string?> CoverAsync(HttpClient http, string streamUrl, string stationName, string track, CancellationToken ct)
     {

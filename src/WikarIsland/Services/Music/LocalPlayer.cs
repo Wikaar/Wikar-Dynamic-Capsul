@@ -83,6 +83,30 @@ public sealed class LocalPlayer : IDisposable
         Player.Play();
     }
 
+    /// <summary>
+    /// Обновить подпись в медиапульте Windows (SMTC) у того, что уже играет: радио узнаёт песню позже начала эфира.
+    /// Отсюда же её берут Capsul Box и другие программы, читающие медиасессии Windows.
+    /// </summary>
+    public void UpdateDisplay(string title, string artist, string album, string? coverUrl)
+    {
+        if (_player?.Source is not MediaPlaybackItem item) return;
+        try
+        {
+            MediaItemDisplayProperties props = item.GetDisplayProperties();
+            props.Type = MediaPlaybackType.Music;
+            props.MusicProperties.Title = title;
+            props.MusicProperties.Artist = artist;
+            props.MusicProperties.AlbumTitle = album;
+            if (!string.IsNullOrWhiteSpace(coverUrl) && Uri.TryCreate(coverUrl, UriKind.Absolute, out Uri? cover))
+                props.Thumbnail = RandomAccessStreamReference.CreateFromUri(cover);
+            item.ApplyDisplayProperties(props);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
+    }
+
     public bool HasSource => _player?.Source != null;
 
     /// <summary>Играет или вот-вот заиграет (открывается, буферизуется).</summary>

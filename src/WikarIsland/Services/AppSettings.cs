@@ -53,6 +53,9 @@ public sealed class AppSettings
     public string? LastScreen { get; set; }
 
     public bool MusicInPill { get; set; } = true;
+
+    /// <summary>Держать капсулу поверх всех окон и игр (в оконном и полноэкранном оконном режиме).</summary>
+    public bool AlwaysOnTop { get; set; }
     public bool WeatherInPill { get; set; } = true;
     public string? WeatherCity { get; set; }
     public double? WeatherLat { get; set; }

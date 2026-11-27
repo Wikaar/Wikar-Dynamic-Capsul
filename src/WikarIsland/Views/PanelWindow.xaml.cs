@@ -1295,6 +1295,7 @@ public partial class PanelWindow : Window
         ModeEyes.IsChecked = s.PillMode == "eyes";
         ModeClock.IsChecked = s.PillMode == "clock";
         MusicPillBox.IsChecked = s.MusicInPill;
+        AlwaysOnTopBox.IsChecked = s.AlwaysOnTop;
         WeatherPillBox.IsChecked = s.WeatherInPill;
         HotkeyBox.Text = s.Hotkey;
         NotificationsBox.IsChecked = s.NotificationsEnabled;
@@ -1360,6 +1361,7 @@ public partial class PanelWindow : Window
         s.EyesEnabled = EyesBox.IsChecked == true;
         s.PillMode = ModeEyes.IsChecked == true ? "eyes" : ModeClock.IsChecked == true ? "clock" : "both";
         s.MusicInPill = MusicPillBox.IsChecked == true;
+        s.AlwaysOnTop = AlwaysOnTopBox.IsChecked == true;
         s.WeatherInPill = WeatherPillBox.IsChecked == true;
         s.NotificationsEnabled = NotificationsBox.IsChecked == true;
         s.GameHud = GameHudBox.IsChecked == true;

@@ -105,6 +105,24 @@ public sealed class LocalPlayer : IDisposable
         {
             App.LogError(ex);
         }
+
+        // Свойства элемента Windows переносит в медиапульт только при смене трека, поэтому пишем туда и напрямую:
+        // иначе другие программы (Capsul Box, окно громкости) видели бы подпись, заданную при включении станции.
+        try
+        {
+            SystemMediaTransportControlsDisplayUpdater du = _player.SystemMediaTransportControls.DisplayUpdater;
+            du.Type = MediaPlaybackType.Music;
+            du.MusicProperties.Title = title;
+            du.MusicProperties.Artist = artist;
+            du.MusicProperties.AlbumTitle = album;
+            if (!string.IsNullOrWhiteSpace(coverUrl) && Uri.TryCreate(coverUrl, UriKind.Absolute, out Uri? thumb))
+                du.Thumbnail = RandomAccessStreamReference.CreateFromUri(thumb);
+            du.Update();
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+        }
     }
 
     public bool HasSource => _player?.Source != null;

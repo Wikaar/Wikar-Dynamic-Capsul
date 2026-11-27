@@ -44,6 +44,9 @@ public sealed class RadioProvider : IMusicProvider
     private CancellationTokenSource? _icyCts;
     private bool _icyUnsupported;
     private int _icyFailures;
+    private string? _songCover;   // обложка песни в эфире (AMG / iTunes)
+    private string? _stationLogo; // логотип с amgradio.ru, если в каталоге его нет
+    private CancellationTokenSource? _coverCts;
 
     public string Key => "radio";
     public string Name => "Радио";
@@ -77,7 +80,7 @@ public sealed class RadioProvider : IMusicProvider
                 // в эфире песня — показываем её, станция идёт подписью; иначе — просто станция
                 Title = title.Length > 0 ? title : _current.Title,
                 Artist = title.Length > 0 ? (artist.Length > 0 ? $"{artist} · {_current.Title}" : _current.Title) : "Радио в эфире",
-                CoverUrl = _current.CoverUrl,
+                CoverUrl = _songCover ?? StationCover,
                 IsPlaying = _player.IsPlaying,
                 Position = TimeSpan.Zero,
                 Duration = TimeSpan.Zero, // эфир: без перемотки и полосы прогресса
@@ -86,6 +89,8 @@ public sealed class RadioProvider : IMusicProvider
             };
         }
     }
+
+    private string? StationCover => string.IsNullOrWhiteSpace(_current?.CoverUrl) ? _stationLogo : _current!.CoverUrl;
 
     /// <summary>Сейчас играет станция (для Discord-бота: эфир не перематывается).</summary>
     public static bool IsLive(IMusicProvider? p) => p is RadioProvider;
@@ -294,6 +299,9 @@ public sealed class RadioProvider : IMusicProvider
             throw new MusicException($"У станции «{track.Title}» нет ссылки на эфир.");
         _current = track;
         _onAir = "";
+        _songCover = null;
+        _stationLogo = null;
+        _coverCts?.Cancel();
         _icyFailures = 0;
         _icyUnsupported = uri.AbsolutePath.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase); // в HLS названий ICY нет
         _player.Play(uri, track with { Artist = "Радио" });
@@ -301,6 +309,7 @@ public sealed class RadioProvider : IMusicProvider
         App.Settings.Save();
         StateChanged?.Invoke();
         _ = CountClickAsync(track.Id);
+        _ = LoadStationLogoAsync(track);
         _icyTimer.Start();
         await RefreshOnAirAsync();
     }
@@ -325,9 +334,12 @@ public sealed class RadioProvider : IMusicProvider
     {
         _icyTimer.Stop();
         _icyCts?.Cancel();
+        _coverCts?.Cancel();
         _index = -1;
         _current = null;
         _onAir = "";
+        _songCover = null;
+        _stationLogo = null;
         _player.Stop();
     }
 
@@ -376,7 +388,61 @@ public sealed class RadioProvider : IMusicProvider
         }
         if (title == _onAir) return;
         _onAir = title;
+        _songCover = null;
+        UpdateSystemDisplay();
         StateChanged?.Invoke();
+        _ = LoadSongCoverAsync(station, title);
+    }
+
+    // ---------- подпись в Windows и обложки (как в Wikar Radio) ----------
+
+    /// <summary>Песня — заголовок, исполнитель — подпись, станция — «альбом»; без песни — просто станция.</summary>
+    private void UpdateSystemDisplay()
+    {
+        if (_current == null) return;
+        (string artist, string title) = SplitOnAir(_onAir);
+        if (title.Length > 0)
+            _player.UpdateDisplay(title, artist.Length > 0 ? artist : _current.Title, artist.Length > 0 ? _current.Title : "", _songCover ?? StationCover);
+        else
+            _player.UpdateDisplay(_current.Title, "Радио", "", StationCover);
+    }
+
+    private async Task LoadStationLogoAsync(MusicTrack station)
+    {
+        if (!string.IsNullOrWhiteSpace(station.CoverUrl) || !RadioCovers.LooksLikeAmg(station.Extra)) return;
+        try
+        {
+            string? logo = await RadioCovers.AmgLogoAsync(Http, station.Extra!, station.Title, CancellationToken.None);
+            if (logo == null || _current != station) return;
+            _stationLogo = logo;
+            UpdateSystemDisplay();
+            StateChanged?.Invoke();
+        }
+        catch (Exception) { /* без логотипа */ }
+    }
+
+    /// <summary>Список AMG может отставать от эфира на несколько секунд — пробуем до пяти раз.</summary>
+    private async Task LoadSongCoverAsync(MusicTrack station, string onAir)
+    {
+        _coverCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _coverCts = cts;
+        try
+        {
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(6), cts.Token);
+                string? cover = await RadioCovers.CoverAsync(Http, station.Extra ?? "", station.Title, onAir, cts.Token);
+                if (cts.IsCancellationRequested || _current != station || _onAir != onAir) return;
+                if (cover == null) continue;
+                _songCover = cover;
+                UpdateSystemDisplay();
+                StateChanged?.Invoke();
+                return;
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { App.LogError(ex); }
     }
 
     /// <summary>
